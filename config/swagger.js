@@ -19,16 +19,8 @@ const options = {
     },
     servers: [
       {
-        url: 'https://rj2.ridealmobility.com',
-        description: 'Production server (VPS)'
-      },
-      {
         url: 'https://api-layer.vercel.app',
         description: 'Vercel server'
-      },
-      {
-        url: 'http://localhost:3002',
-        description: 'Development server'
       }
     ],
     components: {
