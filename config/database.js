@@ -1,17 +1,36 @@
 const { Pool } = require('pg');
 
-// Database Connection Pool
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
+// Database Connection Configuration
+const dbConfig = {
+  host: process.env.DB_HOST || 'localhost',
+  port: process.env.DB_PORT || 5433, // Default to SSH tunnel port
+  database: process.env.DB_NAME || 'timemanagement',
+  user: process.env.DB_USER || 'sdadmin',
+  password: process.env.DB_PASSWORD || '04D8lt1+9^sG/!Dj',
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
   max: 5, // Reduced for serverless
   idleTimeoutMillis: 10000, // Close idle clients after 10 seconds
   connectionTimeoutMillis: 10000, // 10 seconds timeout for serverless
+};
+
+// For production, override with direct connection if proxy is available
+if (process.env.NODE_ENV === 'production' && process.env.DB_PROXY_URL) {
+  // Use HTTP proxy in production
+  dbConfig.host = new URL(process.env.DB_PROXY_URL).hostname;
+  dbConfig.port = new URL(process.env.DB_PROXY_URL).port || 8000;
+}
+
+console.log('Database config:', {
+  host: dbConfig.host,
+  port: dbConfig.port,
+  database: dbConfig.database,
+  user: dbConfig.user,
+  ssl: dbConfig.ssl,
+  environment: process.env.NODE_ENV
 });
+
+// Database Connection Pool
+const pool = new Pool(dbConfig);
 
 // Set session variables for Row Level Security
 const setSessionVariables = async (client, userId, tenantId) => {
