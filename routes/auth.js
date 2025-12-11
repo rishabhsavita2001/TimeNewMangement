@@ -97,8 +97,8 @@ router.post('/login', validateBody(schemas.login), asyncHandler(async (req, res)
   // Verify password
   let isValidPassword;
   if (process.env.NODE_ENV === 'production') {
-    // For mock database in production, accept password123 for all users
-    isValidPassword = password === 'password123';
+    // For mock database in production, accept both password123 and actual bcrypt verification
+    isValidPassword = password === 'password123' || await comparePassword(password, user.password_hash);
   } else {
     isValidPassword = await comparePassword(password, user.password_hash);
   }
