@@ -199,7 +199,13 @@ router.post('/login', validateBody(schemas.login), asyncHandler(async (req, res)
  */
 // Register endpoint (for demo purposes - in production, this would be admin only)
 router.post('/register', validateBody(schemas.register), asyncHandler(async (req, res) => {
-  const { email, password, firstName, lastName, employeeNumber, tenantId } = req.body;
+  const { email, password, firstName, lastName, employeeNumber } = req.body;
+  let { tenantId } = req.body;
+  
+  // For mock database, default to tenant 1
+  if (process.env.NODE_ENV === 'production') {
+    tenantId = tenantId || 1;
+  }
 
   // Check if user already exists
   const existingUser = await pool.query(

@@ -135,7 +135,7 @@ const schemas = {
     firstName: Joi.string().min(2).max(50).required(),
     lastName: Joi.string().min(2).max(50).required(),
     employeeNumber: Joi.string().max(20),
-    tenantId: Joi.number().integer().positive().required()
+    tenantId: Joi.number().integer().positive().optional().default(1)
   }),
 
   // Time entry schemas
