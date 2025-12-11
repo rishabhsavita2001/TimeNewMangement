@@ -85,7 +85,7 @@ router.post('/login', validateBody(schemas.login), asyncHandler(async (req, res)
   const userResult = await pool.query(userQuery, [email]);
 
   if (userResult.rows.length === 0) {
-    auditLog('LOGIN_FAILED', { email, reason: 'User not found' });
+    // auditLog('LOGIN_FAILED', { email, reason: 'User not found' });
     return res.status(401).json({
       error: 'Authentication failed',
       message: 'Invalid email or password'
@@ -104,7 +104,7 @@ router.post('/login', validateBody(schemas.login), asyncHandler(async (req, res)
   }
   
   if (!isValidPassword) {
-    auditLog('LOGIN_FAILED', { email, userId: user.id, reason: 'Invalid password' });
+    // auditLog('LOGIN_FAILED', { email, userId: user.id, reason: 'Invalid password' });
     return res.status(401).json({
       error: 'Authentication failed',
       message: 'Invalid email or password'
@@ -124,11 +124,11 @@ router.post('/login', validateBody(schemas.login), asyncHandler(async (req, res)
     email: user.email
   });
 
-  auditLog('LOGIN_SUCCESS', { 
-    userId: user.id, 
-    tenantId: user.tenant_id,
-    email: user.email 
-  });
+  // auditLog('LOGIN_SUCCESS', { 
+  //   userId: user.id, 
+  //   tenantId: user.tenant_id,
+  //   email: user.email 
+  // });
 
   res.json({
     success: true,
@@ -254,11 +254,11 @@ router.post('/register', validateBody(schemas.register), asyncHandler(async (req
     passwordHash
   ]);
 
-  auditLog('USER_REGISTERED', {
-    userId: newUser.rows[0].id,
-    tenantId,
-    email
-  });
+  // auditLog('USER_REGISTERED', {
+  //   userId: newUser.rows[0].id,
+  //   tenantId,
+  //   email
+  // });
 
   res.status(201).json({
     success: true,

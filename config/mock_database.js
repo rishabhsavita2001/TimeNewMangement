@@ -186,6 +186,18 @@ class MockDatabase {
       if (text.includes('leave_request')) return { rows: [{ count: mockLeaveRequests.length }], rowCount: 1 };
     }
     
+    // UPDATE queries
+    if (text.includes('UPDATE users') && text.includes('last_login')) {
+      const userId = params[0];
+      const user = mockUsers.find(u => u.id === userId);
+      if (user) {
+        user.last_login = new Date();
+        user.updated_at = new Date();
+        return { rows: [user], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 0 };
+    }
+    
     // Default response
     return { rows: [], rowCount: 0 };
   }
