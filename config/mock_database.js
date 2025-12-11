@@ -68,14 +68,19 @@ class MockDatabase {
         const user = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
         return { rows: user ? [{ id: user.id }] : [], rowCount: user ? 1 : 0 };
       }
-      // Login query with join (includes tenant_name)
-      const user = mockUsers.find(u => u.email === email);
-      if (user) {
-        const tenant = mockTenants.find(t => t.id === user.tenant_id);
-        const userWithTenant = { ...user, tenant_name: tenant?.name || 'Default Company' };
-        return { rows: [userWithTenant], rowCount: 1 };
+      if (text.includes('JOIN tenants') && text.includes('is_active = true')) {
+        // Login query with tenant join
+        const user = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase() && u.is_active);
+        if (user) {
+          const tenant = mockTenants.find(t => t.id === user.tenant_id);
+          const userWithTenant = { ...user, tenant_name: tenant?.name || 'Default Company' };
+          return { rows: [userWithTenant], rowCount: 1 };
+        }
+        return { rows: [], rowCount: 0 };
       }
-      return { rows: [], rowCount: 0 };
+      // Simple email query fallback
+      const user = mockUsers.find(u => u.email === email);
+      return { rows: user ? [user] : [], rowCount: user ? 1 : 0 };
     }
     
     if (text.includes('SELECT') && text.includes('users') && text.includes('username')) {
