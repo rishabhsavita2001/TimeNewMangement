@@ -123,6 +123,46 @@ app.get('/api-docs', (req, res) => {
  *                   type: string
  *                   example: '1.0.0'
  */
+// Test Login endpoint (No Auth Required) - For Testing
+app.post('/test-login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({
+        error: 'Email and password required'
+      });
+    }
+    
+    // Mock login for testing
+    if (password === 'password123') {
+      const token = 'mock-jwt-token-' + Date.now();
+      return res.status(200).json({
+        success: true,
+        message: 'Login successful',
+        token,
+        user: {
+          id: 1,
+          email: email,
+          first_name: 'Test',
+          last_name: 'User',
+          tenant_id: 1
+        }
+      });
+    } else {
+      return res.status(401).json({
+        error: 'Invalid credentials',
+        message: 'Use password: password123'
+      });
+    }
+  } catch (err) {
+    res.status(500).json({
+      error: 'Login failed',
+      message: err.message
+    });
+  }
+});
+
 // Test endpoint to check if API is working
 app.get('/test', (req, res) => {
   res.status(200).json({
