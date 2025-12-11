@@ -34,6 +34,17 @@ const mockUsers = [
     tenant_id: 1, 
     is_active: true,
     created_at: new Date() 
+  },
+  {
+    id: 4,
+    email: 'new12r@example.com',
+    password_hash: '$2a$12$7wasyoj5fxzrNi5h/Kv33OJdhVK6Q4k94xqDQtRr15Y6H66Wi3FIC', // Password123
+    first_name: 'John',
+    last_name: 'Doe',
+    employee_number: 'EMP001',
+    tenant_id: 1,
+    is_active: true,
+    created_at: new Date()
   }
 ];
 
