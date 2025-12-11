@@ -132,6 +132,64 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Database Debug Endpoint (No Auth Required)
+app.get('/debug-db', async (req, res) => {
+  try {
+    const { Pool } = require('pg');
+    const pool = new Pool({
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT,
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      connectionTimeoutMillis: 5000,
+      idleTimeoutMillis: 10000,
+    });
+
+    const client = await pool.connect();
+    const result = await client.query('SELECT NOW() as current_time, version()');
+    client.release();
+    await pool.end();
+    
+    res.status(200).json({
+      status: 'database connected successfully',
+      timestamp: new Date().toISOString(),
+      database_time: result.rows[0].current_time,
+      version: result.rows[0].version,
+      connection_config: {
+        host: process.env.DB_HOST,
+        port: process.env.DB_PORT,
+        database: process.env.DB_NAME,
+        user: process.env.DB_USER,
+        ssl: process.env.DB_SSL
+      }
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: 'database connection failed',
+      timestamp: new Date().toISOString(),
+      error: err.message,
+      error_code: err.code,
+      connection_config: {
+        host: process.env.DB_HOST,
+        port: process.env.DB_PORT,
+        database: process.env.DB_NAME,
+        user: process.env.DB_USER,
+        ssl: process.env.DB_SSL
+      },
+      env_check: {
+        DB_HOST: process.env.DB_HOST ? 'SET' : 'NOT SET',
+        DB_PORT: process.env.DB_PORT ? 'SET' : 'NOT SET',
+        DB_NAME: process.env.DB_NAME ? 'SET' : 'NOT SET',
+        DB_USER: process.env.DB_USER ? 'SET' : 'NOT SET',
+        DB_PASSWORD: process.env.DB_PASSWORD ? 'HIDDEN' : 'NOT SET',
+        DB_SSL: process.env.DB_SSL ? 'SET' : 'NOT SET'
+      }
+    });
+  }
+});
+
 // Database Connection Test
 app.get('/test-db', async (req, res) => {
   try {
