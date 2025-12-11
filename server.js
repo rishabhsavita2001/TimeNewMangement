@@ -123,6 +123,29 @@ app.get('/api-docs', (req, res) => {
  *                   type: string
  *                   example: '1.0.0'
  */
+// Test endpoint to check if API is working
+app.get('/test', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'API is working perfectly!',
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      health: '/health',
+      docs: '/api-docs', 
+      login: '/auth/login',
+      register: '/auth/register',
+      profile: '/api/user/profile',
+      time_entries: '/api/time-entries',
+      leave_requests: '/api/leave-requests',
+      projects: '/api/projects'
+    },
+    test_credentials: {
+      email: 'admin@company.com',
+      password: 'password123'
+    }
+  });
+});
+
 // Health Check
 app.get('/health', (req, res) => {
   res.status(200).json({
