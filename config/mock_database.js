@@ -2,9 +2,39 @@
 // This allows all API endpoints to work while database connectivity is being resolved
 
 const mockUsers = [
-  { id: 1, username: 'admin', email: 'admin@company.com', tenant_id: 1, created_at: new Date() },
-  { id: 2, username: 'testuser', email: 'test@company.com', tenant_id: 1, created_at: new Date() },
-  { id: 3, username: 'manager', email: 'manager@company.com', tenant_id: 1, created_at: new Date() }
+  { 
+    id: 1, 
+    email: 'admin@company.com', 
+    password_hash: '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password123
+    first_name: 'Admin',
+    last_name: 'User',
+    employee_number: 'EMP001',
+    tenant_id: 1, 
+    is_active: true,
+    created_at: new Date() 
+  },
+  { 
+    id: 2, 
+    email: 'test@company.com', 
+    password_hash: '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password123
+    first_name: 'Test',
+    last_name: 'User', 
+    employee_number: 'EMP002',
+    tenant_id: 1, 
+    is_active: true,
+    created_at: new Date() 
+  },
+  { 
+    id: 3, 
+    email: 'manager@company.com', 
+    password_hash: '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password123
+    first_name: 'Manager',
+    last_name: 'User',
+    employee_number: 'EMP003', 
+    tenant_id: 1, 
+    is_active: true,
+    created_at: new Date() 
+  }
 ];
 
 const mockTimeEntries = [
@@ -26,6 +56,14 @@ class MockDatabase {
     console.log('Mock Query:', text.substring(0, 100) + '...', params?.slice(0, 3));
     
     // Authentication queries
+    if (text.includes('SELECT') && text.includes('users') && text.includes('email')) {
+      const email = params[0];
+      return {
+        rows: email ? [mockUsers.find(u => u.email === email) || null].filter(Boolean) : [],
+        rowCount: email && mockUsers.find(u => u.email === email) ? 1 : 0
+      };
+    }
+    
     if (text.includes('SELECT') && text.includes('users') && text.includes('username')) {
       return {
         rows: params[0] ? [mockUsers.find(u => u.username === params[0]) || null].filter(Boolean) : [],
