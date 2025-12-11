@@ -46,6 +46,11 @@ const mockLeaveRequests = [
   { id: 1, user_id: 1, start_date: '2025-12-20', end_date: '2025-12-22', status: 'pending', leave_type: 'vacation' }
 ];
 
+const mockTenants = [
+  { id: 1, name: 'Default Company', is_active: true, created_at: new Date() },
+  { id: 2, name: 'Test Company', is_active: true, created_at: new Date() }
+];
+
 const mockProjects = [
   { id: 1, name: 'Project Alpha', description: 'Main development project', tenant_id: 1 },
   { id: 2, name: 'Project Beta', description: 'Testing project', tenant_id: 1 }
@@ -58,10 +63,19 @@ class MockDatabase {
     // Authentication queries
     if (text.includes('SELECT') && text.includes('users') && text.includes('email')) {
       const email = params[0];
-      return {
-        rows: email ? [mockUsers.find(u => u.email === email) || null].filter(Boolean) : [],
-        rowCount: email && mockUsers.find(u => u.email === email) ? 1 : 0
-      };
+      if (text.includes('LOWER(email) = LOWER($1)') && text.includes('SELECT id')) {
+        // Check for existing user during registration
+        const user = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+        return { rows: user ? [{ id: user.id }] : [], rowCount: user ? 1 : 0 };
+      }
+      // Login query with join (includes tenant_name)
+      const user = mockUsers.find(u => u.email === email);
+      if (user) {
+        const tenant = mockTenants.find(t => t.id === user.tenant_id);
+        const userWithTenant = { ...user, tenant_name: tenant?.name || 'Default Company' };
+        return { rows: [userWithTenant], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 0 };
     }
     
     if (text.includes('SELECT') && text.includes('users') && text.includes('username')) {
@@ -78,6 +92,26 @@ class MockDatabase {
         rows: userId ? [mockUsers.find(u => u.id === userId) || null].filter(Boolean) : mockUsers,
         rowCount: userId ? 1 : mockUsers.length
       };
+    }
+    
+    // User registration/insertion
+    if (text.includes('INSERT INTO users')) {
+      const [tenantId, employeeNumber, firstName, lastName, email, passwordHash] = params;
+      const newUser = {
+        id: mockUsers.length + 1,
+        tenant_id: tenantId,
+        employee_number: employeeNumber,
+        first_name: firstName,
+        last_name: lastName,
+        email: email,
+        password_hash: passwordHash,
+        username: email,
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date()
+      };
+      mockUsers.push(newUser);
+      return { rows: [newUser], rowCount: 1 };
     }
     
     // Time entries queries
@@ -116,6 +150,16 @@ class MockDatabase {
     // Projects queries
     if (text.includes('project')) {
       return { rows: mockProjects, rowCount: mockProjects.length };
+    }
+    
+    // Tenant queries
+    if (text.includes('tenants') && text.includes('SELECT')) {
+      if (text.includes('id = $1')) {
+        const tenantId = params[0];
+        const tenant = mockTenants.find(t => t.id === tenantId);
+        return { rows: tenant ? [tenant] : [], rowCount: tenant ? 1 : 0 };
+      }
+      return { rows: mockTenants, rowCount: mockTenants.length };
     }
     
     // Health/version checks
