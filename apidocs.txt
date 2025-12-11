@@ -1,0 +1,695 @@
+# Working Time Management API - Complete cURL Documentation
+# All API endpoints with usage examples and expected responses
+
+# ==============================================================================
+# SERVER INFORMATION
+# ==============================================================================
+# Base URL: https://timemanagement-ashy.vercel.app/
+# Authentication: Bearer JWT Token
+# Content-Type: application/json
+# Server Status: ✅ Running Successfully on Port 3002
+
+# ==============================================================================
+# HEALTH CHECK
+# ==============================================================================
+
+# Health Check - Verify server is running
+curl -X GET https://timemanagement-ashy.vercel.app//health
+
+# Expected Response:
+# {
+#   "status": "healthy",
+#   "timestamp": "2025-11-05T22:15:30.123Z",
+#   "version": "1.0.0"
+# }
+
+# ==============================================================================
+# AUTHENTICATION ENDPOINTS
+# ==============================================================================
+
+# 1. USER LOGIN
+# Description: Authenticate user and get JWT token
+curl -X POST https://timemanagement-ashy.vercel.app//auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "john.doe@company.com",
+    "password": "SecurePass123"
+  }'
+
+# Expected Response:
+# {
+#   "success": true,
+#   "message": "Login successful",
+#   "data": {
+#     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+#     "user": {
+#       "id": 1,
+#       "tenantId": 1,
+#       "employeeNumber": "EMP001",
+#       "firstName": "John",
+#       "lastName": "Doe",
+#       "email": "john.doe@company.com",
+#       "tenantName": "Swiss Company Ltd"
+#     }
+#   }
+# }
+
+# 2. USER REGISTRATION (Demo purposes)
+# Description: Register new user account
+curl -X POST https://timemanagement-ashy.vercel.app//auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "jane.smith@company.com",
+    "password": "SecurePass456",
+    "firstName": "Jane",
+    "lastName": "Smith",
+    "employeeNumber": "EMP002",
+    "tenantId": 1
+  }'
+
+# Expected Response:
+# {
+#   "success": true,
+#   "message": "User registered successfully",
+#   "data": {
+#     "user": {
+#       "employee_id": 2,
+#       "employee_number": "EMP002",
+#       "first_name": "Jane",
+#       "last_name": "Smith",
+#       "email": "jane.smith@company.com",
+#       "hire_date": "2025-11-05"
+#     }
+#   }
+# }
+
+# 3. TOKEN REFRESH
+# Description: Refresh JWT token before expiration
+curl -X POST https://timemanagement-ashy.vercel.app//auth/refresh \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+# Expected Response:
+# {
+#   "success": true,
+#   "message": "Token refreshed successfully",
+#   "data": {
+#     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+#   }
+# }
+
+# 4. USER LOGOUT
+# Description: Logout user (audit logging)
+curl -X POST https://timemanagement-ashy.vercel.app//auth/logout \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+# Expected Response:
+# {
+#   "success": true,
+#   "message": "Logged out successfully"
+# }
+
+# ==============================================================================
+# USER PROFILE ENDPOINTS (Requires Authentication)
+# ==============================================================================
+
+# Note: Replace YOUR_JWT_TOKEN with the actual token from login response
+# Example token for following commands: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+# 5. GET USER PROFILE
+# Description: Get current authenticated user's profile information
+curl -X GET https://timemanagement-ashy.vercel.app//api/me \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# Expected Response:
+# {
+#   "success": true,
+#   "data": {
+#     "user": {
+#       "employee_id": 1,
+#       "employee_number": "EMP001",
+#       "first_name": "John",
+#       "last_name": "Doe",
+#       "email": "john.doe@company.com",
+#       "phone": "+41 79 123 45 67",
+#       "hire_date": "2023-01-15",
+#       "birth_date": "1990-05-20",
+#       "is_active": true,
+#       "department_name": "Engineering",
+#       "position_title": "Software Developer",
+#       "tenant_name": "Swiss Company Ltd"
+#     }
+#   }
+# }
+
+# 6. GET DASHBOARD DATA
+# Description: Get comprehensive dashboard summary for current user
+curl -X GET https://timemanagement-ashy.vercel.app//api/me/dashboard \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# Expected Response:
+# {
+#   "success": true,
+#   "data": {
+#     "todayEntries": [
+#       {
+#         "time_entry_id": 123,
+#         "clock_in": "09:00:00",
+#         "clock_out": "17:00:00",
+#         "break_duration": 60,
+#         "total_hours": 7,
+#         "notes": "Regular work day",
+#         "project_name": "Swiss HR System",
+#         "task_name": "API Development"
+#       }
+#     ],
+#     "monthSummary": {
+#       "days_worked": 20,
+#       "total_hours": 160,
+#       "avg_hours_per_day": 8
+#     },
+#     "pendingLeaves": [
+#       {
+#         "leave_request_id": 45,
+#         "start_date": "2025-12-23",
+#         "end_date": "2025-12-30",
+#         "reason": "Christmas vacation",
+#         "status": "pending",
+#         "leave_type_name": "Annual Leave"
+#       }
+#     ],
+#     "vacationBalance": {
+#       "vacation_days_total": 25,
+#       "vacation_days_used": 5,
+#       "vacation_days_remaining": 20,
+#       "sick_days_used": 2,
+#       "year": 2025
+#     }
+#   }
+# }
+
+# ==============================================================================
+# TIME TRACKING ENDPOINTS (Requires Authentication)
+# ==============================================================================
+
+# 7. GET TIME ENTRIES (with pagination)
+# Description: Get time entries for current user with optional date filtering
+curl -X GET "https://timemanagement-ashy.vercel.app//api/me/time-entries?page=1&limit=20" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# With date range filtering:
+curl -X GET "https://timemanagement-ashy.vercel.app//api/me/time-entries?startDate=2025-11-01&endDate=2025-11-30&page=1&limit=10" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# Expected Response:
+# {
+#   "success": true,
+#   "data": {
+#     "entries": [
+#       {
+#         "time_entry_id": 123,
+#         "entry_date": "2025-11-05",
+#         "clock_in": "09:00:00",
+#         "clock_out": "17:00:00",
+#         "break_duration": 60,
+#         "total_hours": 7,
+#         "notes": "Regular work day",
+#         "is_approved": false,
+#         "project_name": "Swiss HR System",
+#         "task_name": "API Development"
+#       }
+#     ],
+#     "pagination": {
+#       "page": 1,
+#       "limit": 20,
+#       "total": 45,
+#       "totalPages": 3
+#     }
+#   }
+# }
+
+# 8. CREATE TIME ENTRY
+# Description: Create a new time entry for today
+curl -X POST https://timemanagement-ashy.vercel.app//api/me/time-entries \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "date": "2025-11-05",
+    "clockIn": "09:00",
+    "clockOut": "17:00",
+    "breakDuration": 60,
+    "notes": "Regular work day - API development",
+    "projectId": 1,
+    "taskId": 5
+  }'
+
+# Create time entry without clock out (still working):
+curl -X POST https://timemanagement-ashy.vercel.app//api/me/time-entries \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "date": "2025-11-05",
+    "clockIn": "09:00",
+    "breakDuration": 0,
+    "notes": "Started work - ongoing",
+    "projectId": 1
+  }'
+
+# Expected Response:
+# {
+#   "success": true,
+#   "message": "Time entry created successfully",
+#   "data": {
+#     "entry": {
+#       "time_entry_id": 124,
+#       "employee_id": 1,
+#       "entry_date": "2025-11-05",
+#       "clock_in": "09:00:00",
+#       "clock_out": "17:00:00",
+#       "break_duration": 60,
+#       "total_hours": 7,
+#       "notes": "Regular work day - API development",
+#       "project_id": 1,
+#       "task_id": 5,
+#       "created_at": "2025-11-05T22:15:30.123Z"
+#     }
+#   }
+# }
+
+# 9. UPDATE TIME ENTRY
+# Description: Update an existing time entry (only if not approved)
+curl -X PUT https://timemanagement-ashy.vercel.app//api/me/time-entries/124 \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "date": "2025-11-05",
+    "clockIn": "08:30",
+    "clockOut": "17:30",
+    "breakDuration": 90,
+    "notes": "Updated - early start, longer lunch break",
+    "projectId": 1,
+    "taskId": 5
+  }'
+
+# Expected Response:
+# {
+#   "success": true,
+#   "message": "Time entry updated successfully",
+#   "data": {
+#     "entry": {
+#       "time_entry_id": 124,
+#       "entry_date": "2025-11-05",
+#       "clock_in": "08:30:00",
+#       "clock_out": "17:30:00",
+#       "break_duration": 90,
+#       "total_hours": 7.5,
+#       "notes": "Updated - early start, longer lunch break",
+#       "updated_at": "2025-11-05T22:20:15.456Z"
+#     }
+#   }
+# }
+
+# 10. DELETE TIME ENTRY
+# Description: Delete a time entry (only if not approved)
+curl -X DELETE https://timemanagement-ashy.vercel.app//api/me/time-entries/124 \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# Expected Response:
+# {
+#   "success": true,
+#   "message": "Time entry deleted successfully"
+# }
+
+# ==============================================================================
+# LEAVE MANAGEMENT ENDPOINTS (Requires Authentication)
+# ==============================================================================
+
+# 11. GET VACATION BALANCE
+# Description: Get current year's vacation balance for user
+curl -X GET https://timemanagement-ashy.vercel.app//api/me/vacation-balance \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# Expected Response:
+# {
+#   "success": true,
+#   "data": {
+#     "balance": {
+#       "vacation_days_total": 25,
+#       "vacation_days_used": 5,
+#       "vacation_days_remaining": 20,
+#       "sick_days_used": 2,
+#       "year": 2025
+#     }
+#   }
+# }
+
+# 12. GET LEAVE REQUESTS (with pagination)
+# Description: Get all leave requests for current user
+curl -X GET "https://timemanagement-ashy.vercel.app//api/me/leave-requests?page=1&limit=10&sortOrder=desc" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# Expected Response:
+# {
+#   "success": true,
+#   "data": {
+#     "requests": [
+#       {
+#         "leave_request_id": 45,
+#         "start_date": "2025-12-23",
+#         "end_date": "2025-12-30",
+#         "reason": "Christmas vacation with family",
+#         "status": "pending",
+#         "is_half_day": false,
+#         "half_day_period": null,
+#         "created_at": "2025-11-05T10:30:00.000Z",
+#         "approved_at": null,
+#         "approved_by": null,
+#         "leave_type_name": "Annual Leave",
+#         "is_paid": true,
+#         "approved_by_name": null
+#       }
+#     ],
+#     "pagination": {
+#       "page": 1,
+#       "limit": 10,
+#       "total": 8,
+#       "totalPages": 1
+#     }
+#   }
+# }
+
+# 13. CREATE LEAVE REQUEST
+# Description: Submit a new leave request
+curl -X POST https://timemanagement-ashy.vercel.app//api/me/leave-requests \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "leaveTypeId": 1,
+    "startDate": "2025-12-23",
+    "endDate": "2025-12-30",
+    "reason": "Christmas vacation with family",
+    "isHalfDay": false
+  }'
+
+# Create half-day leave request:
+curl -X POST https://timemanagement-ashy.vercel.app//api/me/leave-requests \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "leaveTypeId": 2,
+    "startDate": "2025-11-15",
+    "endDate": "2025-11-15",
+    "reason": "Doctor appointment",
+    "isHalfDay": true,
+    "halfDayPeriod": "morning"
+  }'
+
+# Expected Response:
+# {
+#   "success": true,
+#   "message": "Leave request created successfully",
+#   "data": {
+#     "request": {
+#       "leave_request_id": 46,
+#       "employee_id": 1,
+#       "leave_type_id": 1,
+#       "start_date": "2025-12-23",
+#       "end_date": "2025-12-30",
+#       "reason": "Christmas vacation with family",
+#       "is_half_day": false,
+#       "half_day_period": null,
+#       "status": "pending",
+#       "created_at": "2025-11-05T22:25:00.789Z"
+#     }
+#   }
+# }
+
+# ==============================================================================
+# REFERENCE DATA ENDPOINTS (Requires Authentication)
+# ==============================================================================
+
+# 14. GET LEAVE TYPES
+# Description: Get all available leave types for current tenant
+curl -X GET https://timemanagement-ashy.vercel.app//api/leave-types \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# Expected Response:
+# {
+#   "success": true,
+#   "data": {
+#     "leaveTypes": [
+#       {
+#         "leave_type_id": 1,
+#         "leave_type_name": "Annual Leave",
+#         "description": "Regular vacation days",
+#         "is_paid": true,
+#         "max_days_per_year": 25,
+#         "requires_approval": true,
+#         "advance_notice_days": 14
+#       },
+#       {
+#         "leave_type_id": 2,
+#         "leave_type_name": "Sick Leave",
+#         "description": "Medical leave",
+#         "is_paid": true,
+#         "max_days_per_year": null,
+#         "requires_approval": false,
+#         "advance_notice_days": 0
+#       },
+#       {
+#         "leave_type_id": 3,
+#         "leave_type_name": "Personal Leave",
+#         "description": "Personal time off",
+#         "is_paid": false,
+#         "max_days_per_year": 5,
+#         "requires_approval": true,
+#         "advance_notice_days": 7
+#       }
+#     ]
+#   }
+# }
+
+# 15. GET PROJECTS
+# Description: Get all active projects for time tracking
+curl -X GET https://timemanagement-ashy.vercel.app//api/projects \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# Expected Response:
+# {
+#   "success": true,
+#   "data": {
+#     "projects": [
+#       {
+#         "project_id": 1,
+#         "project_name": "Swiss HR System",
+#         "description": "Complete HR management system for Swiss companies",
+#         "is_active": true,
+#         "start_date": "2025-01-01",
+#         "end_date": "2025-12-31"
+#       },
+#       {
+#         "project_id": 2,
+#         "project_name": "Time Management API",
+#         "description": "RESTful API for time tracking and leave management",
+#         "is_active": true,
+#         "start_date": "2025-10-01",
+#         "end_date": "2025-11-30"
+#       }
+#     ]
+#   }
+# }
+
+# 16. GET TASKS FOR PROJECT
+# Description: Get all tasks for a specific project
+curl -X GET https://timemanagement-ashy.vercel.app//api/projects/1/tasks \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# Expected Response:
+# {
+#   "success": true,
+#   "data": {
+#     "tasks": [
+#       {
+#         "task_id": 1,
+#         "task_name": "Database Design",
+#         "description": "Design PostgreSQL schema for HR system",
+#         "estimated_hours": 40,
+#         "is_active": true
+#       },
+#       {
+#         "task_id": 2,
+#         "task_name": "API Development",
+#         "description": "Develop RESTful API endpoints",
+#         "estimated_hours": 80,
+#         "is_active": true
+#       },
+#       {
+#         "task_id": 3,
+#         "task_name": "Frontend Integration",
+#         "description": "Integrate API with Next.js frontend",
+#         "estimated_hours": 60,
+#         "is_active": true
+#       }
+#     ]
+#   }
+# }
+
+# ==============================================================================
+# ERROR RESPONSES - Common error formats you might encounter
+# ==============================================================================
+
+# Authentication Error (401):
+# {
+#   "error": "Access token required",
+#   "message": "Please provide a valid authentication token"
+# }
+
+# Validation Error (400):
+# {
+#   "error": "Validation Error",
+#   "message": "Request validation failed",
+#   "details": [
+#     {
+#       "field": "email",
+#       "message": "\"email\" must be a valid email"
+#     },
+#     {
+#       "field": "password",
+#       "message": "\"password\" length must be at least 6 characters long"
+#     }
+#   ]
+# }
+
+# Not Found Error (404):
+# {
+#   "error": "Time entry not found",
+#   "message": "The specified time entry does not exist or you do not have permission to modify it"
+# }
+
+# Conflict Error (409):
+# {
+#   "error": "Entry already exists",
+#   "message": "A time entry already exists for this date"
+# }
+
+# Server Error (500):
+# {
+#   "error": "Server Error",
+#   "message": "Internal server error"
+# }
+
+# ==============================================================================
+# ADVANCED USAGE EXAMPLES
+# ==============================================================================
+
+# COMPLETE WORKFLOW EXAMPLE:
+# 1. Login and get token
+TOKEN=$(curl -s -X POST https://timemanagement-ashy.vercel.app//auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"john.doe@company.com","password":"SecurePass123"}' \
+  | jq -r '.data.token')
+
+# 2. Use token for authenticated requests
+curl -X GET https://timemanagement-ashy.vercel.app//api/me/dashboard \
+  -H "Authorization: Bearer $TOKEN"
+
+# BATCH TIME ENTRY CREATION (for multiple days):
+# Create entries for a full work week
+for date in 2025-11-04 2025-11-05 2025-11-06 2025-11-07 2025-11-08; do
+  curl -X POST https://timemanagement-ashy.vercel.app//api/me/time-entries \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+    -d "{
+      \"date\": \"$date\",
+      \"clockIn\": \"09:00\",
+      \"clockOut\": \"17:00\",
+      \"breakDuration\": 60,
+      \"notes\": \"Regular work day\",
+      \"projectId\": 1
+    }"
+done
+
+# REPORTING QUERIES:
+# Get all time entries for current month
+START_DATE=$(date -d "$(date +%Y-%m-01)" +%Y-%m-%d)
+END_DATE=$(date -d "$(date +%Y-%m-01) +1 month -1 day" +%Y-%m-%d)
+
+curl -X GET "https://timemanagement-ashy.vercel.app//api/me/time-entries?startDate=$START_DATE&endDate=$END_DATE&limit=100" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# ==============================================================================
+# SECURITY NOTES
+# ==============================================================================
+
+# 1. Always use HTTPS in production: https://yourdomain.com
+# 2. Store JWT tokens securely (not in localStorage for sensitive apps)
+# 3. Implement token refresh before expiration
+# 4. Use environment variables for sensitive data
+# 5. Enable rate limiting in production
+# 6. Validate all input data
+# 7. Log security events for audit
+
+# ==============================================================================
+# RATE LIMITING INFO
+# ==============================================================================
+# Current Rate Limits (configurable):
+# - 100 requests per 15-minute window per IP
+# - 429 status code when limit exceeded
+# - Rate limit headers included in responses:
+#   X-RateLimit-Limit: 100
+#   X-RateLimit-Remaining: 99
+#   X-RateLimit-Reset: 1699139400
+
+# ==============================================================================
+# DATABASE CONNECTION CONFIGURATION
+# ==============================================================================
+# To configure database connection, create/edit .env file:
+# 
+# NODE_ENV=development
+# PORT=3001
+# DB_HOST=51.158.210.40
+# DB_PORT=20044
+# DB_NAME=timemanagement
+# DB_USER=your_username
+# DB_PASSWORD=your_password
+# DB_SSL=true
+# JWT_SECRET=your-super-secret-jwt-key-256-bits
+# JWT_EXPIRES_IN=8h
+
+# ==============================================================================
+# TESTING ENDPOINTS
+# ==============================================================================
+
+# Test server health:
+curl -v https://timemanagement-ashy.vercel.app//health
+
+# Test CORS (from browser):
+fetch('https://timemanagement-ashy.vercel.app//health', {
+  method: 'GET',
+  headers: {
+    'Content-Type': 'application/json'
+  }
+}).then(response => response.json()).then(data => console.log(data));
+
+# Test rate limiting (run multiple times quickly):
+for i in {1..10}; do
+  curl https://timemanagement-ashy.vercel.app//health
+  echo " - Request $i"
+done
+
+# ==============================================================================
+# END OF API DOCUMENTATION
+# ==============================================================================
+# 
+# Total Endpoints: 16 main endpoints + health check
+# Authentication: JWT Bearer Token required for all /api/* endpoints
+# Database: PostgreSQL with Row-Level Security (RLS)
+# Multi-tenant: Automatic tenant isolation
+# Swiss Compliance: Working time regulations and holiday support
+# 
+# For more detailed documentation, see:
+# - README.md - Setup and installation
+# - API_DOCUMENTATION.md - Comprehensive API docs
+# - server.js - Main server implementation
+# 
+# Support: Check logs/ directory for debugging information

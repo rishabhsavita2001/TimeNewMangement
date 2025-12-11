@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Working Time API - Test Interface</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .header {
+            text-align: center;
+            color: #333;
+            border-bottom: 2px solid #007acc;
+            padding-bottom: 10px;
+        }
+        .section {
+            margin: 20px 0;
+        }
+        .btn {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #005aa3;
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .response {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .error { color: #dc3545; }
+        .success { color: #28a745; }
+        .info { color: #007acc; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Working Time API Test Interface</h1>
+            <p>Test your API endpoints interactively</p>
+            <p><strong>Swagger UI:</strong> <a href="http://localhost:3002/api-docs" target="_blank">http://localhost:3002/api-docs</a></p>
+        </div>
+
+        <!-- Server Status -->
+        <div class="section">
+            <h2>🏥 Server Health Check</h2>
+            <button class="btn" onclick="testHealth()">Test Health Endpoint</button>
+            <div id="health-response" class="response" style="display:none;"></div>
+        </div>
+
+        <!-- Authentication Section -->
+        <div class="section">
+            <h2>🔐 Authentication</h2>
+            <div class="grid">
+                <div>
+                    <h3>Login</h3>
+                    <div class="form-group">
+                        <label>Email:</label>
+                        <input type="email" id="login-email" value="test@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Password:</label>
+                        <input type="password" id="login-password" value="password123">
+                    </div>
+                    <button class="btn btn-success" onclick="login()">Login</button>
+                </div>
+                <div>
+                    <h3>Register</h3>
+                    <div class="form-group">
+                        <label>Email:</label>
+                        <input type="email" id="reg-email" value="newuser@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Password:</label>
+                        <input type="password" id="reg-password" value="password123">
+                    </div>
+                    <div class="form-group">
+                        <label>First Name:</label>
+                        <input type="text" id="reg-firstname" value="John">
+                    </div>
+                    <div class="form-group">
+                        <label>Last Name:</label>
+                        <input type="text" id="reg-lastname" value="Doe">
+                    </div>
+                    <div class="form-group">
+                        <label>Tenant ID:</label>
+                        <input type="number" id="reg-tenantid" value="1">
+                    </div>
+                    <button class="btn btn-success" onclick="register()">Register</button>
+                </div>
+            </div>
+            <div id="auth-response" class="response" style="display:none;"></div>
+        </div>
+
+        <!-- Token Section -->
+        <div class="section">
+            <h2>🎟️ JWT Token</h2>
+            <div class="form-group">
+                <label>Current Token:</label>
+                <textarea id="jwt-token" rows="3" placeholder="JWT token will appear here after login"></textarea>
+            </div>
+            <button class="btn" onclick="clearToken()">Clear Token</button>
+        </div>
+
+        <!-- Protected Endpoints -->
+        <div class="section">
+            <h2>🔒 Protected Endpoints (Requires Authentication)</h2>
+            <div class="grid">
+                <div>
+                    <h3>User Profile</h3>
+                    <button class="btn" onclick="getUserProfile()">Get My Profile</button>
+                    <button class="btn" onclick="getDashboard()">Get Dashboard</button>
+                </div>
+                <div>
+                    <h3>Time Tracking</h3>
+                    <button class="btn" onclick="getTimeEntries()">Get Time Entries</button>
+                    <button class="btn" onclick="showCreateTimeEntry()">Create Time Entry</button>
+                </div>
+            </div>
+            <div class="grid">
+                <div>
+                    <h3>Leave Management</h3>
+                    <button class="btn" onclick="getVacationBalance()">Get Vacation Balance</button>
+                    <button class="btn" onclick="getLeaveRequests()">Get Leave Requests</button>
+                </div>
+                <div>
+                    <h3>Reference Data</h3>
+                    <button class="btn" onclick="getProjects()">Get Projects</button>
+                    <button class="btn" onclick="getLeaveTypes()">Get Leave Types</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Time Entry Form -->
+        <div id="time-entry-form" class="section" style="display:none;">
+            <h2>⏰ Create Time Entry</h2>
+            <div class="form-group">
+                <label>Date:</label>
+                <input type="date" id="time-date" value="">
+            </div>
+            <div class="grid">
+                <div>
+                    <div class="form-group">
+                        <label>Clock In (HH:MM):</label>
+                        <input type="time" id="time-in" value="09:00">
+                    </div>
+                    <div class="form-group">
+                        <label>Clock Out (HH:MM):</label>
+                        <input type="time" id="time-out" value="17:00">
+                    </div>
+                </div>
+                <div>
+                    <div class="form-group">
+                        <label>Break Duration (minutes):</label>
+                        <input type="number" id="time-break" value="30" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Project ID:</label>
+                        <input type="number" id="time-project" value="1" min="1">
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Notes:</label>
+                <textarea id="time-notes" rows="3" placeholder="Optional notes"></textarea>
+            </div>
+            <button class="btn btn-success" onclick="createTimeEntry()">Create Entry</button>
+            <button class="btn btn-danger" onclick="hideCreateTimeEntry()">Cancel</button>
+        </div>
+
+        <!-- Response Section -->
+        <div class="section">
+            <h2>📄 Response</h2>
+            <div id="api-response" class="response">API responses will appear here...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3002';
+        let currentToken = '';
+
+        // Set today's date as default
+        document.getElementById('time-date').value = new Date().toISOString().split('T')[0];
+
+        function displayResponse(data, endpoint = '') {
+            const responseDiv = document.getElementById('api-response');
+            const timestamp = new Date().toLocaleTimeString();
+            let formattedData;
+            
+            if (typeof data === 'object') {
+                formattedData = JSON.stringify(data, null, 2);
+            } else {
+                formattedData = data;
+            }
+            
+            responseDiv.innerHTML = `[${timestamp}] ${endpoint}\n\n${formattedData}`;
+            responseDiv.style.display = 'block';
+        }
+
+        function displayError(error, endpoint = '') {
+            const responseDiv = document.getElementById('api-response');
+            const timestamp = new Date().toLocaleTimeString();
+            responseDiv.innerHTML = `[${timestamp}] ERROR - ${endpoint}\n\n${error}`;
+            responseDiv.style.display = 'block';
+            responseDiv.style.color = '#dc3545';
+        }
+
+        async function testHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                displayResponse(data, 'GET /health');
+                
+                const healthDiv = document.getElementById('health-response');
+                healthDiv.innerHTML = JSON.stringify(data, null, 2);
+                healthDiv.style.display = 'block';
+                healthDiv.style.color = response.ok ? '#28a745' : '#dc3545';
+            } catch (error) {
+                displayError(error.message, 'GET /health');
+                const healthDiv = document.getElementById('health-response');
+                healthDiv.innerHTML = `Error: ${error.message}`;
+                healthDiv.style.display = 'block';
+                healthDiv.style.color = '#dc3545';
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                displayResponse(data, 'POST /auth/login');
+                
+                if (data.data && data.data.token) {
+                    currentToken = data.data.token;
+                    document.getElementById('jwt-token').value = currentToken;
+                    
+                    const authDiv = document.getElementById('auth-response');
+                    authDiv.innerHTML = '✅ Login successful! Token saved.';
+                    authDiv.style.display = 'block';
+                    authDiv.style.color = '#28a745';
+                }
+            } catch (error) {
+                displayError(error.message, 'POST /auth/login');
+            }
+        }
+
+        async function register() {
+            const email = document.getElementById('reg-email').value;
+            const password = document.getElementById('reg-password').value;
+            const firstName = document.getElementById('reg-firstname').value;
+            const lastName = document.getElementById('reg-lastname').value;
+            const tenantId = parseInt(document.getElementById('reg-tenantid').value);
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, firstName, lastName, tenantId })
+                });
+                
+                const data = await response.json();
+                displayResponse(data, 'POST /auth/register');
+                
+                const authDiv = document.getElementById('auth-response');
+                if (response.ok) {
+                    authDiv.innerHTML = '✅ Registration successful!';
+                    authDiv.style.color = '#28a745';
+                } else {
+                    authDiv.innerHTML = `❌ Registration failed: ${data.message}`;
+                    authDiv.style.color = '#dc3545';
+                }
+                authDiv.style.display = 'block';
+            } catch (error) {
+                displayError(error.message, 'POST /auth/register');
+            }
+        }
+
+        function clearToken() {
+            currentToken = '';
+            document.getElementById('jwt-token').value = '';
+        }
+
+        async function makeAuthenticatedRequest(endpoint, method = 'GET', body = null) {
+            const token = document.getElementById('jwt-token').value || currentToken;
+            
+            if (!token) {
+                displayError('No authentication token available. Please login first.', endpoint);
+                return;
+            }
+            
+            const options = {
+                method,
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            };
+            
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, options);
+                const data = await response.json();
+                displayResponse(data, `${method} ${endpoint}`);
+            } catch (error) {
+                displayError(error.message, `${method} ${endpoint}`);
+            }
+        }
+
+        function getUserProfile() {
+            makeAuthenticatedRequest('/api/me');
+        }
+
+        function getDashboard() {
+            makeAuthenticatedRequest('/api/me/dashboard');
+        }
+
+        function getTimeEntries() {
+            makeAuthenticatedRequest('/api/me/time-entries?page=1&limit=10');
+        }
+
+        function getVacationBalance() {
+            makeAuthenticatedRequest('/api/me/vacation-balance');
+        }
+
+        function getLeaveRequests() {
+            makeAuthenticatedRequest('/api/me/leave-requests?page=1&limit=10');
+        }
+
+        function getProjects() {
+            makeAuthenticatedRequest('/api/projects');
+        }
+
+        function getLeaveTypes() {
+            makeAuthenticatedRequest('/api/leave-types');
+        }
+
+        function showCreateTimeEntry() {
+            document.getElementById('time-entry-form').style.display = 'block';
+        }
+
+        function hideCreateTimeEntry() {
+            document.getElementById('time-entry-form').style.display = 'none';
+        }
+
+        function createTimeEntry() {
+            const date = document.getElementById('time-date').value;
+            const clockIn = document.getElementById('time-in').value;
+            const clockOut = document.getElementById('time-out').value;
+            const breakDuration = parseInt(document.getElementById('time-break').value) || 0;
+            const projectId = parseInt(document.getElementById('time-project').value) || null;
+            const notes = document.getElementById('time-notes').value;
+            
+            const timeEntry = {
+                date,
+                clockIn,
+                clockOut,
+                breakDuration,
+                notes,
+                projectId
+            };
+            
+            makeAuthenticatedRequest('/api/me/time-entries', 'POST', timeEntry);
+            hideCreateTimeEntry();
+        }
+    </script>
+</body>
+</html>
