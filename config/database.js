@@ -1,4 +1,5 @@
 const { Pool } = require('pg');
+const { MockDatabase } = require('./mock_database');
 
 // Database Connection Configuration
 const dbConfig = {
@@ -13,13 +14,6 @@ const dbConfig = {
   connectionTimeoutMillis: 10000, // 10 seconds timeout for serverless
 };
 
-// For production, override with direct connection if proxy is available
-if (process.env.NODE_ENV === 'production' && process.env.DB_PROXY_URL) {
-  // Use HTTP proxy in production
-  dbConfig.host = new URL(process.env.DB_PROXY_URL).hostname;
-  dbConfig.port = new URL(process.env.DB_PROXY_URL).port || 8000;
-}
-
 console.log('Database config:', {
   host: dbConfig.host,
   port: dbConfig.port,
@@ -29,8 +23,17 @@ console.log('Database config:', {
   environment: process.env.NODE_ENV
 });
 
-// Database Connection Pool
-const pool = new Pool(dbConfig);
+// Use mock database in production until real database is accessible
+const useMockDatabase = process.env.NODE_ENV === 'production' || process.env.USE_MOCK_DB === 'true';
+
+let pool;
+if (useMockDatabase) {
+  console.log('🔄 Using Mock Database for production deployment');
+  pool = new MockDatabase();
+} else {
+  console.log('🔗 Using Real Database connection');
+  pool = new Pool(dbConfig);
+}
 
 // Set session variables for Row Level Security
 const setSessionVariables = async (client, userId, tenantId) => {
