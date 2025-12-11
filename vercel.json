@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "name": "api-layer",
   "builds": [
     {
       "src": "server.js",
