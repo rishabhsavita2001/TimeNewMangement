@@ -24,7 +24,7 @@ console.log('Database config:', {
 });
 
 // Use mock database in production until real database is accessible
-const useMockDatabase = process.env.NODE_ENV === 'production' || process.env.USE_MOCK_DB === 'true';
+const useMockDatabase = process.env.NODE_ENV === 'production' || process.env.USE_MOCK_DB === 'true' || true; // Force mock for now
 
 let pool;
 if (useMockDatabase) {
