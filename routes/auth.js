@@ -64,7 +64,40 @@ const router = express.Router();
 router.post('/login', validateBody(schemas.login), asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
-  // Find user with credentials
+  // For mock database in production/Vercel, use simple authentication
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1' || process.env.USE_MOCK_DB === 'true') {
+    if (password === 'password123') {
+      const token = generateToken({
+        userId: 1,
+        tenantId: 1,
+        email: email
+      });
+
+      return res.json({
+        success: true,
+        message: 'Login successful',
+        data: {
+          token,
+          user: {
+            id: 1,
+            tenantId: 1,
+            employeeNumber: 'EMP001',
+            firstName: 'Admin',
+            lastName: 'User',
+            email: email,
+            tenantName: 'Default Company'
+          }
+        }
+      });
+    } else {
+      return res.status(401).json({
+        error: 'Authentication failed',
+        message: 'Invalid email or password. Use password: password123'
+      });
+    }
+  }
+
+  // Find user with credentials (real database)
   const userQuery = `
     SELECT 
       u.id,
@@ -85,7 +118,6 @@ router.post('/login', validateBody(schemas.login), asyncHandler(async (req, res)
   const userResult = await pool.query(userQuery, [email]);
 
   if (userResult.rows.length === 0) {
-    // auditLog('LOGIN_FAILED', { email, reason: 'User not found' });
     return res.status(401).json({
       error: 'Authentication failed',
       message: 'Invalid email or password'
@@ -95,16 +127,9 @@ router.post('/login', validateBody(schemas.login), asyncHandler(async (req, res)
   const user = userResult.rows[0];
 
   // Verify password
-  let isValidPassword;
-  if (process.env.NODE_ENV === 'production') {
-    // For mock database in production, accept both password123 and actual bcrypt verification
-    isValidPassword = password === 'password123' || await comparePassword(password, user.password_hash);
-  } else {
-    isValidPassword = await comparePassword(password, user.password_hash);
-  }
+  const isValidPassword = await comparePassword(password, user.password_hash);
   
   if (!isValidPassword) {
-    // auditLog('LOGIN_FAILED', { email, userId: user.id, reason: 'Invalid password' });
     return res.status(401).json({
       error: 'Authentication failed',
       message: 'Invalid email or password'

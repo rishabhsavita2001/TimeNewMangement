@@ -4,8 +4,13 @@ const { pool } = require('../config/database');
 
 // Generate JWT Token
 const generateToken = (payload) => {
-  // For mock database in production, return simple mock token
-  if (process.env.NODE_ENV === 'production') {
+  // For mock database in production or when using mock, return simple mock token
+  if (process.env.NODE_ENV === 'production' || process.env.USE_MOCK_DB === 'true') {
+    return `mock-jwt-token-${Date.now()}`;
+  }
+  
+  if (!process.env.JWT_SECRET) {
+    console.warn('JWT_SECRET not found, using mock token');
     return `mock-jwt-token-${Date.now()}`;
   }
   
@@ -19,6 +24,19 @@ const generateToken = (payload) => {
 // Verify JWT Token
 const verifyToken = (token) => {
   try {
+    // For mock tokens, return mock payload
+    if (token.startsWith('mock-jwt-token-')) {
+      return {
+        userId: 1,
+        tenantId: 1,
+        email: 'admin@company.com'
+      };
+    }
+    
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET not configured');
+    }
+    
     return jwt.verify(token, process.env.JWT_SECRET, {
       issuer: process.env.JWT_ISSUER || 'working-time-api',
       audience: process.env.JWT_AUDIENCE || 'working-time-client'
@@ -32,13 +50,20 @@ const verifyToken = (token) => {
 const authenticateToken = async (req, res, next) => {
   try {
     // Skip authentication in production with mock database for now
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === 'production' || process.env.USE_MOCK_DB === 'true') {
       req.user = {
         id: 1,
         email: 'admin@company.com',
         tenant_id: 1,
+        tenantId: 1,
         first_name: 'Admin',
-        last_name: 'User'
+        last_name: 'User',
+        firstName: 'Admin',
+        lastName: 'User',
+        employee_number: 'EMP001',
+        employeeNumber: 'EMP001',
+        tenant_name: 'Default Company',
+        tenantName: 'Default Company'
       };
       req.userId = 1;
       req.tenantId = 1;
@@ -57,7 +82,23 @@ const authenticateToken = async (req, res, next) => {
 
     const decoded = verifyToken(token);
     
-    // Verify user still exists and is active
+    // For mock database in production/Vercel, use mock user data
+    if (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1' || process.env.USE_MOCK_DB === 'true' || token.startsWith('mock-jwt-token-')) {
+      req.user = {
+        id: 1,
+        tenantId: 1,
+        employeeNumber: 'EMP001',
+        firstName: 'Admin',
+        lastName: 'User',
+        email: 'admin@company.com',
+        tenantName: 'Default Company'
+      };
+      req.userId = 1;
+      req.tenantId = 1;
+      return next();
+    }
+    
+    // Verify user still exists and is active (real database)
     const userQuery = `
       SELECT 
         u.id,

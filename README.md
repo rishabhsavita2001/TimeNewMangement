@@ -3,11 +3,28 @@
 ## Project Overview
 This Node.js API provides secure backend integration for the Next.js frontend in the Working Time & Absence Management System. It implements Row-Level Security (RLS), JWT authentication, and multi-tenant architecture.
 
+## 🚀 Live Deployment
+**Vercel URL**: https://api-layer.vercel.app
+
 ## Architecture
-- **Database**: PostgreSQL with Row-Level Security (RLS)
+- **Database**: PostgreSQL with Row-Level Security (RLS) + Mock Database for Production
 - **API Framework**: Node.js with Express
 - **Authentication**: JWT with secure session management
 - **Security**: Parameterized queries, audit logging, tenant isolation
+- **Deployment**: Vercel Serverless Functions
+
+## 🧪 Testing the Live API
+```bash
+# Test all endpoints
+node test_vercel.js https://api-layer.vercel.app
+
+# Test specific endpoint
+curl https://api-layer.vercel.app/health
+```
+
+## 🔑 Test Credentials
+- **Email**: admin@company.com  
+- **Password**: password123
 
 ## API Endpoints
 

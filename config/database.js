@@ -23,8 +23,8 @@ console.log('Database config:', {
   environment: process.env.NODE_ENV
 });
 
-// Use mock database in production until real database is accessible
-const useMockDatabase = process.env.NODE_ENV === 'production' || process.env.USE_MOCK_DB === 'true' || true; // Force mock for now
+// Use mock database in production/Vercel deployment
+const useMockDatabase = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1' || process.env.USE_MOCK_DB === 'true';
 
 let pool;
 if (useMockDatabase) {

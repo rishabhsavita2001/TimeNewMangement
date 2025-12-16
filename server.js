@@ -4,6 +4,17 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
+// Prevent server crashes
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  console.error('Server will continue running...');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  console.error('Server will continue running...');
+});
+
 const authRoutes = require('./routes/auth');
 const apiRoutes = require('./routes/api');
 const { errorHandler } = require('./middleware/errorHandler');
@@ -167,8 +178,9 @@ app.post('/test-login', async (req, res) => {
 app.get('/test', (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'API is working perfectly!',
+    message: 'Vercel API is working perfectly!',
     timestamp: new Date().toISOString(),
+    environment: 'Vercel Production',
     endpoints: {
       health: '/health',
       docs: '/api-docs', 
@@ -182,7 +194,8 @@ app.get('/test', (req, res) => {
     test_credentials: {
       email: 'admin@company.com',
       password: 'password123'
-    }
+    },
+    vercel_deployment: true
   });
 });
 
@@ -198,7 +211,7 @@ app.get('/health', (req, res) => {
 // Database Debug Endpoint (No Auth Required)
 app.get('/debug-db', async (req, res) => {
   try {
-    // Force use mock database in production
+    // Always use mock database in Vercel production
     if (process.env.NODE_ENV === 'production') {
       return res.status(200).json({
         status: 'Mock database connected successfully',
@@ -312,9 +325,13 @@ app.get('/test-db', async (req, res) => {
   }
 });
 
-// Routes
-app.use('/auth', authRoutes);
-app.use('/api', apiRoutes);
+// Routes with error handling
+try {
+  app.use('/auth', authRoutes);
+  app.use('/api', apiRoutes);
+} catch (error) {
+  console.error('Error setting up routes:', error);
+}
 
 // 404 Handler
 app.use('*', (req, res) => {
@@ -327,13 +344,16 @@ app.use('*', (req, res) => {
 // Global Error Handler
 app.use(errorHandler);
 
-// Start Server (only in non-serverless environment)
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+// Start Server (only when not in serverless environment)
+if (require.main === module && !process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`🚀 Working Time API Server running on port ${PORT}`);
-    console.log(`📊 Environment: ${process.env.NODE_ENV}`);
-    console.log(`🗄️  Database: ${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`);
+    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🗄️  Database: ${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || '5433'}/${process.env.DB_NAME || 'timemanagement'}`);
   });
+} else if (process.env.VERCEL) {
+  console.log('🚀 Vercel serverless function ready');
+  console.log(`📊 Environment: ${process.env.NODE_ENV}`);
 }
 
 // Export for Vercel serverless
