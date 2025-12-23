@@ -4,43 +4,37 @@ const { pool } = require('../config/database');
 
 // Generate JWT Token
 const generateToken = (payload) => {
-  // For mock database in production or when using mock, return simple mock token
-  if (process.env.NODE_ENV === 'production' || process.env.USE_MOCK_DB === 'true') {
-    return `mock-jwt-token-${Date.now()}`;
-  }
+  // Always generate proper JWT tokens
+  const jwtSecret = process.env.JWT_SECRET || 'default-secret-key-for-demo-purposes-only';
   
-  if (!process.env.JWT_SECRET) {
-    console.warn('JWT_SECRET not found, using mock token');
-    return `mock-jwt-token-${Date.now()}`;
+  try {
+    return jwt.sign(payload, jwtSecret, {
+      expiresIn: process.env.JWT_EXPIRES_IN || '8h',
+      issuer: process.env.JWT_ISSUER || 'working-time-api',
+      audience: process.env.JWT_AUDIENCE || 'working-time-client'
+    });
+  } catch (error) {
+    console.error('JWT generation error:', error);
+    // Fallback to simple JWT without extra options
+    return jwt.sign(payload, jwtSecret, { expiresIn: '8h' });
   }
-  
-  return jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '8h',
-    issuer: process.env.JWT_ISSUER || 'working-time-api',
-    audience: process.env.JWT_AUDIENCE || 'working-time-client'
-  });
 };
 
 // Verify JWT Token
 const verifyToken = (token) => {
   try {
-    // For mock tokens, return mock payload
-    if (token.startsWith('mock-jwt-token-')) {
-      return {
-        userId: 1,
-        tenantId: 1,
-        email: 'admin@company.com'
-      };
-    }
+    const jwtSecret = process.env.JWT_SECRET || 'default-secret-key-for-demo-purposes-only';
     
-    if (!process.env.JWT_SECRET) {
-      throw new Error('JWT_SECRET not configured');
+    // First try with full verification options
+    try {
+      return jwt.verify(token, jwtSecret, {
+        issuer: process.env.JWT_ISSUER || 'working-time-api',
+        audience: process.env.JWT_AUDIENCE || 'working-time-client'
+      });
+    } catch (error) {
+      // Fallback to simple verification without issuer/audience
+      return jwt.verify(token, jwtSecret);
     }
-    
-    return jwt.verify(token, process.env.JWT_SECRET, {
-      issuer: process.env.JWT_ISSUER || 'working-time-api',
-      audience: process.env.JWT_AUDIENCE || 'working-time-client'
-    });
   } catch (error) {
     throw new Error('Invalid token');
   }
@@ -82,18 +76,18 @@ const authenticateToken = async (req, res, next) => {
 
     const decoded = verifyToken(token);
     
-    // For mock database in production/Vercel, use mock user data
-    if (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1' || process.env.USE_MOCK_DB === 'true' || token.startsWith('mock-jwt-token-')) {
+    // For production/mock database, use decoded token data with mock database behavior
+    if (process.env.NODE_ENV === 'production' || process.env.VERCEL === '1' || process.env.USE_MOCK_DB === 'true') {
       req.user = {
-        id: 1,
-        tenantId: 1,
-        employeeNumber: 'EMP001',
-        firstName: 'Admin',
-        lastName: 'User',
-        email: 'admin@company.com',
+        id: decoded.userId || 1,
+        tenantId: decoded.tenantId || 1,
+        employeeNumber: decoded.employeeNumber || `EMP${decoded.userId || 1}`,
+        firstName: decoded.firstName || 'User',
+        lastName: decoded.lastName || 'Demo',
+        email: decoded.email || 'user@example.com',
         tenantName: 'Default Company'
       };
-      req.userId = 1;
+      req.userId = decoded.userId || 1;
       req.tenantId = 1;
       return next();
     }

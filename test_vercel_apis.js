@@ -1,16 +1,29 @@
 const https = require('https');
 const http = require('http');
 
-const apis = [
-  'https://api-layer.vercel.app/api/health',
-  'https://api-layer.vercel.app/api/test', 
-  'https://api-layer.vercel.app/api/me',
-  'https://api-layer.vercel.app/api/user/profile',
-  'https://api-layer.vercel.app/api/user/dashboard',
-  'https://api-layer.vercel.app/api/time-entries',
-  'https://api-layer.vercel.app/api/leave-requests',
-  'https://api-layer.vercel.app/api/projects'
+// Test both domains to compare
+const domains = [
+  'api-layer.vercel.app',
+  'apilayer-6njhumcll-soludoo.vercel.app'
 ];
+
+const endpoints = [
+  '/api/health',
+  '/api/test',
+  '/api/me', 
+  '/api/user/profile',
+  '/api/user/dashboard',
+  '/api/time-entries',
+  '/api/leave-requests',
+  '/api/projects'
+];
+
+const apis = [];
+domains.forEach(domain => {
+  endpoints.forEach(endpoint => {
+    apis.push(`https://${domain}${endpoint}`);
+  });
+});
 
 function testAPI(url) {
   return new Promise((resolve) => {
@@ -51,31 +64,45 @@ function testAPI(url) {
 }
 
 async function testAllAPIs() {
-  console.log('Testing all API endpoints on Vercel...\n');
+  console.log('🚀 Testing API endpoints on both domains...\n');
   
   const results = [];
+  let currentDomain = '';
+  
   for (const api of apis) {
+    const domain = api.split('/')[2];
+    if (domain !== currentDomain) {
+      currentDomain = domain;
+      console.log(`\n=== Testing Domain: ${domain} ===`);
+    }
+    
     const result = await testAPI(api);
     results.push(result);
     
     // Add small delay between requests
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 300));
   }
   
-  console.log('\n=== SUMMARY ===');
-  const working = results.filter(r => r.success).length;
-  const total = results.length;
-  console.log(`Working: ${working}/${total}`);
-  
-  const failed = results.filter(r => !r.success);
-  if (failed.length > 0) {
-    console.log('\nFailed APIs:');
-    failed.forEach(f => {
-      console.log(`- ${f.url} (${f.status || 'Error'}: ${f.error || 'Unknown error'})`);
-    });
-  } else {
-    console.log('All APIs are working correctly!');
-  }
+  // Summary by domain
+  domains.forEach(domain => {
+    const domainResults = results.filter(r => r.url.includes(domain));
+    const working = domainResults.filter(r => r.success).length;
+    const total = domainResults.length;
+    
+    console.log(`\n=== SUMMARY: ${domain} ===`);
+    console.log(`Working: ${working}/${total}`);
+    
+    if (working === total) {
+      console.log('✅ All APIs working on this domain!');
+    } else {
+      console.log('❌ Some APIs failing on this domain');
+      const failed = domainResults.filter(r => !r.success);
+      failed.forEach(f => {
+        const endpoint = f.url.split('/').slice(3).join('/');
+        console.log(`  - /${endpoint} (${f.status || f.error})`);
+      });
+    }
+  });
 }
 
 testAllAPIs().catch(console.error);

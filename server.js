@@ -24,13 +24,39 @@ const { swaggerUi, specs } = require('./config/swagger');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust proxy for Vercel deployment
+app.set('trust proxy', 1);
+
 // Security Middleware
 app.use(helmet({
   contentSecurityPolicy: false, // Disable for Swagger UI compatibility
 }));
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Swagger UI, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Allow all origins in production for Swagger UI
+    if (process.env.NODE_ENV === 'production') {
+      return callback(null, true);
+    }
+    
+    // Default CORS origin
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'https://api-layer.vercel.app',
+      'https://apilayer-2fywdtgoz-soludoo.vercel.app'
+    ];
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    callback(null, true); // Allow all for now
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
 }));
 
 // Rate Limiting
@@ -50,9 +76,13 @@ app.use(express.urlencoded({ extended: true }));
 // Request Logging
 app.use(requestLogger);
 
-// Serve test interface
+// Serve test interfaces
 app.get('/test-interface', (req, res) => {
   res.sendFile(__dirname + '/test-interface.html');
+});
+
+app.get('/forgot-password-test', (req, res) => {
+  res.sendFile(__dirname + '/forgot-password-test.html');
 });
 
 // Swagger JSON endpoint
@@ -84,7 +114,7 @@ app.get('/api-docs', (req, res) => {
   <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
   <script>
     window.onload = function() {
-      SwaggerUIBundle({
+      const ui = SwaggerUIBundle({
         url: "/api-docs.json",
         dom_id: '#swagger-ui',
         deepLinking: true,
@@ -96,8 +126,25 @@ app.get('/api-docs', (req, res) => {
           SwaggerUIBundle.plugins.DownloadUrl
         ],
         layout: "StandaloneLayout",
-        persistAuthorization: true
+        persistAuthorization: true,
+        tryItOutEnabled: true,
+        requestInterceptor: function(request) {
+          console.log('Request interceptor:', request);
+          return request;
+        },
+        responseInterceptor: function(response) {
+          console.log('Response interceptor:', response);
+          return response;
+        },
+        onComplete: function() {
+          console.log('Swagger UI loaded successfully');
+        },
+        onFailure: function(error) {
+          console.error('Swagger UI failed to load:', error);
+        }
       });
+      
+      window.ui = ui;
     };
   </script>
 </body>
@@ -324,6 +371,9 @@ app.get('/test-db', async (req, res) => {
     });
   }
 });
+
+// Serve uploaded files (profile images)
+app.use('/uploads', express.static(__dirname + '/uploads'));
 
 // Routes with error handling
 try {

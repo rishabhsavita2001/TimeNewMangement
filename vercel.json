@@ -1,27 +1,15 @@
 {
   "version": 2,
-  "name": "api-layer",
   "builds": [
     {
-      "src": "server.js",
+      "src": "working-server.js",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "server.js"
+      "dest": "working-server.js"
     }
-  ],
-  "env": {
-    "NODE_ENV": "production",
-    "USE_MOCK_DB": "true",
-    "JWT_SECRET": "vercel-production-secret-key-2024",
-    "VERCEL": "1"
-  },
-  "functions": {
-    "server.js": {
-      "maxDuration": 10
-    }
-  }
+  ]
 }

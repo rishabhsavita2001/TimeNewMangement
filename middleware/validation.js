@@ -128,9 +128,9 @@ const schemas = {
 
   register: Joi.object({
     email: Joi.string().email().required(),
-    password: Joi.string().min(8).pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/).required()
+    password: Joi.string().min(6).required()
       .messages({
-        'string.pattern.base': 'Password must contain at least one lowercase letter, one uppercase letter, and one number'
+        'string.min': 'Password must be at least 6 characters long'
       }),
     firstName: Joi.string().min(2).max(50).required(),
     lastName: Joi.string().min(2).max(50).required(),
@@ -168,6 +168,10 @@ const schemas = {
     id: Joi.number().integer().positive().required()
   }),
 
+  notificationId: Joi.object({
+    id: Joi.string().required()
+  }),
+
   dateRange: Joi.object({
     startDate: flexibleDate().required(),
     endDate: flexibleDate().required()
@@ -178,6 +182,42 @@ const schemas = {
     limit: Joi.number().integer().min(1).max(100).default(20),
     sortBy: Joi.string().max(50),
     sortOrder: Joi.string().valid('asc', 'desc').default('desc')
+  }),
+  
+  // Quick Actions validation schemas
+  timeCorrectionRequest: Joi.object({
+    original_entry_id: Joi.number().integer().positive().required(),
+    correction_type: Joi.string().valid('time_adjustment', 'project_change', 'description_update', 'delete_entry').required(),
+    reason: Joi.string().min(10).max(500).required(),
+    corrected_start_time: Joi.date().iso().optional(),
+    corrected_end_time: Joi.date().iso().optional(),
+    new_project_id: Joi.number().integer().positive().optional(),
+    new_description: Joi.string().max(500).optional()
+  }),
+  
+  manualTimeEntry: Joi.object({
+    entry_date: flexibleDate().required(),
+    start_time: Joi.string().pattern(/^([01]?\d|2[0-3]):[0-5]\d$/).required(),
+    end_time: Joi.string().pattern(/^([01]?\d|2[0-3]):[0-5]\d$/).required(),
+    project_id: Joi.number().integer().positive().required(),
+    task_name: Joi.string().max(200).optional(),
+    description: Joi.string().max(500).optional(),
+    break_duration: Joi.number().integer().min(0).max(480).default(0), // Max 8 hours break
+    reason: Joi.string().min(5).max(300).required()
+  }),
+  
+  // Leave Request validation schema for Figma screens
+  leaveRequest: Joi.object({
+    leave_type: Joi.string().valid('paid_leave', 'sick_leave', 'unpaid_leave', 'half_day', 'maternity_leave', 'emergency_leave').required(),
+    start_date: flexibleDate().required(),
+    end_date: flexibleDate().required(),
+    reason: Joi.string().max(500).optional().allow(''),
+    is_half_day: Joi.boolean().default(false),
+    half_day_period: Joi.when('is_half_day', {
+      is: true,
+      then: Joi.string().valid('morning', 'afternoon').required(),
+      otherwise: Joi.optional()
+    })
   })
 };
 

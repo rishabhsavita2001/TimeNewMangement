@@ -11,6 +11,7 @@ const mockUsers = [
     employee_number: 'EMP001',
     tenant_id: 1, 
     is_active: true,
+    profile_image: null,
     created_at: new Date() 
   },
   { 
@@ -22,6 +23,7 @@ const mockUsers = [
     employee_number: 'EMP002',
     tenant_id: 1, 
     is_active: true,
+    profile_image: null,
     created_at: new Date() 
   },
   { 
@@ -33,6 +35,7 @@ const mockUsers = [
     employee_number: 'EMP003', 
     tenant_id: 1, 
     is_active: true,
+    profile_image: null,
     created_at: new Date() 
   },
   {
@@ -44,6 +47,7 @@ const mockUsers = [
     employee_number: 'EMP001',
     tenant_id: 1,
     is_active: true,
+    profile_image: null,
     created_at: new Date()
   }
 ];
@@ -89,6 +93,12 @@ class MockDatabase {
         }
         return { rows: [], rowCount: 0 };
       }
+      if (text.includes('email = $1') && text.includes('is_active = true')) {
+        // Forgot password user existence check
+        const user = mockUsers.find(u => u.email.toLowerCase() === email.toLowerCase() && u.is_active);
+        console.log(`Mock DB: Checking user ${email}, found: ${!!user}`);
+        return { rows: user ? [{ id: user.id, email: user.email }] : [], rowCount: user ? 1 : 0 };
+      }
       // Simple email query fallback
       const user = mockUsers.find(u => u.email === email);
       return { rows: user ? [user] : [], rowCount: user ? 1 : 0 };
@@ -104,10 +114,49 @@ class MockDatabase {
     // User profile queries
     if (text.includes('SELECT') && text.includes('users') && text.includes('id')) {
       const userId = params[0];
+      if (text.includes('profile_image')) {
+        // Profile image specific query
+        const user = mockUsers.find(u => u.id === userId);
+        return {
+          rows: user ? [{ id: user.id, profile_image: user.profile_image }] : [],
+          rowCount: user ? 1 : 0
+        };
+      }
       return {
         rows: userId ? [mockUsers.find(u => u.id === userId) || null].filter(Boolean) : mockUsers,
         rowCount: userId ? 1 : mockUsers.length
       };
+    }
+    
+    // Profile image update/delete
+    if (text.includes('UPDATE users') && text.includes('profile_image')) {
+      // For deletion: params = [userId] only
+      // For update: params = [profileImage, userId]
+      let userId, profileImage;
+      
+      if (text.includes('profile_image = NULL')) {
+        // DELETE operation - set to null
+        userId = params[0];
+        profileImage = null;
+        console.log('Mock DB: Deleting profile image for user', userId);
+      } else {
+        // UPDATE operation - set new image
+        profileImage = params[0];
+        userId = params[1];
+        console.log('Mock DB: Updating profile image for user', userId);
+      }
+      
+      const userIndex = mockUsers.findIndex(u => u.id === userId);
+      if (userIndex !== -1) {
+        mockUsers[userIndex].profile_image = profileImage;
+        mockUsers[userIndex].updated_at = new Date();
+        console.log('Mock DB: User profile_image set to:', mockUsers[userIndex].profile_image);
+        return {
+          rows: [mockUsers[userIndex]],
+          rowCount: 1
+        };
+      }
+      return { rows: [], rowCount: 0 };
     }
     
     // User registration/insertion
