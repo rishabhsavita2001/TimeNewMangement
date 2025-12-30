@@ -1,8 +1,51 @@
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
+const swaggerJsdoc = require('swagger-jsdoc');
 
 const app = express();
+
+// JWT Secret (in production, use environment variable)
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-for-development-only';
+
+// Swagger configuration
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'Working Time API',
+      version: '1.0.0',
+      description: 'Complete Node.js API for Working Time & Absence Management System',
+      contact: {
+        name: 'API Support',
+        email: 'support@example.com'
+      }
+    },
+    servers: [
+      {
+        url: 'https://api-layer.vercel.app',
+        description: 'Production server'
+      },
+      {
+        url: 'http://localhost:3000',
+        description: 'Development server'
+      }
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          description: 'Enter JWT Bearer token. Get token from /api/get-token endpoint'
+        }
+      }
+    }
+  },
+  apis: [__filename] // Path to the API docs
+};
+
+const specs = swaggerJsdoc(swaggerOptions);
 
 // JWT Secret (in production, use environment variable)
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-for-development-only';

@@ -54,9 +54,6 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Apply authentication to all API routes
-app.use('/api', authenticateToken);
-
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({
@@ -263,6 +260,20 @@ app.get('/api/get-token', (req, res) => {
       expires_in: '24h',
       token_type: 'Bearer',
       usage: 'Copy this token and use it in Swagger UI Authorization header as: Bearer <token>'
+    }
+  });
+});
+
+// Sign Out / Logout API
+app.post('/api/auth/logout', (req, res) => {
+  // Invalidate token (in real app, add to blacklist)
+  res.json({
+    success: true,
+    message: 'Your sign out success',
+    data: {
+      userId: req.user?.userId || 1,
+      loggedOutAt: new Date().toISOString(),
+      status: 'logged_out'
     }
   });
 });
@@ -1953,6 +1964,46 @@ app.get('/swagger.json', (req, res) => {
           }
         }
       },
+      "/auth/logout": {
+        "post": {
+          "summary": "User Sign Out / Logout",
+          "description": "Sign out user from application. Invalidates current session.",
+          "tags": ["Authentication"],
+          "security": [{ "BearerAuth": [] }],
+          "responses": {
+            "200": {
+              "description": "Sign out successful",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "success": { "type": "boolean", "example": true },
+                      "message": { "type": "string", "example": "Your sign out success" },
+                      "data": {
+                        "type": "object",
+                        "properties": {
+                          "userId": { "type": "integer", "example": 1 },
+                          "loggedOutAt": { "type": "string", "format": "date-time" },
+                          "status": { "type": "string", "example": "logged_out" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "401": {
+              "description": "Unauthorized - Bearer token required",
+              "content": {
+                "application/json": {
+                  "schema": { "$ref": "#/components/schemas/Error" }
+                }
+              }
+            }
+          }
+        }
+      },
       "/me": {
         "get": {
           "summary": "Get Current User Profile",
@@ -2881,6 +2932,512 @@ app.get('/swagger.json', (req, res) => {
             }
           }
         }
+      },
+      "/me/time-corrections": {
+        "get": {
+          "summary": "Get Time Correction Requests",
+          "description": "Get all user's time correction requests (Based on Figma Design)",
+          "tags": ["Time Corrections"],
+          "responses": {
+            "200": {
+              "description": "Time correction requests retrieved successfully"
+            }
+          }
+        },
+        "post": {
+          "summary": "Create Time Correction Request",
+          "description": "Submit a new time correction request (Based on Figma Design)",
+          "tags": ["Time Corrections"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": { "type": "string", "enum": ["missing_work_entry", "wrong_clock_time", "missing_break", "overtime_request"] },
+                    "date": { "type": "string", "format": "date" },
+                    "reason": { "type": "string" },
+                    "issue_description": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Time correction request submitted successfully"
+            }
+          }
+        }
+      },
+      "/time-correction-types": {
+        "get": {
+          "summary": "Get Time Correction Types",
+          "description": "Get available time correction issue types",
+          "tags": ["Time Corrections"],
+          "responses": {
+            "200": {
+              "description": "Time correction types retrieved successfully"
+            }
+          }
+        }
+      },
+      "/time-corrections/{id}/status": {
+        "put": {
+          "summary": "Update Time Correction Status",
+          "description": "Update status of a time correction request (admin only)",
+          "tags": ["Time Corrections"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "integer" }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Status updated successfully"
+            }
+          }
+        }
+      },
+      "/me/time-corrections/history": {
+        "get": {
+          "summary": "Get Time Correction History",
+          "description": "Get historical time correction requests",
+          "tags": ["Time Corrections"],
+          "responses": {
+            "200": {
+              "description": "Time correction history retrieved successfully"
+            }
+          }
+        }
+      },
+      "/company/settings": {
+        "get": {
+          "summary": "Get Company Settings",
+          "description": "Get complete company settings and branding information (Admin/Owner only - Based on Figma Company Settings screen)",
+          "tags": ["Company Management"],
+          "responses": {
+            "200": {
+              "description": "Company settings retrieved successfully"
+            }
+          }
+        },
+        "put": {
+          "summary": "Update Company Settings",
+          "description": "Update general company settings (Admin/Owner only)",
+          "tags": ["Company Management"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string" },
+                    "industry": { "type": "string" },
+                    "brand_color": { "type": "string" },
+                    "support_email": { "type": "string", "format": "email" },
+                    "company_phone": { "type": "string" },
+                    "address": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Company settings updated successfully"
+            }
+          }
+        }
+      },
+      "/company/logo": {
+        "post": {
+          "summary": "Upload Company Logo",
+          "description": "Upload new company logo with variants generation (Based on Figma Upload Logos screen)",
+          "tags": ["Company Management"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "logo_data": { "type": "string" },
+                    "logo_type": { "type": "string", "example": "image/png" },
+                    "variant": { "type": "string", "example": "primary" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Company logo uploaded successfully"
+            }
+          }
+        }
+      },
+      "/company/name": {
+        "put": {
+          "summary": "Update Company Name",
+          "description": "Update company name (Based on Figma Edit Company Name screen)",
+          "tags": ["Company Management"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "company_name": { "type": "string", "example": "ACME Inc." }
+                  },
+                  "required": ["company_name"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Company name updated successfully"
+            }
+          }
+        }
+      },
+      "/company/industry": {
+        "put": {
+          "summary": "Update Industry/Category",
+          "description": "Update company industry or category (Based on Figma Edit Industry screen)",
+          "tags": ["Company Management"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "industry": { "type": "string", "example": "IT Company" },
+                    "category": { "type": "string", "example": "Technology" }
+                  },
+                  "required": ["industry"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Industry updated successfully"
+            }
+          }
+        }
+      },
+      "/company/brand-color": {
+        "put": {
+          "summary": "Update Brand Color",
+          "description": "Update company brand color with predefined colors or custom color picker (Based on Figma Edit Brand Color screens)",
+          "tags": ["Company Management"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "brand_color": { "type": "string", "example": "#6366F1" },
+                    "color_name": { "type": "string", "enum": ["Blue", "Purple", "Burgundy", "Red", "Midnight Blue"] },
+                    "custom_color": { "type": "string", "example": "#FF5733" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Brand color updated successfully"
+            }
+          }
+        }
+      },
+      "/company/support-email": {
+        "put": {
+          "summary": "Update Support Email",
+          "description": "Update company support email (Based on Figma Edit Support Email screen)",
+          "tags": ["Company Management"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "support_email": { "type": "string", "format": "email", "example": "acmeinc@gmail.com" }
+                  },
+                  "required": ["support_email"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Support email updated successfully"
+            }
+          }
+        }
+      },
+      "/company/phone": {
+        "put": {
+          "summary": "Update Company Phone",
+          "description": "Update company phone number (Based on Figma Edit Company Phone screen)",
+          "tags": ["Company Management"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "company_phone": { "type": "string", "example": "(+1) 740 - 8521" }
+                  },
+                  "required": ["company_phone"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Company phone updated successfully"
+            }
+          }
+        }
+      },
+      "/company/address": {
+        "put": {
+          "summary": "Update Company Address",
+          "description": "Update company address with location details (Based on Figma Edit Address screen)",
+          "tags": ["Company Management"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "address": { "type": "string", "example": "45 Cloudy Bay, Auckland, NZ" },
+                    "city": { "type": "string", "example": "Auckland" },
+                    "state": { "type": "string", "example": "Auckland" },
+                    "country": { "type": "string", "example": "New Zealand" },
+                    "postal_code": { "type": "string", "example": "1010" }
+                  },
+                  "required": ["address"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Company address updated successfully"
+            }
+          }
+        }
+      },
+      "/me/profile": {
+        "get": {
+          "summary": "Get User Profile",
+          "description": "Get complete user profile information (Based on Figma Personal Information screen)",
+          "tags": ["Profile Management"],
+          "responses": {
+            "200": {
+              "description": "Profile information retrieved successfully"
+            }
+          }
+        },
+        "put": {
+          "summary": "Update Profile",
+          "description": "Update user profile information",
+          "tags": ["Profile Management"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "first_name": { "type": "string" },
+                    "last_name": { "type": "string" },
+                    "email": { "type": "string", "format": "email" },
+                    "phone": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Profile updated successfully"
+            }
+          }
+        },
+        "delete": {
+          "summary": "Delete Account",
+          "description": "Delete user account permanently (Based on Figma Delete Account screens)",
+          "tags": ["Profile Management"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "confirmation_text": { "type": "string", "example": "DELETE" },
+                    "password": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Account deletion initiated"
+            }
+          }
+        }
+      },
+      "/me/profile/photo": {
+        "post": {
+          "summary": "Upload Profile Photo",
+          "description": "Upload new profile photo (Based on Figma Upload Photos screen)",
+          "tags": ["Profile Management"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "photo_data": { "type": "string" },
+                    "photo_type": { "type": "string", "example": "image/jpeg" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Profile photo uploaded successfully"
+            }
+          }
+        }
+      },
+      "/me/profile/name": {
+        "put": {
+          "summary": "Update Name",
+          "description": "Update user's first and last name (Based on Figma Edit Full Name screen)",
+          "tags": ["Profile Management"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "first_name": { "type": "string", "example": "Jenny" },
+                    "last_name": { "type": "string", "example": "Wilson" }
+                  },
+                  "required": ["first_name", "last_name"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Name updated successfully"
+            }
+          }
+        }
+      },
+      "/me/profile/email": {
+        "put": {
+          "summary": "Update Email",
+          "description": "Update user's email address (Based on Figma Edit Email Address screen)",
+          "tags": ["Profile Management"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "email": { "type": "string", "format": "email", "example": "jenny.wilson@email.com" }
+                  },
+                  "required": ["email"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Email updated successfully"
+            }
+          }
+        }
+      },
+      "/me/profile/phone": {
+        "put": {
+          "summary": "Update Phone Number",
+          "description": "Update user's phone number (Based on Figma Edit Phone Number screen)",
+          "tags": ["Profile Management"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "phone": { "type": "string", "example": "(+1) 267 - 9041" }
+                  },
+                  "required": ["phone"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Phone number updated successfully"
+            }
+          }
+        }
+      },
+      "/me/profile/password": {
+        "put": {
+          "summary": "Change Password",
+          "description": "Change user's password (Based on Figma Edit Password screen)",
+          "tags": ["Profile Management"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "current_password": { "type": "string" },
+                    "new_password": { "type": "string" },
+                    "confirm_password": { "type": "string" }
+                  },
+                  "required": ["current_password", "new_password", "confirm_password"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Password changed successfully"
+            }
+          }
+        }
       }
     }
   };
@@ -2937,6 +3494,715 @@ app.use((err, req, res, next) => {
   });
 });
 
+// ========== Time Corrections API (Based on Figma Designs) ==========
+
+// Get all time correction requests for current user
+app.get('/api/me/time-corrections', authenticateToken, (req, res) => {
+  res.json({
+    success: true,
+    message: "Time correction requests retrieved successfully",
+    data: {
+      requests: [
+        {
+          id: 1,
+          type: 'missing_work_entry',
+          date: '2024-12-20',
+          status: 'pending',
+          requested_time_in: '09:00:00',
+          requested_time_out: '17:00:00',
+          reason: 'Forgot to clock in and out',
+          submitted_at: '2024-12-21T10:30:00Z',
+          issue_description: 'Missing work entry for full day'
+        },
+        {
+          id: 2,
+          type: 'wrong_clock_time',
+          date: '2024-12-19',
+          status: 'approved',
+          actual_time_in: '08:45:00',
+          requested_time_in: '09:00:00',
+          reason: 'Clock-in time was incorrect',
+          submitted_at: '2024-12-20T14:15:00Z'
+        }
+      ],
+      total_count: 2,
+      pending_count: 1,
+      approved_count: 1
+    }
+  });
+});
+
+// Get time correction issue types
+app.get('/api/time-correction-types', authenticateToken, (req, res) => {
+  res.json({
+    success: true,
+    message: "Time correction types retrieved successfully",
+    data: [
+      {
+        id: 'missing_work_entry',
+        name: 'Add missing work entry',
+        description: 'Request to add missing clock-in/out for a work day',
+        icon: 'clock-plus',
+        color: '#4CAF50'
+      },
+      {
+        id: 'wrong_clock_time',
+        name: 'Wrong clock-in/out time',
+        description: 'Correct incorrect clock-in or clock-out time',
+        icon: 'clock-edit',
+        color: '#FF9800'
+      },
+      {
+        id: 'missing_break',
+        name: 'Missing break entry',
+        description: 'Add missing break time entry',
+        icon: 'coffee',
+        color: '#2196F3'
+      },
+      {
+        id: 'overtime_request',
+        name: 'Overtime work request',
+        description: 'Request approval for overtime work',
+        icon: 'clock-plus-outline',
+        color: '#9C27B0'
+      }
+    ]
+  });
+});
+
+// Create new time correction request
+app.post('/api/me/time-corrections', authenticateToken, (req, res) => {
+  const {
+    type,
+    date,
+    requested_time_in,
+    requested_time_out,
+    actual_time_in,
+    actual_time_out,
+    reason,
+    issue_description,
+    additional_notes
+  } = req.body;
+
+  // Generate response based on issue type
+  const newRequest = {
+    id: Math.floor(Math.random() * 10000),
+    type,
+    date,
+    status: 'pending',
+    reason,
+    issue_description,
+    additional_notes,
+    submitted_at: new Date().toISOString(),
+    estimated_processing_time: '24-48 hours'
+  };
+
+  if (type === 'missing_work_entry') {
+    newRequest.requested_time_in = requested_time_in;
+    newRequest.requested_time_out = requested_time_out;
+  } else if (type === 'wrong_clock_time') {
+    newRequest.actual_time_in = actual_time_in;
+    newRequest.actual_time_out = actual_time_out;
+    newRequest.requested_time_in = requested_time_in;
+    newRequest.requested_time_out = requested_time_out;
+  }
+
+  res.json({
+    success: true,
+    message: "Time correction request submitted successfully",
+    data: newRequest
+  });
+});
+
+// Update time correction status (for admin/manager)
+app.put('/api/time-corrections/:id/status', authenticateToken, (req, res) => {
+  const { id } = req.params;
+  const { status, admin_comment } = req.body; // pending, approved, rejected
+  
+  res.json({
+    success: true,
+    message: `Time correction request ${status} successfully`,
+    data: {
+      id: parseInt(id),
+      status,
+      admin_comment,
+      updated_at: new Date().toISOString(),
+      processed_by: 'Manager Name'
+    }
+  });
+});
+
+// Get time correction history
+app.get('/api/me/time-corrections/history', authenticateToken, (req, res) => {
+  res.json({
+    success: true,
+    message: "Time correction history retrieved successfully",
+    data: {
+      history: [
+        {
+          id: 1,
+          type: 'missing_work_entry',
+          date: '2024-12-15',
+          status: 'approved',
+          reason: 'System was down',
+          processed_at: '2024-12-16T09:00:00Z',
+          processed_by: 'HR Manager'
+        },
+        {
+          id: 2,
+          type: 'wrong_clock_time',
+          date: '2024-12-10',
+          status: 'rejected',
+          reason: 'Incorrect request details',
+          processed_at: '2024-12-11T14:30:00Z',
+          processed_by: 'Team Lead'
+        }
+      ],
+      total_requests: 5,
+      approved_requests: 3,
+      rejected_requests: 1,
+      pending_requests: 1
+    }
+  });
+});
+
+// ========== Company Management APIs (Based on Figma Company Settings - Admin/Owner) ==========
+
+// Get company settings
+app.get('/api/company/settings', authenticateToken, (req, res) => {
+  res.json({
+    success: true,
+    message: "Company settings retrieved successfully",
+    data: {
+      company: {
+        id: 1,
+        name: "ACME Inc.",
+        logo_url: "https://api-layer.vercel.app/api/company/logo",
+        industry: "IT Company",
+        category: "Technology",
+        brand_color: "#6366F1",
+        brand_color_name: "Purple",
+        support_email: "acmeinc@gmail.com",
+        company_phone: "(+1) 740 - 8521",
+        address: "45 Cloudy Bay, Auckland, NZ",
+        founded_date: "2020-01-01",
+        employee_count: 150,
+        timezone: "Pacific/Auckland",
+        website: "https://acme.inc",
+        description: "Leading technology company providing innovative solutions"
+      },
+      branding: {
+        primary_color: "#6366F1",
+        secondary_color: "#8B5CF6", 
+        accent_color: "#F59E0B",
+        logo_variants: {
+          light: "https://api-layer.vercel.app/api/company/logo/light",
+          dark: "https://api-layer.vercel.app/api/company/logo/dark",
+          icon: "https://api-layer.vercel.app/api/company/logo/icon"
+        }
+      },
+      permissions: {
+        can_edit_company: true,
+        can_change_branding: true,
+        can_upload_logo: true,
+        role_required: "admin"
+      }
+    }
+  });
+});
+
+// Update company settings (general)
+app.put('/api/company/settings', authenticateToken, (req, res) => {
+  const { name, industry, brand_color, support_email, company_phone, address, description } = req.body;
+  
+  res.json({
+    success: true,
+    message: "Company settings updated successfully",
+    data: {
+      company: {
+        id: 1,
+        name: name || "ACME Inc.",
+        industry: industry || "IT Company",
+        brand_color: brand_color || "#6366F1",
+        support_email: support_email || "acmeinc@gmail.com",
+        company_phone: company_phone || "(+1) 740 - 8521", 
+        address: address || "45 Cloudy Bay, Auckland, NZ",
+        description: description,
+        updated_at: new Date().toISOString(),
+        updated_by: "Admin User"
+      }
+    }
+  });
+});
+
+// Upload company logo
+app.post('/api/company/logo', authenticateToken, (req, res) => {
+  const { logo_data, logo_type, variant } = req.body;
+  
+  res.json({
+    success: true,
+    message: "Company logo uploaded successfully",
+    data: {
+      logo_url: "https://api-layer.vercel.app/api/company/logo",
+      variant: variant || "primary",
+      logo_id: `LOGO_${Date.now()}`,
+      upload_time: new Date().toISOString(),
+      file_size: "3.2 MB",
+      file_type: logo_type || "image/png",
+      dimensions: "512x512",
+      variants_generated: {
+        light: "https://api-layer.vercel.app/api/company/logo/light",
+        dark: "https://api-layer.vercel.app/api/company/logo/dark", 
+        icon: "https://api-layer.vercel.app/api/company/logo/icon",
+        favicon: "https://api-layer.vercel.app/api/company/logo/favicon"
+      }
+    }
+  });
+});
+
+// Update company name
+app.put('/api/company/name', authenticateToken, (req, res) => {
+  const { company_name } = req.body;
+  
+  if (!company_name || company_name.trim().length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Company name is required",
+      errors: {
+        company_name: "Please enter a valid company name"
+      }
+    });
+  }
+  
+  res.json({
+    success: true,
+    message: "Company name updated successfully",
+    data: {
+      company_name: company_name.trim(),
+      slug: company_name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-'),
+      updated_at: new Date().toISOString()
+    }
+  });
+});
+
+// Update industry/category
+app.put('/api/company/industry', authenticateToken, (req, res) => {
+  const { industry, category } = req.body;
+  
+  if (!industry) {
+    return res.status(400).json({
+      success: false,
+      message: "Industry/category is required",
+      errors: {
+        industry: "Please select an industry"
+      }
+    });
+  }
+  
+  res.json({
+    success: true,
+    message: "Industry updated successfully",
+    data: {
+      industry,
+      category: category || industry,
+      industry_code: industry.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+      updated_at: new Date().toISOString()
+    }
+  });
+});
+
+// Update brand color
+app.put('/api/company/brand-color', authenticateToken, (req, res) => {
+  const { brand_color, color_name, custom_color } = req.body;
+  
+  // Predefined colors matching Figma design
+  const predefinedColors = {
+    'Blue': '#3B82F6',
+    'Purple': '#6366F1', 
+    'Burgundy': '#991B1B',
+    'Red': '#EF4444',
+    'Midnight Blue': '#1E3A8A'
+  };
+  
+  let finalColor = brand_color;
+  let finalColorName = color_name;
+  
+  // If custom color is provided
+  if (custom_color) {
+    finalColor = custom_color;
+    finalColorName = 'Custom Color';
+  } else if (color_name && predefinedColors[color_name]) {
+    finalColor = predefinedColors[color_name];
+  }
+  
+  // Color validation
+  const hexColorRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
+  if (!hexColorRegex.test(finalColor)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid color format",
+      errors: {
+        brand_color: "Please provide a valid hex color code"
+      }
+    });
+  }
+  
+  res.json({
+    success: true,
+    message: "Brand color updated successfully",
+    data: {
+      brand_color: finalColor,
+      color_name: finalColorName,
+      rgb: hexToRgb(finalColor),
+      predefined_colors: predefinedColors,
+      updated_at: new Date().toISOString()
+    }
+  });
+});
+
+// Helper function to convert hex to RGB
+function hexToRgb(hex) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : null;
+}
+
+// Update support email
+app.put('/api/company/support-email', authenticateToken, (req, res) => {
+  const { support_email } = req.body;
+  
+  // Email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!support_email || !emailRegex.test(support_email)) {
+    return res.status(400).json({
+      success: false,
+      message: "Valid support email is required",
+      errors: {
+        support_email: "Please enter a valid email address"
+      }
+    });
+  }
+  
+  res.json({
+    success: true,
+    message: "Support email updated successfully",
+    data: {
+      support_email,
+      email_verified: false,
+      verification_sent: true,
+      updated_at: new Date().toISOString()
+    }
+  });
+});
+
+// Update company phone
+app.put('/api/company/phone', authenticateToken, (req, res) => {
+  const { company_phone } = req.body;
+  
+  if (!company_phone) {
+    return res.status(400).json({
+      success: false,
+      message: "Company phone number is required",
+      errors: {
+        company_phone: "Please enter a valid phone number"
+      }
+    });
+  }
+  
+  res.json({
+    success: true,
+    message: "Company phone updated successfully",
+    data: {
+      company_phone,
+      formatted_phone: company_phone,
+      country_code: "+1",
+      phone_verified: false,
+      updated_at: new Date().toISOString()
+    }
+  });
+});
+
+// Update company address
+app.put('/api/company/address', authenticateToken, (req, res) => {
+  const { address, city, state, country, postal_code } = req.body;
+  
+  if (!address) {
+    return res.status(400).json({
+      success: false,
+      message: "Address is required",
+      errors: {
+        address: "Please enter a valid address"
+      }
+    });
+  }
+  
+  res.json({
+    success: true,
+    message: "Company address updated successfully",
+    data: {
+      address,
+      city: city || "Auckland",
+      state: state || "Auckland",
+      country: country || "New Zealand",
+      postal_code: postal_code || "1010",
+      full_address: `${address}, ${city || "Auckland"}, ${country || "New Zealand"}`,
+      coordinates: {
+        latitude: -36.8485,
+        longitude: 174.7633
+      },
+      updated_at: new Date().toISOString()
+    }
+  });
+});
+
+// ========== Profile Management APIs (Based on Figma Settings Screens) ==========
+
+// Get user profile information
+app.get('/api/me/profile', authenticateToken, (req, res) => {
+  res.json({
+    success: true,
+    message: "Profile information retrieved successfully",
+    data: {
+      user: {
+        id: 1,
+        first_name: "Jenny",
+        last_name: "Wilson", 
+        full_name: "Jenny Wilson",
+        email: "jenny.wilson@email.com",
+        phone: "(+1) 267 - 9041",
+        profile_photo: "https://api-layer.vercel.app/api/me/profile/photo",
+        role: "Employee",
+        company: "ACME Inc.",
+        joined_date: "August 17, 2025",
+        employee_id: "EMP001",
+        department: "Engineering",
+        status: "Active",
+        timezone: "UTC-5",
+        last_login: "2024-12-24T09:41:00Z"
+      },
+      permissions: {
+        can_edit_profile: true,
+        can_change_password: true,
+        can_delete_account: true,
+        can_upload_photo: true
+      }
+    }
+  });
+});
+
+// Update profile information  
+app.put('/api/me/profile', authenticateToken, (req, res) => {
+  const { first_name, last_name, email, phone, timezone } = req.body;
+  
+  res.json({
+    success: true,
+    message: "Profile updated successfully",
+    data: {
+      user: {
+        id: 1,
+        first_name: first_name || "Jenny",
+        last_name: last_name || "Wilson",
+        full_name: `${first_name || "Jenny"} ${last_name || "Wilson"}`,
+        email: email || "jenny.wilson@email.com", 
+        phone: phone || "(+1) 267 - 9041",
+        timezone: timezone || "UTC-5",
+        updated_at: new Date().toISOString()
+      }
+    }
+  });
+});
+
+// Upload profile photo
+app.post('/api/me/profile/photo', authenticateToken, (req, res) => {
+  const { photo_data, photo_type } = req.body;
+  
+  res.json({
+    success: true,
+    message: "Profile photo uploaded successfully",
+    data: {
+      photo_url: "https://api-layer.vercel.app/api/me/profile/photo",
+      photo_id: Math.floor(Math.random() * 10000),
+      upload_time: new Date().toISOString(),
+      file_size: "2.3 MB",
+      file_type: photo_type || "image/jpeg",
+      thumbnail_url: "https://api-layer.vercel.app/api/me/profile/photo/thumb"
+    }
+  });
+});
+
+// Update name specifically  
+app.put('/api/me/profile/name', authenticateToken, (req, res) => {
+  const { first_name, last_name } = req.body;
+  
+  // Validation
+  if (!first_name || !last_name) {
+    return res.status(400).json({
+      success: false,
+      message: "First name and last name are required",
+      errors: {
+        first_name: !first_name ? "First name is required" : null,
+        last_name: !last_name ? "Last name is required" : null
+      }
+    });
+  }
+  
+  res.json({
+    success: true,
+    message: "Name updated successfully",
+    data: {
+      first_name,
+      last_name,
+      full_name: `${first_name} ${last_name}`,
+      updated_at: new Date().toISOString()
+    }
+  });
+});
+
+// Update email specifically
+app.put('/api/me/profile/email', authenticateToken, (req, res) => {
+  const { email } = req.body;
+  
+  // Email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email || !emailRegex.test(email)) {
+    return res.status(400).json({
+      success: false,
+      message: "Valid email address is required",
+      errors: {
+        email: "Please enter a valid email address"
+      }
+    });
+  }
+  
+  res.json({
+    success: true,
+    message: "Email updated successfully",
+    data: {
+      email,
+      email_verified: false,
+      verification_sent: true,
+      updated_at: new Date().toISOString()
+    }
+  });
+});
+
+// Update phone number specifically
+app.put('/api/me/profile/phone', authenticateToken, (req, res) => {
+  const { phone } = req.body;
+  
+  // Phone validation
+  if (!phone) {
+    return res.status(400).json({
+      success: false,
+      message: "Phone number is required",
+      errors: {
+        phone: "Please enter a valid phone number"
+      }
+    });
+  }
+  
+  res.json({
+    success: true,
+    message: "Phone number updated successfully", 
+    data: {
+      phone,
+      phone_verified: false,
+      verification_sent: true,
+      updated_at: new Date().toISOString()
+    }
+  });
+});
+
+// Change password
+app.put('/api/me/profile/password', authenticateToken, (req, res) => {
+  const { current_password, new_password, confirm_password } = req.body;
+  
+  // Password validation
+  if (!current_password || !new_password || !confirm_password) {
+    return res.status(400).json({
+      success: false,
+      message: "All password fields are required",
+      errors: {
+        current_password: !current_password ? "Current password is required" : null,
+        new_password: !new_password ? "New password is required" : null,
+        confirm_password: !confirm_password ? "Please confirm your new password" : null
+      }
+    });
+  }
+  
+  if (new_password !== confirm_password) {
+    return res.status(400).json({
+      success: false,
+      message: "Passwords do not match",
+      errors: {
+        confirm_password: "Passwords do not match"
+      }
+    });
+  }
+  
+  if (new_password.length < 6) {
+    return res.status(400).json({
+      success: false,
+      message: "Password must be at least 6 characters long",
+      errors: {
+        new_password: "Password must be at least 6 characters long"
+      }
+    });
+  }
+  
+  res.json({
+    success: true,
+    message: "Password changed successfully",
+    data: {
+      password_changed: true,
+      changed_at: new Date().toISOString(),
+      logout_other_sessions: true
+    }
+  });
+});
+
+// Delete account
+app.delete('/api/me/profile', authenticateToken, (req, res) => {
+  const { confirmation_text, password } = req.body;
+  
+  // Validation for delete confirmation
+  if (!confirmation_text || confirmation_text.toLowerCase() !== 'delete') {
+    return res.status(400).json({
+      success: false,
+      message: "Please type 'DELETE' to confirm account deletion",
+      errors: {
+        confirmation: "Type 'DELETE' to confirm"
+      }
+    });
+  }
+  
+  if (!password) {
+    return res.status(400).json({
+      success: false,
+      message: "Password is required to delete account",
+      errors: {
+        password: "Please enter your password to confirm"
+      }
+    });
+  }
+  
+  res.json({
+    success: true,
+    message: "Account deletion initiated successfully",
+    data: {
+      deletion_initiated: true,
+      deletion_id: `DEL_${Date.now()}`,
+      initiated_at: new Date().toISOString(),
+      completion_time: "24-48 hours",
+      cancellation_deadline: new Date(Date.now() + 24*60*60*1000).toISOString(),
+      warning: "This action cannot be undone. Your profile and all related data will be permanently removed."
+    }
+  });
+});
+
 // 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({
@@ -2956,6 +4222,23 @@ app.use('*', (req, res) => {
       '/api/quick-actions',
       '/api/leave-types',
       '/api/me/leave-requests',
+      '/api/me/time-corrections',
+      '/api/time-correction-types',
+      '/api/me/time-corrections/history',
+      '/api/company/settings',
+      '/api/company/logo',
+      '/api/company/name',
+      '/api/company/industry',
+      '/api/company/brand-color',
+      '/api/company/support-email',
+      '/api/company/phone',
+      '/api/company/address',
+      '/api/me/profile',
+      '/api/me/profile/photo',
+      '/api/me/profile/name',
+      '/api/me/profile/email',
+      '/api/me/profile/phone',
+      '/api/me/profile/password',
       '/api-docs',
       '/swagger.json'
     ]
