@@ -1804,7 +1804,7 @@ app.get('/swagger.json', (req, res) => {
     },
     "servers": [
       {
-        "url": "https://api-layer.vercel.app/api",
+        "url": "https://api-layer.vercel.app",
         "description": "Production server"
       }
     ],
@@ -1819,7 +1819,7 @@ app.get('/swagger.json', (req, res) => {
           "type": "http",
           "scheme": "bearer",
           "bearerFormat": "JWT",
-          "description": "Enter JWT token obtained from /get-token endpoint. Format: Bearer <token>"
+          "description": "Enter JWT token obtained from /api/get-token endpoint. Format: Bearer <token>"
         }
       },
       "schemas": {
@@ -1846,7 +1846,7 @@ app.get('/swagger.json', (req, res) => {
       }
     },
     "paths": {
-      "/health": {
+      "/api/health": {
         "get": {
           "summary": "Health Check",
           "description": "Check API server health status",
@@ -1858,7 +1858,7 @@ app.get('/swagger.json', (req, res) => {
           }
         }
       },
-      "/auth/register": {
+      "/api/auth/register": {
         "post": {
           "summary": "User Registration",
           "description": "Register a new user account",
@@ -1909,7 +1909,7 @@ app.get('/swagger.json', (req, res) => {
           }
         }
       },
-      "/auth/login": {
+      "/api/auth/login": {
         "post": {
           "summary": "User Login",
           "description": "Authenticate user and get JWT Bearer token",
@@ -1964,7 +1964,7 @@ app.get('/swagger.json', (req, res) => {
           }
         }
       },
-      "/auth/logout": {
+      "/api/auth/logout": {
         "post": {
           "summary": "User Sign Out / Logout",
           "description": "Sign out user from application. Invalidates current session.",
@@ -2004,7 +2004,7 @@ app.get('/swagger.json', (req, res) => {
           }
         }
       },
-      "/me": {
+      "/api/me": {
         "get": {
           "summary": "Get Current User Profile",
           "description": "Get detailed information about the current authenticated user",
@@ -2044,7 +2044,7 @@ app.get('/swagger.json', (req, res) => {
           }
         }
       },
-      "/profile": {
+      "/api/profile": {
         "get": {
           "summary": "Get User Profile",
           "description": "Get basic user profile data",
