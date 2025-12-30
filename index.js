@@ -2079,6 +2079,8 @@ app.get('/swagger.json', (req, res) => {
 
   res.json(swaggerSpec);
 });
+
+/* COMMENTED OUT - DUPLICATE SWAGGER SPEC
     "security": [
       {
         "BearerAuth": []
@@ -3715,6 +3717,7 @@ app.get('/swagger.json', (req, res) => {
 
   res.json(swaggerSpec);
 });
+*/
 
 // Swagger UI
 app.get('/api-docs', (req, res) => {
