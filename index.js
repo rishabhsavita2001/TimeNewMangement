@@ -1791,6 +1791,7 @@ app.post('/api/me/leave-requests', (req, res) => {
 
 // Swagger Documentation
 app.get('/swagger.json', (req, res) => {
+  // Logout API endpoint: POST /api/auth/logout - Version 2.0.0
   const swaggerSpec = {
     "openapi": "3.0.0",
     "info": {
