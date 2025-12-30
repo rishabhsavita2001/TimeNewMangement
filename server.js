@@ -9,7 +9,7 @@ const app = express();
 // JWT Secret
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-for-development-only';
 
-// Swagger configuration
+// Swagger configuration with Logout endpoint
 const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
@@ -39,6 +39,46 @@ const swaggerOptions = {
           scheme: 'bearer',
           bearerFormat: 'JWT',
           description: 'Enter JWT Bearer token. Get token from /api/get-token endpoint'
+        }
+      }
+    },
+    paths: {
+      '/api/auth/logout': {
+        post: {
+          summary: 'User sign out / logout',
+          description: 'Sign out user from application and invalidate session',
+          tags: ['Authentication'],
+          security: [{ bearerAuth: [] }],
+          responses: {
+            '200': {
+              description: 'Sign out successful',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: true },
+                      message: { type: 'string', example: 'Your sign out success' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          userId: { type: 'integer', example: 1 },
+                          loggedOutAt: { type: 'string', format: 'date-time' },
+                          status: { type: 'string', example: 'logged_out' }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            '401': {
+              description: 'Access token required'
+            },
+            '403': {
+              description: 'Invalid or expired token'
+            }
+          }
         }
       }
     }
