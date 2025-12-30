@@ -1794,8 +1794,8 @@ app.get('/swagger.json', (req, res) => {
   const swaggerSpec = {
     "openapi": "3.0.0",
     "info": {
-      "title": "Time Tracking API - Complete Implementation with Bearer Token Auth",
-      "description": "Complete API for mobile time tracking app with all Figma screens implemented. Use /api/get-token to get a Bearer token for authentication.",
+      "title": "Working Time API - Complete Implementation",
+      "description": "Complete API for mobile time tracking app. Use /api/get-token to get a Bearer token for authentication.",
       "version": "2.0.0",
       "contact": {
         "name": "API Support",
@@ -1808,6 +1808,276 @@ app.get('/swagger.json', (req, res) => {
         "description": "Production server"
       }
     ],
+    "components": {
+      "securitySchemes": {
+        "BearerAuth": {
+          "type": "http",
+          "scheme": "bearer",
+          "bearerFormat": "JWT",
+          "description": "Enter JWT Bearer token obtained from /api/get-token endpoint"
+        }
+      },
+      "schemas": {
+        "Error": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean" },
+            "message": { "type": "string" }
+          }
+        }
+      }
+    },
+    "paths": {
+      "/api/health": {
+        "get": {
+          "summary": "Health Check",
+          "tags": ["System"],
+          "responses": {
+            "200": { "description": "Server is healthy" }
+          }
+        }
+      },
+      "/api/get-token": {
+        "get": {
+          "summary": "Get Test Bearer Token",
+          "description": "Get a test JWT token for API authentication",
+          "tags": ["Authentication"],
+          "responses": {
+            "200": { "description": "Token generated successfully" }
+          }
+        }
+      },
+      "/api/auth/register": {
+        "post": {
+          "summary": "User Registration",
+          "tags": ["Authentication"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "firstName": { "type": "string" },
+                    "lastName": { "type": "string" },
+                    "email": { "type": "string" },
+                    "password": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": { "description": "User registered successfully" }
+          }
+        }
+      },
+      "/api/auth/login": {
+        "post": {
+          "summary": "User Login",
+          "tags": ["Authentication"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "email": { "type": "string" },
+                    "password": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "Login successful" }
+          }
+        }
+      },
+      "/api/auth/logout": {
+        "post": {
+          "summary": "User Sign Out / Logout",
+          "description": "Sign out user from application. Invalidates current session.",
+          "tags": ["Authentication"],
+          "security": [{ "BearerAuth": [] }],
+          "responses": {
+            "200": {
+              "description": "Sign out successful",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "success": { "type": "boolean", "example": true },
+                      "message": { "type": "string", "example": "Your sign out success" },
+                      "data": {
+                        "type": "object",
+                        "properties": {
+                          "userId": { "type": "integer" },
+                          "loggedOutAt": { "type": "string", "format": "date-time" },
+                          "status": { "type": "string", "example": "logged_out" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "401": { "description": "Unauthorized - Bearer token required" }
+          }
+        }
+      },
+      "/api/me": {
+        "get": {
+          "summary": "Get User Profile",
+          "tags": ["User"],
+          "security": [{ "BearerAuth": [] }],
+          "responses": {
+            "200": { "description": "User profile retrieved successfully" }
+          }
+        }
+      },
+      "/api/profile": {
+        "get": {
+          "summary": "Get User Profile",
+          "tags": ["User"],
+          "responses": {
+            "200": { "description": "Profile retrieved successfully" }
+          }
+        }
+      },
+      "/api/me/dashboard": {
+        "get": {
+          "summary": "Get User Dashboard",
+          "tags": ["Dashboard"],
+          "responses": {
+            "200": { "description": "Dashboard data retrieved" }
+          }
+        }
+      },
+      "/api/dashboard": {
+        "get": {
+          "summary": "Get Dashboard",
+          "tags": ["Dashboard"],
+          "responses": {
+            "200": { "description": "Dashboard retrieved" }
+          }
+        }
+      },
+      "/api/me/timer/start": {
+        "post": {
+          "summary": "Start Timer",
+          "tags": ["Timer"],
+          "responses": {
+            "200": { "description": "Timer started" }
+          }
+        }
+      },
+      "/api/me/timer/stop": {
+        "post": {
+          "summary": "Stop Timer",
+          "tags": ["Timer"],
+          "responses": {
+            "200": { "description": "Timer stopped" }
+          }
+        }
+      },
+      "/api/timer/start": {
+        "post": {
+          "summary": "Start Timer",
+          "tags": ["Timer"],
+          "responses": {
+            "200": { "description": "Timer started" }
+          }
+        }
+      },
+      "/api/timer/stop": {
+        "post": {
+          "summary": "Stop Timer",
+          "tags": ["Timer"],
+          "responses": {
+            "200": { "description": "Timer stopped" }
+          }
+        }
+      },
+      "/api/timer/status": {
+        "get": {
+          "summary": "Get Timer Status",
+          "tags": ["Timer"],
+          "responses": {
+            "200": { "description": "Timer status retrieved" }
+          }
+        }
+      },
+      "/api/me/time-entries": {
+        "get": {
+          "summary": "Get Time Entries",
+          "tags": ["Time Entries"],
+          "responses": {
+            "200": { "description": "Time entries retrieved" }
+          }
+        }
+      },
+      "/api/time-entries": {
+        "get": {
+          "summary": "Get Time Entries",
+          "tags": ["Time Entries"],
+          "responses": {
+            "200": { "description": "Time entries retrieved" }
+          }
+        }
+      },
+      "/api/leave-requests": {
+        "get": {
+          "summary": "Get Leave Requests",
+          "tags": ["Leave"],
+          "responses": {
+            "200": { "description": "Leave requests retrieved" }
+          }
+        }
+      },
+      "/api/leave-balances": {
+        "get": {
+          "summary": "Get Leave Balances",
+          "tags": ["Leave"],
+          "responses": {
+            "200": { "description": "Leave balances retrieved" }
+          }
+        }
+      },
+      "/api/projects": {
+        "get": {
+          "summary": "Get Projects",
+          "tags": ["Projects"],
+          "responses": {
+            "200": { "description": "Projects retrieved" }
+          }
+        }
+      },
+      "/api/notifications": {
+        "get": {
+          "summary": "Get Notifications",
+          "tags": ["Notifications"],
+          "responses": {
+            "200": { "description": "Notifications retrieved" }
+          }
+        }
+      },
+      "/api/test": {
+        "get": {
+          "summary": "Test Endpoint",
+          "tags": ["System"],
+          "responses": {
+            "200": { "description": "Test successful" }
+          }
+        }
+      }
+    }
+  };
+
+  res.json(swaggerSpec);
+});
     "security": [
       {
         "BearerAuth": []
