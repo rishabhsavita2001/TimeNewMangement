@@ -3558,7 +3558,92 @@ app.get('/api/employees/departments', authenticateToken, (req, res) => {
   });
 });
 
+// Get Employee Requests API (for Figma employee detail page)
+app.get('/api/employees/:id/requests', authenticateToken, (req, res) => {
+  const employeeId = parseInt(req.params.id);
+  
+  res.json({
+    success: true,
+    data: {
+      requests: [
+        {
+          id: 1,
+          type: "Vacation Request",
+          status: "Pending",
+          startDate: "2025-11-05",
+          endDate: "2025-11-07",
+          days: 3,
+          reason: "Personal leave",
+          submittedAt: "2025-10-15"
+        },
+        {
+          id: 2,
+          type: "Sick Leave", 
+          status: "Approved",
+          startDate: "2025-10-12",
+          endDate: "2025-10-13",
+          days: 2,
+          reason: "Flu",
+          submittedAt: "2025-10-10"
+        },
+        {
+          id: 3,
+          type: "Correction Request",
+          status: "Pending",
+          date: "2025-10-08",
+          originalTime: "09:30 - 18:00",
+          correctedTime: "11:00 - 19:30",
+          reason: "Forgot to update check-in time",
+          submittedAt: "2025-10-09"
+        }
+      ]
+    }
+  });
+});
+
+// Get Employee Activity API (for Figma employee detail page)
+app.get('/api/employees/:id/activity', authenticateToken, (req, res) => {
+  const employeeId = parseInt(req.params.id);
+  
+  res.json({
+    success: true,
+    data: {
+      recentActivity: [
+        {
+          id: 1,
+          type: "check-in",
+          action: "Checked in",
+          time: "Today, 08:12",
+          details: "Started work session"
+        },
+        {
+          id: 2,
+          type: "vacation-request",
+          action: "Vacation request submitted",
+          time: "Today, 08:04",
+          details: "Requested 5 days off (5-8 Nov)"
+        },
+        {
+          id: 3,
+          type: "correction-request",
+          action: "Correction request approved",
+          time: "Yesterday, 16:40",
+          details: "Time correction for 3 Nov was approved"
+        },
+        {
+          id: 4,
+          type: "vacation-request",
+          action: "Vacation request submitted",
+          time: "Yesterday, 09:37",
+          details: "Requested 3 days off (5-6 Nov)"
+        }
+      ]
+    }
+  });
+});
+
 if (require.main === module && process.env.VERCEL !== '1') {
+  const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
     console.log(`✅ Server running on http://localhost:${PORT}`);
     console.log(`📚 API Docs: http://localhost:${PORT}/api-docs`);
