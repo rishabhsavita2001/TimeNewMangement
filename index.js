@@ -3103,7 +3103,7 @@ app.get('/api/dashboard/employees', (req, res) => {
 });
 
 // Get All Employees API
-app.get('/api/employees', (req, res) => {
+app.get('/api/employees', authenticateToken, (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const status = req.query.status || 'all';
@@ -3339,7 +3339,7 @@ app.get('/api/employees', (req, res) => {
 });
 
 // Get Single Employee API
-app.get('/api/employees/:id', (req, res) => {
+app.get('/api/employees/:id', authenticateToken, (req, res) => {
   const employeeId = parseInt(req.params.id);
   
   const employee = {
@@ -3408,7 +3408,7 @@ app.get('/api/employees/:id', (req, res) => {
 });
 
 // Create Employee API
-app.post('/api/employees', (req, res) => {
+app.post('/api/employees', authenticateToken, (req, res) => {
   const newEmployee = {
     id: Math.floor(Math.random() * 1000) + 100,
     ...req.body,
@@ -3425,7 +3425,7 @@ app.post('/api/employees', (req, res) => {
 });
 
 // Update Employee API
-app.put('/api/employees/:id', (req, res) => {
+app.put('/api/employees/:id', authenticateToken, (req, res) => {
   const employeeId = req.params.id;
   const updatedData = req.body;
 
@@ -3441,7 +3441,7 @@ app.put('/api/employees/:id', (req, res) => {
 });
 
 // Deactivate Employee API
-app.patch('/api/employees/:id/deactivate', (req, res) => {
+app.patch('/api/employees/:id/deactivate', authenticateToken, (req, res) => {
   const employeeId = req.params.id;
 
   res.json({
@@ -3457,7 +3457,7 @@ app.patch('/api/employees/:id/deactivate', (req, res) => {
 });
 
 // Activate Employee API
-app.patch('/api/employees/:id/activate', (req, res) => {
+app.patch('/api/employees/:id/activate', authenticateToken, (req, res) => {
   const employeeId = req.params.id;
 
   res.json({
@@ -3473,7 +3473,7 @@ app.patch('/api/employees/:id/activate', (req, res) => {
 });
 
 // Delete Employee API
-app.delete('/api/employees/:id', (req, res) => {
+app.delete('/api/employees/:id', authenticateToken, (req, res) => {
   const employeeId = req.params.id;
 
   res.json({
@@ -3488,7 +3488,7 @@ app.delete('/api/employees/:id', (req, res) => {
 });
 
 // Get Employee Timesheet API
-app.get('/api/employees/:id/timesheet', (req, res) => {
+app.get('/api/employees/:id/timesheet', authenticateToken, (req, res) => {
   const employeeId = req.params.id;
   const period = req.query.period || 'weekly';
 
@@ -3525,7 +3525,7 @@ app.get('/api/employees/:id/timesheet', (req, res) => {
 });
 
 // Get Employee Roles API
-app.get('/api/employees/roles', (req, res) => {
+app.get('/api/employees/roles', authenticateToken, (req, res) => {
   res.json({
     success: true,
     data: {
@@ -3540,7 +3540,7 @@ app.get('/api/employees/roles', (req, res) => {
 });
 
 // Get Departments API
-app.get('/api/employees/departments', (req, res) => {
+app.get('/api/employees/departments', authenticateToken, (req, res) => {
   res.json({
     success: true,
     data: {
