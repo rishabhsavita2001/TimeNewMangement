@@ -1,0 +1,527 @@
+﻿
+>     "paths": {
+        "/api/health": {
+          "get": {
+            "summary": "Health Check",
+            "description": "Check API server health status",
+            "tags": ["System"],
+            "responses": {
+              "200": {
+                "description": "Server is healthy"
+              }
+            }
+          }
+        },
+        "/api/auth/register": {
+          "post": {
+            "summary": "User Registration",
+            "description": "Register a new user account",
+            "tags": ["Authentication"],
+            "security": [],
+            "requestBody": {
+              "required": true,
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "required": ["firstName", "lastName", "email", "password"],
+                    "properties": {
+                      "firstName": { "type": "string", "example": "John" },
+                      "lastName": { "type": "string", "example": "Doe" },
+                      "email": { "type": "string", "format": "email", "example": 
+"john.doe@example.com" },
+                      "password": { "type": "string", "minLength": 6, "example": 
+"password123" },
+                      "tenantName": { "type": "string", "example": "Demo Company" 
+},
+                      "employeeNumber": { "type": "string", "example": "EMP001" }
+                    }
+                  }
+                }
+              }
+            },
+            "responses": {
+              "201": {
+                "description": "User registered successfully",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "success": { "type": "boolean", "example": true },
+                        "message": { "type": "string", "example": "User registered 
+successfully" },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "user": { "$ref": "#/components/schemas/User" },
+                            "token": { "type": "string", "description": "JWT 
+Bearer token" },
+                            "access_token": { "type": "string", "description": 
+"Same as token" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "/api/auth/login": {
+          "post": {
+            "summary": "User Login",
+            "description": "Authenticate user and get JWT Bearer token",
+            "tags": ["Authentication"],
+            "security": [],
+            "requestBody": {
+              "required": true,
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "required": ["email", "password"],
+                    "properties": {
+                      "email": { "type": "string", "format": "email", "example": 
+"john.doe@example.com" },
+                      "password": { "type": "string", "example": "password123" }
+                    }
+                  }
+                }
+              }
+            },
+            "responses": {
+              "200": {
+                "description": "Login successful",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "success": { "type": "boolean", "example": true },
+                        "message": { "type": "string", "example": "Login 
+successful" },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "user": { "$ref": "#/components/schemas/User" },
+                            "token": { "type": "string", "description": "JWT 
+Bearer token" },
+                            "access_token": { "type": "string", "description": 
+"Same as token" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "400": {
+                "description": "Missing email or password",
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/Error" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "/api/auth/logout": {
+          "post": {
+            "summary": "User Sign Out / Logout",
+            "description": "Sign out user from application. Invalidates current 
+session.",
+            "tags": ["Authentication"],
+            "security": [{ "BearerAuth": [] }],
+            "responses": {
+              "200": {
+                "description": "Sign out successful",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "success": { "type": "boolean", "example": true },
+                        "message": { "type": "string", "example": "Your sign out 
+success" },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "userId": { "type": "integer", "example": 1 },
+                            "loggedOutAt": { "type": "string", "format": 
+"date-time" },
+                            "status": { "type": "string", "example": "logged_out" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "401": {
+                "description": "Unauthorized - Bearer token required",
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/Error" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "/api/me": {
+          "get": {
+            "summary": "Get Current User Profile",
+            "description": "Get detailed information about the current 
+authenticated user",
+            "tags": ["User Profile"],
+            "security": [{ "BearerAuth": [] }],
+            "responses": {
+              "200": {
+                "description": "User profile retrieved successfully",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "success": { "type": "boolean", "example": true },
+                        "data": { "$ref": "#/components/schemas/User" }
+                      }
+                    }
+                  }
+                }
+              },
+              "401": {
+                "description": "Unauthorized - Bearer token required",
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/Error" }
+                  }
+                }
+              },
+              "403": {
+                "description": "Forbidden - Invalid or expired token",
+                "content": {
+                  "application/json": {
+                    "schema": { "$ref": "#/components/schemas/Error" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "/api/profile": {
+          "get": {
+            "summary": "Get User Profile",
+            "description": "Get basic user profile data",
+            "tags": ["User Profile"],
+            "responses": {
+              "200": {
+                "description": "Profile retrieved successfully"
+              }
+            }
+          }
+        },
+        "/get-token": {
+          "get": {
+            "summary": "Get Test JWT Token",
+            "description": "Get a test JWT Bearer token for API authentication. 
+Copy the token and use it in the 'Authorize' button above.",
+            "tags": ["Authentication"],
+            "security": [],
+            "responses": {
+              "200": {
+                "description": "Token generated successfully",
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "success": { "type": "boolean", "example": true },
+                        "message": { "type": "string", "example": "Test token 
+generated successfully" },
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "token": { "type": "string", "description": "JWT 
+Bearer token" },
+                            "access_token": { "type": "string", "description": 
+"Same as token" },
+                            "expires_in": { "type": "string", "example": "24h" },
+                            "token_type": { "type": "string", "example": "Bearer" 
+},
+                            "usage": { "type": "string", "example": "Copy this 
+token and use it in Swagger UI Authorization" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "/dashboard": {
+          "get": {
+            "summary": "Get Dashboard Data",
+            "description": "Get complete dashboard data for Figma dashboard 
+screen",
+            "tags": ["Dashboard"],
+            "responses": {
+              "200": {
+                "description": "Dashboard data retrieved successfully"
+              }
+            }
+          }
+        },
+        "/dashboard/summary": {
+          "get": {
+            "summary": "Get Dashboard Summary",
+            "description": "Get summarized dashboard data",
+            "tags": ["Dashboard"],
+            "responses": {
+              "200": {
+                "description": "Dashboard summary retrieved successfully"
+              }
+            }
+          }
+        },
+        "/me/dashboard": {
+          "get": {
+            "summary": "Get User Dashboard",
+            "description": "Get user-specific dashboard data",
+            "tags": ["Dashboard"],
+            "responses": {
+              "200": {
+                "description": "User dashboard data retrieved successfully"
+              }
+            }
+          }
+        },
+        "/me/timer/start": {
+          "post": {
+            "summary": "Start Timer",
+            "description": "Start a new work timer (Figma Timer Screen)",
+            "tags": ["Timer"],
+            "requestBody": {
+              "required": true,
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "task_name": { "type": "string" },
+                      "project_id": { "type": "integer" },
+                      "description": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            },
+            "responses": {
+              "200": {
+                "description": "Timer started successfully"
+              }
+            }
+          }
+        },
+        "/me/timer/stop": {
+          "post": {
+            "summary": "Stop Timer",
+            "description": "Stop the currently running timer",
+            "tags": ["Timer"],
+            "responses": {
+              "200": {
+                "description": "Timer stopped successfully"
+              }
+            }
+          }
+        },
+        "/timer/start": {
+          "post": {
+            "summary": "Start Timer (Alternative)",
+            "description": "Alternative endpoint to start timer",
+            "tags": ["Timer"],
+            "responses": {
+              "200": {
+                "description": "Timer started successfully"
+              }
+            }
+          }
+        },
+        "/timer/stop": {
+          "post": {
+            "summary": "Stop Timer (Alternative)",
+            "description": "Alternative endpoint to stop timer",
+            "tags": ["Timer"],
+            "responses": {
+              "200": {
+                "description": "Timer stopped successfully"
+              }
+            }
+          }
+        },
+        "/timer/status": {
+          "get": {
+            "summary": "Get Timer Status",
+            "description": "Get current timer status and active session",
+            "tags": ["Timer"],
+            "responses": {
+              "200": {
+                "description": "Timer status retrieved successfully"
+              }
+            }
+          }
+        },
+        "/me/time-entries": {
+          "get": {
+            "summary": "Get Time Entries",
+            "description": "Get user time entries with pagination",
+            "tags": ["Time Entries"],
+            "parameters": [
+              {
+                "name": "page",
+                "in": "query",
+                "schema": { "type": "integer", "default": 1 }
+              },
+              {
+                "name": "limit", 
+                "in": "query",
+                "schema": { "type": "integer", "default": 20 }
+              }
+            ],
+            "responses": {
+              "200": {
+                "description": "Time entries retrieved successfully"
+              }
+            }
+          },
+          "post": {
+            "summary": "Create Time Entry",
+            "description": "Create a new time entry",
+            "tags": ["Time Entries"],
+            "requestBody": {
+              "required": true,
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "required": ["date", "start_time", "end_time"],
+                    "properties": {
+                      "date": { "type": "string", "format": "date" },
+                      "start_time": { "type": "string", "format": "time" },
+                      "end_time": { "type": "string", "format": "time" },
+                      "task_name": { "type": "string" },
+                      "description": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            },
+            "responses": {
+              "201": {
+                "description": "Time entry created successfully"
+              }
+            }
+          }
+        },
+        "/projects": {
+          "get": {
+            "summary": "Get Projects",
+            "description": "Get list of all available projects",
+            "tags": ["Projects"],
+            "responses": {
+              "200": {
+                "description": "Projects retrieved successfully"
+              }
+            }
+          }
+        },
+        "/me/work-summary/weekly": {
+          "get": {
+            "summary": "Get Weekly Work Summary",
+            "description": "Get weekly work summary and breakdown",
+            "tags": ["Reports"],
+            "responses": {
+              "200": {
+                "description": "Weekly summary retrieved successfully"
+              }
+            }
+          }
+        },
+        "/leave-requests": {
+          "get": {
+            "summary": "Get Leave Requests",
+            "description": "Get list of leave requests",
+            "tags": ["Leave Management"],
+            "parameters": [
+              {
+                "name": "page",
+                "in": "query", 
+                "schema": { "type": "integer", "default": 1 }
+              },
+              {
+                "name": "limit",
+                "in": "query",
+                "schema": { "type": "integer", "default": 10 }
+              },
+              {
+                "name": "status",
+                "in": "query",
+                "schema": { "type": "string", "enum": ["pending", "approved", 
+"rejected"] }
+              }
+            ],
+            "responses": {
+              "200": {
+                "description": "Leave requests retrieved successfully"
+              }
+            }
+          },
+          "post": {
+            "summary": "Create Leave Request", 
+            "description": "Submit a new leave request",
+            "tags": ["Leave Management"],
+            "requestBody": {
+              "required": true,
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "required": ["leave_type", "start_date", "end_date"],
+                    "properties": {
+                      "leave_type": { "type": "string", "enum": ["vacation", 
+"sick", "personal"] },
+                      "start_date": { "type": "string", "format": "date" },
+                      "end_date": { "type": "string", "format": "date" },
+                      "reason": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            },
+            "responses": {
+              "201": {
+                "description": "Leave request created successfully"
+              }
+            }
+          }
+        },
+        "/me/leave-requests": {
+          "get": {
+            "summary": "Get My Leave Requests",
+            "description": "Get user's own leave requests",
+            "tags": ["Leave Management"],
+            "responses": {
+              "200": {
+                "description": "User leave requests retrieved successfully"
+              }
+            }
+          },
+          "post": {
+            "summary": "Create My Leave Request",
+
+

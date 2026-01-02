@@ -1,0 +1,1091 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Complete Working Time API",
+    "description": "Complete comprehensive API for time tracking app with all 63 endpoints documented",
+    "version": "3.0.0",
+    "contact": {
+      "name": "API Support",
+      "url": "https://api-layer.vercel.app"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api-layer.vercel.app",
+      "description": "Production Server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Enter the JWT token received from login"
+      }
+    }
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Check if the API server is running",
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "Server is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "OK" },
+                    "timestamp": { "type": "string", "example": "2024-12-30T10:00:00Z" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/test": {
+      "get": {
+        "summary": "Test Endpoint",
+        "description": "Simple test endpoint to verify API connection",
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "Test successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string", "example": "API is working" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/get-token": {
+      "get": {
+        "summary": "Get Bearer Token",
+        "description": "Get a sample JWT token for testing API endpoints",
+        "tags": ["Auth"],
+        "responses": {
+          "200": {
+            "description": "Token generated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": { "type": "string", "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." },
+                    "expires": { "type": "string", "example": "2024-12-30T18:00:00Z" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "summary": "User Login",
+        "description": "Authenticate user with email and password",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "user@example.com" },
+                  "password": { "type": "string", "format": "password", "example": "password123" }
+                },
+                "required": ["email", "password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Login successful" },
+                    "token": { "type": "string", "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." },
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "integer", "example": 1 },
+                        "email": { "type": "string", "example": "user@example.com" },
+                        "name": { "type": "string", "example": "John Doe" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "summary": "User Registration",
+        "description": "Register a new user account",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "example": "John Doe" },
+                  "email": { "type": "string", "format": "email", "example": "user@example.com" },
+                  "password": { "type": "string", "format": "password", "example": "password123" }
+                },
+                "required": ["name", "email", "password"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Registration successful"
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "summary": "User Logout",
+        "description": "Logout user and invalidate session",
+        "tags": ["Auth"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Logout successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Logout successful" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me": {
+      "get": {
+        "summary": "Get Current User Profile",
+        "description": "Get current user's profile information",
+        "tags": ["User Profile"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "User profile data"
+          }
+        }
+      }
+    },
+    "/api/profile": {
+      "get": {
+        "summary": "Get Profile",
+        "description": "Get user profile information",
+        "tags": ["User Profile"],
+        "responses": {
+          "200": {
+            "description": "Profile data"
+          }
+        }
+      }
+    },
+    "/api/user/profile": {
+      "get": {
+        "summary": "Get User Profile",
+        "description": "Get user profile information",
+        "tags": ["User Profile"],
+        "responses": {
+          "200": {
+            "description": "User profile data"
+          }
+        }
+      }
+    },
+    "/api/profile/image": {
+      "get": {
+        "summary": "Get Profile Image",
+        "description": "Get user's profile image",
+        "tags": ["User Profile"],
+        "responses": {
+          "200": {
+            "description": "Profile image data"
+          }
+        }
+      }
+    },
+    "/api/me/profile": {
+      "get": {
+        "summary": "Get My Profile",
+        "description": "Get current user's detailed profile",
+        "tags": ["User Profile"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Profile data"
+          }
+        }
+      }
+    },
+    "/api/me/profile/name": {
+      "put": {
+        "summary": "Update Profile Name",
+        "description": "Update current user's name",
+        "tags": ["User Profile"],
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "example": "John Doe" }
+                },
+                "required": ["name"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Name updated successfully"
+          }
+        }
+      }
+    },
+    "/api/me/profile/email": {
+      "put": {
+        "summary": "Update Profile Email",
+        "description": "Update current user's email",
+        "tags": ["User Profile"],
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "newemail@example.com" }
+                },
+                "required": ["email"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email updated successfully"
+          }
+        }
+      }
+    },
+    "/api/me/profile/password": {
+      "put": {
+        "summary": "Update Profile Password",
+        "description": "Update current user's password",
+        "tags": ["User Profile"],
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "currentPassword": { "type": "string", "format": "password" },
+                  "newPassword": { "type": "string", "format": "password" }
+                },
+                "required": ["currentPassword", "newPassword"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password updated successfully"
+          }
+        }
+      }
+    },
+    "/api/me/profile/phone": {
+      "put": {
+        "summary": "Update Profile Phone",
+        "description": "Update current user's phone number",
+        "tags": ["User Profile"],
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "phone": { "type": "string", "example": "+1234567890" }
+                },
+                "required": ["phone"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Phone updated successfully"
+          }
+        }
+      }
+    },
+    "/api/me/profile/photo": {
+      "put": {
+        "summary": "Update Profile Photo",
+        "description": "Update current user's profile photo",
+        "tags": ["User Profile"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Photo updated successfully"
+          }
+        }
+      }
+    },
+    "/api/dashboard": {
+      "get": {
+        "summary": "Get Dashboard Data",
+        "description": "Get dashboard overview data",
+        "tags": ["Dashboard"],
+        "responses": {
+          "200": {
+            "description": "Dashboard data"
+          }
+        }
+      }
+    },
+    "/api/dashboard/summary": {
+      "get": {
+        "summary": "Get Dashboard Summary",
+        "description": "Get dashboard summary information",
+        "tags": ["Dashboard"],
+        "responses": {
+          "200": {
+            "description": "Dashboard summary"
+          }
+        }
+      }
+    },
+    "/api/user/dashboard": {
+      "get": {
+        "summary": "Get User Dashboard",
+        "description": "Get user-specific dashboard data",
+        "tags": ["Dashboard"],
+        "responses": {
+          "200": {
+            "description": "User dashboard data"
+          }
+        }
+      }
+    },
+    "/api/time-entries": {
+      "get": {
+        "summary": "Get Time Entries",
+        "description": "Get all time entries",
+        "tags": ["Time Tracking"],
+        "responses": {
+          "200": {
+            "description": "Time entries list"
+          }
+        }
+      }
+    },
+    "/api/me/time-entries": {
+      "get": {
+        "summary": "Get My Time Entries",
+        "description": "Get current user's time entries",
+        "tags": ["Time Tracking"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "User time entries"
+          }
+        }
+      }
+    },
+    "/api/me/time-entries/{id}": {
+      "get": {
+        "summary": "Get Time Entry by ID",
+        "description": "Get specific time entry by ID",
+        "tags": ["Time Tracking"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Time entry ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Time entry data"
+          }
+        }
+      }
+    },
+    "/api/me/time-entries/manual": {
+      "post": {
+        "summary": "Add Manual Time Entry",
+        "description": "Add a manual time entry",
+        "tags": ["Time Tracking"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "201": {
+            "description": "Manual time entry added"
+          }
+        }
+      }
+    },
+    "/api/me/timer/current": {
+      "get": {
+        "summary": "Get Current Timer",
+        "description": "Get current running timer status",
+        "tags": ["Timer"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Current timer status"
+          }
+        }
+      }
+    },
+    "/api/me/timer/start": {
+      "post": {
+        "summary": "Start Timer",
+        "description": "Start time tracking timer",
+        "tags": ["Timer"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Timer started successfully"
+          }
+        }
+      }
+    },
+    "/api/me/timer/stop": {
+      "post": {
+        "summary": "Stop Timer",
+        "description": "Stop time tracking timer",
+        "tags": ["Timer"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Timer stopped successfully"
+          }
+        }
+      }
+    },
+    "/api/me/timer/pause": {
+      "post": {
+        "summary": "Pause Timer",
+        "description": "Pause time tracking timer",
+        "tags": ["Timer"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Timer paused successfully"
+          }
+        }
+      }
+    },
+    "/api/projects": {
+      "get": {
+        "summary": "Get Projects",
+        "description": "Get all projects",
+        "tags": ["Projects"],
+        "responses": {
+          "200": {
+            "description": "Projects list"
+          }
+        }
+      }
+    },
+    "/api/projects/{id}/tasks": {
+      "get": {
+        "summary": "Get Project Tasks",
+        "description": "Get tasks for specific project",
+        "tags": ["Projects"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Project ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project tasks"
+          }
+        }
+      }
+    },
+    "/api/me/vacation/balance": {
+      "get": {
+        "summary": "Get Vacation Balance",
+        "description": "Get user's vacation days balance",
+        "tags": ["Leave Management"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Vacation balance"
+          }
+        }
+      }
+    },
+    "/api/me/vacation-balance": {
+      "get": {
+        "summary": "Get Vacation Balance (Alternative)",
+        "description": "Alternative endpoint for vacation balance",
+        "tags": ["Leave Management"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Vacation balance"
+          }
+        }
+      }
+    },
+    "/api/me/leave-requests": {
+      "get": {
+        "summary": "Get My Leave Requests",
+        "description": "Get user's leave requests",
+        "tags": ["Leave Management"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Leave requests list"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create Leave Request",
+        "description": "Submit a new leave request",
+        "tags": ["Leave Management"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "201": {
+            "description": "Leave request created"
+          }
+        }
+      }
+    },
+    "/api/leave-types": {
+      "get": {
+        "summary": "Get Leave Types",
+        "description": "Get available leave types",
+        "tags": ["Leave Management"],
+        "responses": {
+          "200": {
+            "description": "Leave types list"
+          }
+        }
+      }
+    },
+    "/api/me/overtime/summary": {
+      "get": {
+        "summary": "Get Overtime Summary",
+        "description": "Get user's overtime summary",
+        "tags": ["Reports"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Overtime summary"
+          }
+        }
+      }
+    },
+    "/api/me/work-status": {
+      "get": {
+        "summary": "Get Work Status",
+        "description": "Get current work status",
+        "tags": ["User Profile"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Work status"
+          }
+        }
+      }
+    },
+    "/api/me/work-summary/today": {
+      "get": {
+        "summary": "Get Today's Work Summary",
+        "description": "Get today's work summary",
+        "tags": ["Reports"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Today's work summary"
+          }
+        }
+      }
+    },
+    "/api/me/work-summary/weekly": {
+      "get": {
+        "summary": "Get Weekly Work Summary",
+        "description": "Get weekly work summary",
+        "tags": ["Reports"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Weekly work summary"
+          }
+        }
+      }
+    },
+    "/api/me/notifications": {
+      "get": {
+        "summary": "Get My Notifications",
+        "description": "Get user notifications",
+        "tags": ["Notifications"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Notifications list"
+          }
+        }
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "summary": "Get Notifications",
+        "description": "Get all notifications",
+        "tags": ["Notifications"],
+        "responses": {
+          "200": {
+            "description": "Notifications"
+          }
+        }
+      }
+    },
+    "/api/me/notifications/{id}/read": {
+      "post": {
+        "summary": "Mark Notification as Read",
+        "description": "Mark specific notification as read",
+        "tags": ["Notifications"],
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Notification ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notification marked as read"
+          }
+        }
+      }
+    },
+    "/api/me/notifications/mark-all-read": {
+      "post": {
+        "summary": "Mark All Notifications as Read",
+        "description": "Mark all notifications as read",
+        "tags": ["Notifications"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "All notifications marked as read"
+          }
+        }
+      }
+    },
+    "/api/me/updates": {
+      "get": {
+        "summary": "Get My Updates",
+        "description": "Get user updates",
+        "tags": ["User Profile"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "User updates"
+          }
+        }
+      }
+    },
+    "/api/updates": {
+      "get": {
+        "summary": "Get Updates",
+        "description": "Get all updates",
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "Updates"
+          }
+        }
+      }
+    },
+    "/api/me/quick-actions": {
+      "get": {
+        "summary": "Get My Quick Actions",
+        "description": "Get user's available quick actions",
+        "tags": ["Quick Actions"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Quick actions list"
+          }
+        }
+      }
+    },
+    "/api/quick-actions": {
+      "get": {
+        "summary": "Get Quick Actions",
+        "description": "Get all quick actions",
+        "tags": ["Quick Actions"],
+        "responses": {
+          "200": {
+            "description": "Quick actions"
+          }
+        }
+      }
+    },
+    "/api/quick-actions/manual-time-entry": {
+      "post": {
+        "summary": "Quick Manual Time Entry",
+        "description": "Quick action to add manual time entry",
+        "tags": ["Quick Actions"],
+        "responses": {
+          "201": {
+            "description": "Manual time entry added"
+          }
+        }
+      }
+    },
+    "/api/quick-actions/time-correction": {
+      "post": {
+        "summary": "Quick Time Correction",
+        "description": "Quick action to correct time entry",
+        "tags": ["Quick Actions"],
+        "responses": {
+          "201": {
+            "description": "Time correction submitted"
+          }
+        }
+      }
+    },
+    "/api/me/time-corrections": {
+      "get": {
+        "summary": "Get My Time Corrections",
+        "description": "Get user's time corrections",
+        "tags": ["Time Corrections"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Time corrections list"
+          }
+        }
+      },
+      "post": {
+        "summary": "Submit Time Correction",
+        "description": "Submit a time correction request",
+        "tags": ["Time Corrections"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "201": {
+            "description": "Time correction submitted"
+          }
+        }
+      }
+    },
+    "/api/me/time-corrections/history": {
+      "get": {
+        "summary": "Get Time Corrections History",
+        "description": "Get history of time corrections",
+        "tags": ["Time Corrections"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Time corrections history"
+          }
+        }
+      }
+    },
+    "/api/time-corrections/{id}/status": {
+      "put": {
+        "summary": "Update Time Correction Status",
+        "description": "Update status of time correction",
+        "tags": ["Time Corrections"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Time correction ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Time correction status updated"
+          }
+        }
+      }
+    },
+    "/api/time-correction-types": {
+      "get": {
+        "summary": "Get Time Correction Types",
+        "description": "Get available time correction types",
+        "tags": ["Time Corrections"],
+        "responses": {
+          "200": {
+            "description": "Time correction types"
+          }
+        }
+      }
+    },
+    "/api/reports/timesheet": {
+      "get": {
+        "summary": "Get Timesheet Report",
+        "description": "Get detailed timesheet report",
+        "tags": ["Reports"],
+        "responses": {
+          "200": {
+            "description": "Timesheet report"
+          }
+        }
+      }
+    },
+    "/api/setup-sample-tasks": {
+      "post": {
+        "summary": "Setup Sample Tasks",
+        "description": "Create sample tasks for testing",
+        "tags": ["System"],
+        "responses": {
+          "201": {
+            "description": "Sample tasks created"
+          }
+        }
+      }
+    },
+    "/api/company/settings": {
+      "get": {
+        "summary": "Get Company Settings",
+        "description": "Get company settings",
+        "tags": ["Company"],
+        "responses": {
+          "200": {
+            "description": "Company settings"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Company Settings",
+        "description": "Update company settings",
+        "tags": ["Company"],
+        "responses": {
+          "200": {
+            "description": "Company settings updated"
+          }
+        }
+      }
+    },
+    "/api/company/name": {
+      "get": {
+        "summary": "Get Company Name",
+        "description": "Get company name",
+        "tags": ["Company"],
+        "responses": {
+          "200": {
+            "description": "Company name"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Company Name",
+        "description": "Update company name",
+        "tags": ["Company"],
+        "responses": {
+          "200": {
+            "description": "Company name updated"
+          }
+        }
+      }
+    },
+    "/api/company/logo": {
+      "get": {
+        "summary": "Get Company Logo",
+        "description": "Get company logo",
+        "tags": ["Company"],
+        "responses": {
+          "200": {
+            "description": "Company logo"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Company Logo",
+        "description": "Update company logo",
+        "tags": ["Company"],
+        "responses": {
+          "200": {
+            "description": "Company logo updated"
+          }
+        }
+      }
+    },
+    "/api/company/address": {
+      "get": {
+        "summary": "Get Company Address",
+        "description": "Get company address",
+        "tags": ["Company"],
+        "responses": {
+          "200": {
+            "description": "Company address"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Company Address",
+        "description": "Update company address",
+        "tags": ["Company"],
+        "responses": {
+          "200": {
+            "description": "Company address updated"
+          }
+        }
+      }
+    },
+    "/api/company/phone": {
+      "get": {
+        "summary": "Get Company Phone",
+        "description": "Get company phone number",
+        "tags": ["Company"],
+        "responses": {
+          "200": {
+            "description": "Company phone"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Company Phone",
+        "description": "Update company phone number",
+        "tags": ["Company"],
+        "responses": {
+          "200": {
+            "description": "Company phone updated"
+          }
+        }
+      }
+    },
+    "/api/company/support-email": {
+      "get": {
+        "summary": "Get Company Support Email",
+        "description": "Get company support email",
+        "tags": ["Company"],
+        "responses": {
+          "200": {
+            "description": "Company support email"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Company Support Email",
+        "description": "Update company support email",
+        "tags": ["Company"],
+        "responses": {
+          "200": {
+            "description": "Company support email updated"
+          }
+        }
+      }
+    },
+    "/api/company/industry": {
+      "get": {
+        "summary": "Get Company Industry",
+        "description": "Get company industry",
+        "tags": ["Company"],
+        "responses": {
+          "200": {
+            "description": "Company industry"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Company Industry",
+        "description": "Update company industry",
+        "tags": ["Company"],
+        "responses": {
+          "200": {
+            "description": "Company industry updated"
+          }
+        }
+      }
+    },
+    "/api/company/brand-color": {
+      "get": {
+        "summary": "Get Company Brand Color",
+        "description": "Get company brand color",
+        "tags": ["Company"],
+        "responses": {
+          "200": {
+            "description": "Company brand color"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Company Brand Color",
+        "description": "Update company brand color",
+        "tags": ["Company"],
+        "responses": {
+          "200": {
+            "description": "Company brand color updated"
+          }
+        }
+      }
+    }
+  }
+}

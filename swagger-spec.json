@@ -1,0 +1,2058 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Complete Time Tracking API",
+    "description": "Comprehensive time tracking and management API with dashboard functionality. All 67+ endpoints documented with proper authentication.",
+    "version": "1.0.0",
+    "contact": {
+      "email": "support@api-layer.vercel.app"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api-layer.vercel.app",
+      "description": "Production server"
+    },
+    {
+      "url": "http://localhost:3000",
+      "description": "Development server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "integer"},
+          "tenantId": {"type": "integer"},
+          "employeeNumber": {"type": "string"},
+          "firstName": {"type": "string"},
+          "lastName": {"type": "string"},
+          "email": {"type": "string"},
+          "tenantName": {"type": "string"},
+          "department": {"type": "string"},
+          "position": {"type": "string"},
+          "status": {"type": "string"},
+          "profile_image": {"type": "string"},
+          "phone": {"type": "string"},
+          "manager": {"type": "string"}
+        }
+      },
+      "ApiResponse": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean"},
+          "message": {"type": "string"},
+          "data": {"type": "object"}
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "tags": [
+    {"name": "System", "description": "System health and test operations"},
+    {"name": "Authentication", "description": "User authentication operations"},
+    {"name": "User Profile", "description": "User profile management"},
+    {"name": "Timer", "description": "Time tracking timer operations"},
+    {"name": "Time Tracking", "description": "Time entry and tracking operations"},
+    {"name": "Dashboard", "description": "Dashboard and overview operations"},
+    {"name": "Request Management", "description": "Request approval and management"},
+    {"name": "Company", "description": "Company settings and configuration"},
+    {"name": "Notifications", "description": "Notification management"},
+    {"name": "Quick Actions", "description": "Quick action operations"},
+    {"name": "Leave Management", "description": "Leave and vacation management"},
+    {"name": "Reports", "description": "Reporting and analytics"},
+    {"name": "Projects", "description": "Project and task management"},
+    {"name": "Time Corrections", "description": "Time correction operations"},
+    {"name": "Employees", "description": "Employee management and administration"}
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Check API health status",
+        "tags": ["System"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "API is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {"type": "string", "example": "OK"},
+                    "timestamp": {"type": "string"},
+                    "message": {"type": "string"},
+                    "domain": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/test": {
+      "get": {
+        "summary": "Test API",
+        "description": "Simple test endpoint",
+        "tags": ["System"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Test endpoint working",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean", "example": true},
+                    "message": {"type": "string", "example": "Test endpoint working!"},
+                    "domain": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/get-token": {
+      "get": {
+        "summary": "Get Test Token",
+        "description": "Get a test JWT token for API testing",
+        "tags": ["Authentication"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Test token generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "token": {"type": "string"},
+                    "message": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/swagger.json": {
+      "get": {
+        "summary": "Get Swagger JSON",
+        "description": "Get the Swagger/OpenAPI specification",
+        "tags": ["System"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Swagger specification",
+            "content": {
+              "application/json": {
+                "schema": {"type": "object"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-docs": {
+      "get": {
+        "summary": "Swagger UI",
+        "description": "Swagger UI documentation interface",
+        "tags": ["System"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Swagger UI HTML",
+            "content": {
+              "text/html": {
+                "schema": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "summary": "User Registration",
+        "description": "Register a new user account",
+        "tags": ["Authentication"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["firstName", "lastName", "email", "password"],
+                "properties": {
+                  "firstName": {"type": "string", "example": "John"},
+                  "lastName": {"type": "string", "example": "Doe"},
+                  "email": {"type": "string", "example": "john.doe@company.com"},
+                  "password": {"type": "string", "example": "securePassword123"},
+                  "tenantName": {"type": "string", "example": "Demo Company"},
+                  "employeeNumber": {"type": "string", "example": "EMP001"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "message": {"type": "string"},
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {"$ref": "#/components/schemas/User"},
+                        "token": {"type": "string"},
+                        "access_token": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "summary": "User Login",
+        "description": "Authenticate user and get access token",
+        "tags": ["Authentication"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": {"type": "string", "example": "john.doe@company.com"},
+                  "password": {"type": "string", "example": "securePassword123"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "message": {"type": "string"},
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {"$ref": "#/components/schemas/User"},
+                        "token": {"type": "string"},
+                        "access_token": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing email or password"
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "summary": "User Logout",
+        "description": "Logout current user session",
+        "tags": ["Authentication"],
+        "responses": {
+          "200": {
+            "description": "Logout successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "message": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me": {
+      "get": {
+        "summary": "Get Current User Info",
+        "description": "Get detailed information about the current user",
+        "tags": ["User Profile"],
+        "responses": {
+          "200": {
+            "description": "User information retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "data": {"$ref": "#/components/schemas/User"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/profile": {
+      "get": {
+        "summary": "Get User Profile",
+        "description": "Get basic user profile information",
+        "tags": ["User Profile"],
+        "responses": {
+          "200": {
+            "description": "Profile information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "data": {"$ref": "#/components/schemas/User"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/profile": {
+      "get": {
+        "summary": "Get User Profile (Alternative)",
+        "description": "Alternative endpoint for user profile",
+        "tags": ["User Profile"],
+        "responses": {
+          "200": {
+            "description": "Profile information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "data": {"$ref": "#/components/schemas/User"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/profile": {
+      "get": {
+        "summary": "Get My Profile",
+        "description": "Get current user's detailed profile",
+        "tags": ["User Profile"],
+        "responses": {
+          "200": {
+            "description": "Profile retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Profile",
+        "description": "Update user profile information",
+        "tags": ["User Profile"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "firstName": {"type": "string"},
+                  "lastName": {"type": "string"},
+                  "phone": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Profile updated successfully"}
+        }
+      },
+      "delete": {
+        "summary": "Delete Profile",
+        "description": "Delete user profile (GDPR compliance)",
+        "tags": ["User Profile"],
+        "responses": {
+          "200": {"description": "Profile deletion initiated"}
+        }
+      }
+    },
+    "/api/me/profile/name": {
+      "put": {
+        "summary": "Update Name",
+        "description": "Update user's first and last name",
+        "tags": ["User Profile"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "firstName": {"type": "string"},
+                  "lastName": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Name updated successfully"}
+        }
+      }
+    },
+    "/api/me/profile/email": {
+      "put": {
+        "summary": "Update Email",
+        "description": "Update user's email address",
+        "tags": ["User Profile"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {"type": "string", "format": "email"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Email updated successfully"}
+        }
+      }
+    },
+    "/api/me/profile/phone": {
+      "put": {
+        "summary": "Update Phone",
+        "description": "Update user's phone number",
+        "tags": ["User Profile"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "phone": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Phone updated successfully"}
+        }
+      }
+    },
+    "/api/me/profile/password": {
+      "put": {
+        "summary": "Update Password",
+        "description": "Update user's password",
+        "tags": ["User Profile"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "currentPassword": {"type": "string"},
+                  "newPassword": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Password updated successfully"}
+        }
+      }
+    },
+    "/api/me/profile/photo": {
+      "post": {
+        "summary": "Upload Profile Photo",
+        "description": "Upload user profile photo",
+        "tags": ["User Profile"],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "photo": {"type": "string", "format": "binary"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Photo uploaded successfully"}
+        }
+      }
+    },
+    "/api/profile/image": {
+      "get": {
+        "summary": "Get Profile Image",
+        "description": "Get user's profile image",
+        "tags": ["User Profile"],
+        "responses": {
+          "200": {
+            "description": "Profile image data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "profile_image": {"type": "string"},
+                        "has_image": {"type": "boolean"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Profile Image",
+        "description": "Upload or update profile image",
+        "tags": ["User Profile"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image": {"type": "string", "description": "Base64 encoded image"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Profile image updated"}
+        }
+      },
+      "delete": {
+        "summary": "Delete Profile Image",
+        "description": "Remove user's profile image",
+        "tags": ["User Profile"],
+        "responses": {
+          "200": {"description": "Profile image deleted"}
+        }
+      }
+    },
+    "/api/dashboard": {
+      "get": {
+        "summary": "Get Dashboard Overview",
+        "description": "Get comprehensive dashboard overview with real-time statistics",
+        "tags": ["Dashboard"],
+        "responses": {
+          "200": {
+            "description": "Dashboard overview data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean", "example": true},
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "todayStats": {
+                          "type": "object",
+                          "properties": {
+                            "workingToday": {"type": "integer", "example": 39},
+                            "present": {"type": "integer", "example": 36},
+                            "absent": {"type": "integer", "example": 3},
+                            "late": {"type": "integer", "example": 2},
+                            "working": {"type": "integer", "example": 31},
+                            "onBreak": {"type": "integer", "example": 5},
+                            "remote": {"type": "integer", "example": 8},
+                            "onsite": {"type": "integer", "example": 28}
+                          }
+                        },
+                        "weeklyProjects": {"type": "array"},
+                        "recentRequests": {"type": "array"},
+                        "employeeActivity": {"type": "object"},
+                        "upcomingEvents": {"type": "array"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/dashboard": {
+      "get": {
+        "summary": "Get User Dashboard",
+        "description": "Get user-specific dashboard data",
+        "tags": ["Dashboard"],
+        "responses": {
+          "200": {
+            "description": "User dashboard data",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/summary": {
+      "get": {
+        "summary": "Get Dashboard Summary",
+        "description": "Get summary statistics for dashboard",
+        "tags": ["Dashboard"],
+        "responses": {
+          "200": {
+            "description": "Dashboard summary",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/recent-requests": {
+      "get": {
+        "summary": "Get Dashboard Recent Requests",
+        "description": "Get recent vacation and correction requests with pagination and filtering",
+        "tags": ["Dashboard"],
+        "parameters": [
+          {"name": "page", "in": "query", "schema": {"type": "integer", "default": 1}},
+          {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 10}},
+          {"name": "status", "in": "query", "schema": {"type": "string", "enum": ["all", "pending", "approved", "reject"]}},
+          {"name": "type", "in": "query", "schema": {"type": "string", "enum": ["all", "vacation", "correction"]}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Recent requests with pagination",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "requests": {"type": "array"},
+                        "pagination": {"type": "object"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/workforce-activity": {
+      "get": {
+        "summary": "Get Workforce Activity",
+        "description": "Get real-time workforce activity and employee status",
+        "tags": ["Dashboard"],
+        "responses": {
+          "200": {
+            "description": "Workforce activity stats",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/employees": {
+      "get": {
+        "summary": "Get Employee Statistics",
+        "description": "Get total employee count, categories and department breakdown",
+        "tags": ["Dashboard"],
+        "responses": {
+          "200": {
+            "description": "Employee statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "totalEmployees": {"type": "integer"},
+                        "activeEmployees": {"type": "integer"},
+                        "departments": {"type": "object"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/requests/{id}/approve": {
+      "post": {
+        "summary": "Approve Request",
+        "description": "Approve a vacation or correction request",
+        "tags": ["Request Management"],
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "schema": {"type": "integer"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Request approved successfully",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/requests/{id}/reject": {
+      "post": {
+        "summary": "Reject Request",
+        "description": "Reject a vacation or correction request with optional reason",
+        "tags": ["Request Management"],
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "schema": {"type": "integer"}}
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {"type": "string", "description": "Reason for rejection"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Request rejected successfully",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/timer/current": {
+      "get": {
+        "summary": "Get Current Timer",
+        "description": "Get current timer status and active session",
+        "tags": ["Timer"],
+        "responses": {
+          "200": {
+            "description": "Current timer status",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/timer/start": {
+      "post": {
+        "summary": "Start Timer",
+        "description": "Start time tracking timer with validation for existing active timers",
+        "tags": ["Timer"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "projectId": {"type": "integer", "description": "Optional project ID"},
+                  "taskId": {"type": "integer", "description": "Optional task ID"},
+                  "description": {"type": "string", "description": "Optional timer description"},
+                  "force": {"type": "boolean", "description": "Force restart if timer already running", "default": false}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Timer started successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "message": {"type": "string"},
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "timer_id": {"type": "integer"},
+                        "start_time": {"type": "string"},
+                        "status": {"type": "string"},
+                        "force_restart": {"type": "boolean"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Timer already running",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "error": {"type": "string"},
+                    "message": {"type": "string"},
+                    "currentTimer": {"type": "object"},
+                    "suggestions": {"type": "array", "items": {"type": "string"}}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/timer/stop": {
+      "post": {
+        "summary": "Stop Timer",
+        "description": "Stop current timer and save time entry",
+        "tags": ["Timer"],
+        "responses": {
+          "200": {"description": "Timer stopped successfully"}
+        }
+      }
+    },
+    "/api/me/timer/pause": {
+      "post": {
+        "summary": "Pause Timer",
+        "description": "Pause current timer temporarily",
+        "tags": ["Timer"],
+        "responses": {
+          "200": {"description": "Timer paused successfully"}
+        }
+      }
+    },
+    "/api/time-entries": {
+      "get": {
+        "summary": "Get All Time Entries",
+        "description": "Get time entries with pagination and filtering",
+        "tags": ["Time Tracking"],
+        "parameters": [
+          {"name": "page", "in": "query", "schema": {"type": "integer"}},
+          {"name": "limit", "in": "query", "schema": {"type": "integer"}},
+          {"name": "startDate", "in": "query", "schema": {"type": "string", "format": "date"}},
+          {"name": "endDate", "in": "query", "schema": {"type": "string", "format": "date"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Time entries retrieved",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/time-entries": {
+      "get": {
+        "summary": "Get My Time Entries",
+        "description": "Get current user's time entries",
+        "tags": ["Time Tracking"],
+        "parameters": [
+          {"name": "date", "in": "query", "schema": {"type": "string", "format": "date"}},
+          {"name": "week", "in": "query", "schema": {"type": "string"}},
+          {"name": "month", "in": "query", "schema": {"type": "string"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "User time entries",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create Time Entry",
+        "description": "Create a new time entry",
+        "tags": ["Time Tracking"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "projectId": {"type": "integer"},
+                  "taskId": {"type": "integer"},
+                  "startTime": {"type": "string", "format": "date-time"},
+                  "endTime": {"type": "string", "format": "date-time"},
+                  "description": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {"description": "Time entry created"}
+        }
+      }
+    },
+    "/api/me/time-entries/{id}": {
+      "put": {
+        "summary": "Update Time Entry",
+        "description": "Update existing time entry",
+        "tags": ["Time Tracking"],
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "schema": {"type": "integer"}}
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "startTime": {"type": "string", "format": "date-time"},
+                  "endTime": {"type": "string", "format": "date-time"},
+                  "description": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Time entry updated"}
+        }
+      },
+      "delete": {
+        "summary": "Delete Time Entry",
+        "description": "Delete a time entry",
+        "tags": ["Time Tracking"],
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "schema": {"type": "integer"}}
+        ],
+        "responses": {
+          "200": {"description": "Time entry deleted"}
+        }
+      }
+    },
+    "/api/me/time-entries/manual": {
+      "post": {
+        "summary": "Manual Time Entry",
+        "description": "Create manual time entry for specific date/time",
+        "tags": ["Time Tracking"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "date": {"type": "string", "format": "date"},
+                  "startTime": {"type": "string"},
+                  "endTime": {"type": "string"},
+                  "projectId": {"type": "integer"},
+                  "description": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {"description": "Manual time entry created"}
+        }
+      }
+    },
+    "/api/projects": {
+      "get": {
+        "summary": "Get All Projects",
+        "description": "Get all available projects",
+        "tags": ["Projects"],
+        "responses": {
+          "200": {
+            "description": "Projects list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {"type": "integer"},
+                          "name": {"type": "string"},
+                          "description": {"type": "string"},
+                          "status": {"type": "string"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{id}/tasks": {
+      "get": {
+        "summary": "Get Project Tasks",
+        "description": "Get all tasks for a specific project",
+        "tags": ["Projects"],
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "schema": {"type": "integer"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Project tasks",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/setup-sample-tasks": {
+      "post": {
+        "summary": "Setup Sample Tasks",
+        "description": "Initialize sample tasks for testing",
+        "tags": ["Projects"],
+        "responses": {
+          "200": {"description": "Sample tasks created"}
+        }
+      }
+    },
+    "/api/me/vacation/balance": {
+      "get": {
+        "summary": "Get Vacation Balance",
+        "description": "Get current user's vacation day balance",
+        "tags": ["Leave Management"],
+        "responses": {
+          "200": {
+            "description": "Vacation balance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "totalDays": {"type": "integer"},
+                        "usedDays": {"type": "integer"},
+                        "remainingDays": {"type": "integer"},
+                        "pendingRequests": {"type": "integer"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/vacation-balance": {
+      "get": {
+        "summary": "Get Vacation Balance (Alt)",
+        "description": "Alternative endpoint for vacation balance",
+        "tags": ["Leave Management"],
+        "responses": {
+          "200": {"description": "Vacation balance data"}
+        }
+      }
+    },
+    "/api/me/overtime/summary": {
+      "get": {
+        "summary": "Get Overtime Summary",
+        "description": "Get overtime hours summary for current user",
+        "tags": ["Time Tracking"],
+        "responses": {
+          "200": {
+            "description": "Overtime summary",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/work-status": {
+      "get": {
+        "summary": "Get Work Status",
+        "description": "Get current user's work status (working, break, etc.)",
+        "tags": ["Time Tracking"],
+        "responses": {
+          "200": {
+            "description": "Current work status",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/work-summary/today": {
+      "get": {
+        "summary": "Get Today's Work Summary",
+        "description": "Get work summary for today",
+        "tags": ["Time Tracking"],
+        "responses": {
+          "200": {
+            "description": "Today's work summary",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/work-summary/weekly": {
+      "get": {
+        "summary": "Get Weekly Work Summary",
+        "description": "Get work summary for current week",
+        "tags": ["Time Tracking"],
+        "responses": {
+          "200": {
+            "description": "Weekly work summary",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/notifications": {
+      "get": {
+        "summary": "Get User Notifications",
+        "description": "Get current user's notifications",
+        "tags": ["Notifications"],
+        "parameters": [
+          {"name": "unread", "in": "query", "schema": {"type": "boolean"}},
+          {"name": "type", "in": "query", "schema": {"type": "string"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "User notifications",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/notifications/{id}/read": {
+      "post": {
+        "summary": "Mark Notification as Read",
+        "description": "Mark a specific notification as read",
+        "tags": ["Notifications"],
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "schema": {"type": "integer"}}
+        ],
+        "responses": {
+          "200": {"description": "Notification marked as read"}
+        }
+      }
+    },
+    "/api/me/notifications/mark-all-read": {
+      "post": {
+        "summary": "Mark All Notifications as Read",
+        "description": "Mark all user notifications as read",
+        "tags": ["Notifications"],
+        "responses": {
+          "200": {"description": "All notifications marked as read"}
+        }
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "summary": "Get All Notifications",
+        "description": "Get system notifications (admin)",
+        "tags": ["Notifications"],
+        "responses": {
+          "200": {
+            "description": "System notifications",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/updates": {
+      "get": {
+        "summary": "Get User Updates",
+        "description": "Get recent updates for current user",
+        "tags": ["Notifications"],
+        "responses": {
+          "200": {
+            "description": "User updates",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/updates": {
+      "get": {
+        "summary": "Get System Updates",
+        "description": "Get system-wide updates and announcements",
+        "tags": ["Notifications"],
+        "responses": {
+          "200": {
+            "description": "System updates",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/quick-actions": {
+      "get": {
+        "summary": "Get User Quick Actions",
+        "description": "Get available quick actions for current user",
+        "tags": ["Quick Actions"],
+        "responses": {
+          "200": {
+            "description": "Available quick actions",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/quick-actions": {
+      "get": {
+        "summary": "Get All Quick Actions",
+        "description": "Get all available quick actions",
+        "tags": ["Quick Actions"],
+        "responses": {
+          "200": {
+            "description": "Quick actions list",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/quick-actions/manual-time-entry": {
+      "post": {
+        "summary": "Quick Manual Time Entry",
+        "description": "Quick action to create manual time entry",
+        "tags": ["Quick Actions"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "date": {"type": "string", "format": "date"},
+                  "hours": {"type": "number"},
+                  "projectId": {"type": "integer"},
+                  "description": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {"description": "Quick time entry created"}
+        }
+      }
+    },
+    "/api/quick-actions/time-correction": {
+      "post": {
+        "summary": "Quick Time Correction",
+        "description": "Quick action to request time correction",
+        "tags": ["Quick Actions"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "date": {"type": "string", "format": "date"},
+                  "originalTime": {"type": "string"},
+                  "correctedTime": {"type": "string"},
+                  "reason": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {"description": "Time correction request created"}
+        }
+      }
+    },
+    "/api/me/time-corrections": {
+      "get": {
+        "summary": "Get My Time Corrections",
+        "description": "Get current user's time correction requests",
+        "tags": ["Time Corrections"],
+        "responses": {
+          "200": {
+            "description": "Time corrections list",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Request Time Correction",
+        "description": "Submit a time correction request",
+        "tags": ["Time Corrections"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "entryId": {"type": "integer"},
+                  "correctionType": {"type": "string"},
+                  "newStartTime": {"type": "string"},
+                  "newEndTime": {"type": "string"},
+                  "reason": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {"description": "Time correction request submitted"}
+        }
+      }
+    },
+    "/api/me/time-corrections/history": {
+      "get": {
+        "summary": "Get Time Corrections History",
+        "description": "Get history of time correction requests",
+        "tags": ["Time Corrections"],
+        "responses": {
+          "200": {
+            "description": "Time corrections history",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/time-correction-types": {
+      "get": {
+        "summary": "Get Time Correction Types",
+        "description": "Get available time correction types",
+        "tags": ["Time Corrections"],
+        "responses": {
+          "200": {
+            "description": "Time correction types",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/time-corrections/{id}/status": {
+      "put": {
+        "summary": "Update Correction Status",
+        "description": "Update time correction request status (approve/reject)",
+        "tags": ["Time Corrections"],
+        "parameters": [
+          {"name": "id", "in": "path", "required": true, "schema": {"type": "integer"}}
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {"type": "string", "enum": ["approved", "rejected"]},
+                  "adminNotes": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Correction status updated"}
+        }
+      }
+    },
+    "/api/leave-types": {
+      "get": {
+        "summary": "Get Leave Types",
+        "description": "Get all available leave types (vacation, sick, etc.)",
+        "tags": ["Leave Management"],
+        "responses": {
+          "200": {
+            "description": "Leave types list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {"type": "integer"},
+                          "name": {"type": "string"},
+                          "description": {"type": "string"},
+                          "maxDays": {"type": "integer"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/leave-requests": {
+      "get": {
+        "summary": "Get My Leave Requests",
+        "description": "Get current user's leave requests",
+        "tags": ["Leave Management"],
+        "parameters": [
+          {"name": "status", "in": "query", "schema": {"type": "string"}},
+          {"name": "year", "in": "query", "schema": {"type": "integer"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Leave requests list",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Submit Leave Request",
+        "description": "Submit a new leave request",
+        "tags": ["Leave Management"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "leaveTypeId": {"type": "integer"},
+                  "startDate": {"type": "string", "format": "date"},
+                  "endDate": {"type": "string", "format": "date"},
+                  "reason": {"type": "string"},
+                  "isHalfDay": {"type": "boolean"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {"description": "Leave request submitted"}
+        }
+      }
+    },
+    "/api/reports/timesheet": {
+      "get": {
+        "summary": "Get Timesheet Report",
+        "description": "Generate timesheet report for specified period",
+        "tags": ["Reports"],
+        "parameters": [
+          {"name": "userId", "in": "query", "schema": {"type": "integer"}},
+          {"name": "startDate", "in": "query", "schema": {"type": "string", "format": "date"}},
+          {"name": "endDate", "in": "query", "schema": {"type": "string", "format": "date"}},
+          {"name": "format", "in": "query", "schema": {"type": "string", "enum": ["json", "csv", "pdf"]}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Timesheet report",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/company/settings": {
+      "get": {
+        "summary": "Get Company Settings",
+        "description": "Get company configuration settings",
+        "tags": ["Company"],
+        "responses": {
+          "200": {
+            "description": "Company settings",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update Company Settings",
+        "description": "Update company configuration",
+        "tags": ["Company"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "companyName": {"type": "string"},
+                  "industry": {"type": "string"},
+                  "workingHours": {"type": "object"},
+                  "timeZone": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Company settings updated"}
+        }
+      }
+    },
+    "/api/company/logo": {
+      "post": {
+        "summary": "Upload Company Logo",
+        "description": "Upload company logo image",
+        "tags": ["Company"],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "logo": {"type": "string", "format": "binary"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Company logo uploaded"}
+        }
+      }
+    },
+    "/api/company/name": {
+      "put": {
+        "summary": "Update Company Name",
+        "description": "Update company name",
+        "tags": ["Company"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Company name updated"}
+        }
+      }
+    },
+    "/api/company/industry": {
+      "put": {
+        "summary": "Update Company Industry",
+        "description": "Update company industry type",
+        "tags": ["Company"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "industry": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Company industry updated"}
+        }
+      }
+    },
+    "/api/company/brand-color": {
+      "put": {
+        "summary": "Update Brand Color",
+        "description": "Update company brand color",
+        "tags": ["Company"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "color": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Brand color updated"}
+        }
+      }
+    },
+    "/api/company/support-email": {
+      "put": {
+        "summary": "Update Support Email",
+        "description": "Update company support email",
+        "tags": ["Company"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {"type": "string", "format": "email"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Support email updated"}
+        }
+      }
+    },
+    "/api/company/phone": {
+      "put": {
+        "summary": "Update Company Phone",
+        "description": "Update company phone number",
+        "tags": ["Company"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "phone": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Company phone updated"}
+        }
+      }
+    },
+    "/api/company/address": {
+      "put": {
+        "summary": "Update Company Address",
+        "description": "Update company address",
+        "tags": ["Company"],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "address": {"type": "string"},
+                  "city": {"type": "string"},
+                  "state": {"type": "string"},
+                  "zipCode": {"type": "string"},
+                  "country": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Company address updated"}
+        }
+      }
+    },
+    "/api/employees": {
+      "get": {
+        "summary": "Get All Employees",
+        "description": "Get paginated list of employees with filtering and search",
+        "tags": ["Employees"],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {"type": "integer", "default": 1},
+            "description": "Page number"
+          },
+          {
+            "name": "limit", 
+            "in": "query",
+            "schema": {"type": "integer", "default": 10},
+            "description": "Items per page"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {"type": "string", "enum": ["all", "active", "inactive"]},
+            "description": "Filter by status"
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "schema": {"type": "string", "enum": ["all", "employee", "manager", "admin"]},
+            "description": "Filter by role"
+          },
+          {
+            "name": "department",
+            "in": "query",
+            "schema": {"type": "string"},
+            "description": "Filter by department"
+          },
+          {
+            "name": "search",
+            "in": "query", 
+            "schema": {"type": "string"},
+            "description": "Search by name, email, or department"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Employees list with pagination",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "employees": {"type": "array"},
+                        "pagination": {"type": "object"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create Employee",
+        "description": "Create new employee account",
+        "tags": ["Employees"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "firstName": {"type": "string"},
+                  "lastName": {"type": "string"},
+                  "email": {"type": "string"},
+                  "phone": {"type": "string"},
+                  "role": {"type": "string"},
+                  "department": {"type": "string"},
+                  "workingHours": {"type": "string"},
+                  "workModel": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {"description": "Employee created successfully"}
+        }
+      }
+    },
+    "/api/employees/{id}": {
+      "get": {
+        "summary": "Get Employee Details",
+        "description": "Get detailed employee information including timesheet summary",
+        "tags": ["Employees"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "integer"},
+            "description": "Employee ID"
+          }
+        ],
+        "responses": {
+          "200": {"description": "Employee details"}
+        }
+      },
+      "put": {
+        "summary": "Update Employee",
+        "description": "Update employee information",
+        "tags": ["Employees"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "integer"},
+            "description": "Employee ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "firstName": {"type": "string"},
+                  "lastName": {"type": "string"},
+                  "email": {"type": "string"},
+                  "phone": {"type": "string"},
+                  "address": {"type": "string"},
+                  "role": {"type": "string"},
+                  "department": {"type": "string"},
+                  "workingHours": {"type": "string"},
+                  "workModel": {"type": "string"},
+                  "manager": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Employee updated successfully"}
+        }
+      },
+      "delete": {
+        "summary": "Delete Employee",
+        "description": "Permanently delete employee account",
+        "tags": ["Employees"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "integer"},
+            "description": "Employee ID"
+          }
+        ],
+        "responses": {
+          "200": {"description": "Employee deleted successfully"}
+        }
+      }
+    },
+    "/api/employees/{id}/deactivate": {
+      "patch": {
+        "summary": "Deactivate Employee",
+        "description": "Deactivate employee account (they cannot log in)",
+        "tags": ["Employees"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "integer"},
+            "description": "Employee ID"
+          }
+        ],
+        "responses": {
+          "200": {"description": "Employee deactivated successfully"}
+        }
+      }
+    },
+    "/api/employees/{id}/activate": {
+      "patch": {
+        "summary": "Activate Employee",
+        "description": "Activate employee account (they can log in)",
+        "tags": ["Employees"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "integer"},
+            "description": "Employee ID"
+          }
+        ],
+        "responses": {
+          "200": {"description": "Employee activated successfully"}
+        }
+      }
+    },
+    "/api/employees/{id}/timesheet": {
+      "get": {
+        "summary": "Get Employee Timesheet",
+        "description": "Get employee timesheet summary and entries",
+        "tags": ["Employees"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "integer"},
+            "description": "Employee ID"
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "schema": {"type": "string", "enum": ["daily", "weekly", "monthly"], "default": "weekly"},
+            "description": "Time period for timesheet"
+          }
+        ],
+        "responses": {
+          "200": {"description": "Employee timesheet data"}
+        }
+      }
+    },
+    "/api/employees/roles": {
+      "get": {
+        "summary": "Get Employee Roles",
+        "description": "Get list of available employee roles",
+        "tags": ["Employees"],
+        "responses": {
+          "200": {"description": "List of employee roles"}
+        }
+      }
+    },
+    "/api/employees/departments": {
+      "get": {
+        "summary": "Get Departments",
+        "description": "Get list of all departments with employee counts",
+        "tags": ["Employees"],
+        "responses": {
+          "200": {"description": "List of departments"}
+        }
+      }
+    }
+  }
+}
