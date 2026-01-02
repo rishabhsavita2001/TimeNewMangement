@@ -972,34 +972,71 @@ app.get('/api/reports/timesheet', (req, res) => {
   });
 });
 
-// Missing Dashboard and other endpoints
+// Dashboard APIs
 app.get('/api/dashboard', (req, res) => {
   res.json({
     success: true,
     data: {
-      user: {
-        name: 'John Doe',
-        status: 'Available',
-        avatar: null
+      stats: {
+        totalEmployees: 42,
+        workingNow: 18,
+        pendingRequests: 7,
+        overtimeAlerts: 3
       },
-      timer: {
-        isRunning: false,
-        currentTask: null,
-        elapsedTime: 0
+      workforceActivity: {
+        clockedInToday: 38,
+        notClockedIn: 4,
+        onBreak: 7,
+        clockedOutToday: 34,
+        lateArrivals: 3
       },
-      todaysSummary: {
-        totalHours: 0,
-        hoursTarget: 8,
-        breakTime: 0,
-        tasksCompleted: 0
-      },
-      recentActivity: [],
-      quickStats: {
-        weekTotal: 32.5,
-        monthTotal: 140.25,
-        weekTarget: 40,
-        monthTarget: 160
-      }
+      recentActivity: [
+        {
+          id: 1,
+          type: 'clock_in',
+          employee: 'Jenny Wilson',
+          message: 'clocked in',
+          details: 'Started their shift at 08:12',
+          time: '08:12',
+          timestamp: new Date().toISOString()
+        },
+        {
+          id: 2,
+          type: 'correction',
+          employee: 'Michael Kim',
+          message: 'requested a time correction',
+          details: 'for 9 Nov',
+          time: '08:04',
+          timestamp: new Date().toISOString()
+        },
+        {
+          id: 3,
+          type: 'vacation_approved',
+          employee: 'Admin',
+          message: 'approved Sarah Anderson\'s vacation request',
+          time: '08:04',
+          timestamp: new Date().toISOString()
+        },
+        {
+          id: 4,
+          type: 'break_started',
+          employee: 'Mark Evans',
+          message: 'went on break',
+          details: 'at 07:40',
+          time: '07:40',
+          timestamp: new Date().toISOString()
+        },
+        {
+          id: 5,
+          type: 'early_clock_out',
+          employee: 'Kevin Hart',
+          message: 'clocked out early',
+          details: 'earlier than scheduled',
+          time: '08:04',
+          timestamp: new Date().toISOString()
+        }
+      ],
+      monthTarget: 160
     }
   });
 });
@@ -1353,27 +1390,6 @@ app.get('/api/leave-types', (req, res) => {
   });
 });
 
-app.get('/api/me/timer/current', (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      is_active: false,
-      current_task: null,
-      start_time: null,
-      elapsed_time: 0,
-      formatted_time: '00:00:00',
-      project_id: null,
-      project_name: null,
-      last_activity: null,
-      break_status: {
-        on_break: false,
-        break_start: null,
-        break_duration: 0
-      }
-    }
-  });
-});
-
 // Work Status API
 app.get('/api/me/work-status', (req, res) => {
   res.json({
@@ -1482,17 +1498,6 @@ app.get('/api/me/work-summary/today', (req, res) => {
     }
   });
 });
-app.get('/api/dashboard', (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      weekly_hours: "40.5h",
-      today_hours: "8.5h",
-      current_status: "Working",
-      last_check_in: "09:00 AM"
-    }
-  });
-});
 
 app.get('/api/dashboard/summary', (req, res) => {
   res.json({
@@ -1506,15 +1511,257 @@ app.get('/api/dashboard/summary', (req, res) => {
   });
 });
 
-// Timer APIs
-app.post('/api/me/timer/start', (req, res) => {
+// Dashboard Recent Requests API
+app.get('/api/dashboard/recent-requests', (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const status = req.query.status || 'all';
+  const type = req.query.type || 'all';
+  
+  const allRequests = [
+    {
+      id: 1,
+      employeeName: 'Jenny Wilson',
+      type: 'Vacation',
+      date: '12 - 14 Nov 2025',
+      status: 'Pending',
+      submitted: 'Today, 08:04',
+      submittedDate: new Date().toISOString()
+    },
+    {
+      id: 2,
+      employeeName: 'Michael Kim',
+      type: 'Vacation',
+      date: '5 - 6 Nov 2025',
+      status: 'Approved',
+      submitted: 'Yesterday, 17:22',
+      submittedDate: new Date(Date.now() - 86400000).toISOString()
+    },
+    {
+      id: 3,
+      employeeName: 'Mark Evans',
+      type: 'Correction',
+      date: '9 Nov 2025',
+      status: 'Pending',
+      submitted: '2 days ago',
+      submittedDate: new Date(Date.now() - 172800000).toISOString()
+    },
+    {
+      id: 4,
+      employeeName: 'Sarah Anderson',
+      type: 'Correction',
+      date: '2 Nov 2025',
+      status: 'Reject',
+      submitted: '2 days ago',
+      submittedDate: new Date(Date.now() - 172800000).toISOString()
+    },
+    {
+      id: 5,
+      employeeName: 'Daniel Lee',
+      type: 'Correction',
+      date: '3 Nov 2025',
+      status: 'Reject',
+      submitted: 'Yesterday, 10:11',
+      submittedDate: new Date(Date.now() - 86400000).toISOString()
+    },
+    {
+      id: 6,
+      employeeName: 'Michael Chen',
+      type: 'Vacation',
+      date: '20 - 22 Dec 2025',
+      status: 'Pending',
+      submitted: 'Today, 09:45',
+      submittedDate: new Date().toISOString()
+    },
+    {
+      id: 7,
+      employeeName: 'Olivia Carter',
+      type: 'Vacation',
+      date: '10 Nov 2025',
+      status: 'Pending',
+      submitted: 'Today, 06:04',
+      submittedDate: new Date().toISOString()
+    },
+    {
+      id: 8,
+      employeeName: 'Joshua Kim',
+      type: 'Vacation',
+      date: '28 Nov 2025',
+      status: 'Approved',
+      submitted: '2 days ago',
+      submittedDate: new Date(Date.now() - 172800000).toISOString()
+    },
+    {
+      id: 9,
+      employeeName: 'Emily Davis',
+      type: 'Correction',
+      date: '1 Nov 2025',
+      status: 'Approved',
+      submitted: '3 days ago',
+      submittedDate: new Date(Date.now() - 259200000).toISOString()
+    },
+    {
+      id: 10,
+      employeeName: 'Michelle Hart',
+      type: 'Vacation',
+      date: '18 - 19 Nov 2025',
+      status: 'Pending',
+      submitted: 'Today, 11:12',
+      submittedDate: new Date().toISOString()
+    }
+  ];
+  
+  let filteredRequests = allRequests;
+  
+  if (status !== 'all') {
+    filteredRequests = filteredRequests.filter(req => req.status.toLowerCase() === status.toLowerCase());
+  }
+  
+  if (type !== 'all') {
+    filteredRequests = filteredRequests.filter(req => req.type.toLowerCase() === type.toLowerCase());
+  }
+  
+  const startIndex = (page - 1) * limit;
+  const endIndex = startIndex + limit;
+  const paginatedRequests = filteredRequests.slice(startIndex, endIndex);
+  
   res.json({
     success: true,
-    message: 'Timer started successfully',
+    data: {
+      requests: paginatedRequests,
+      pagination: {
+        current_page: page,
+        total_pages: Math.ceil(filteredRequests.length / limit),
+        total_records: filteredRequests.length,
+        per_page: limit
+      },
+      filters: {
+        available_statuses: ['All Status', 'Pending', 'Approved', 'Reject'],
+        available_types: ['All Types', 'Vacation', 'Correction'],
+        current_status: status,
+        current_type: type
+      }
+    }
+  });
+});
+
+// Request Actions APIs
+app.post('/api/requests/:id/approve', (req, res) => {
+  const requestId = req.params.id;
+  res.json({
+    success: true,
+    message: 'Request approved successfully',
+    data: {
+      requestId: requestId,
+      status: 'approved',
+      approvedAt: new Date().toISOString(),
+      approvedBy: 'Admin'
+    }
+  });
+});
+
+app.post('/api/requests/:id/reject', (req, res) => {
+  const requestId = req.params.id;
+  const reason = req.body.reason || 'No reason provided';
+  res.json({
+    success: true,
+    message: 'Request rejected successfully',
+    data: {
+      requestId: requestId,
+      status: 'rejected',
+      rejectedAt: new Date().toISOString(),
+      rejectedBy: 'Admin',
+      reason: reason
+    }
+  });
+});
+
+// Workforce Activity API
+app.get('/api/dashboard/workforce-activity', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      todayStats: {
+        clockedInToday: {
+          count: 38,
+          description: 'Employees who have started their shift',
+          employees: ['John Doe', 'Jane Smith', 'Mike Johnson']
+        },
+        notClockedIn: {
+          count: 4,
+          description: 'Employees who haven\'t started their day yet',
+          employees: ['Sarah Wilson', 'David Brown']
+        },
+        onBreak: {
+          count: 7,
+          description: 'Currently on break or paused',
+          employees: ['Mark Evans', 'Lisa Wang']
+        },
+        clockedOutToday: {
+          count: 34,
+          description: 'Employees who have finished their shift',
+          employees: ['Alex Chen', 'Maria Garcia']
+        },
+        lateArrivals: {
+          count: 3,
+          description: 'Clocked in after the scheduled start time',
+          employees: ['Robert Taylor', 'Emma Davis', 'Chris Wilson']
+        }
+      },
+      realTimeUpdates: {
+        lastUpdated: new Date().toISOString(),
+        refreshRate: '30 seconds'
+      }
+    }
+  });
+});
+
+// Timer APIs
+app.post('/api/me/timer/start', (req, res) => {
+  const { force = false } = req.body;
+  
+  // Check if timer is already running
+  const currentTimer = {
+    is_active: true,
+    timer_id: 1,
+    start_time: '2025-12-31T09:00:00Z',
+    duration: '02:15:30'
+  };
+  
+  // If timer already running and not forcing restart
+  if (currentTimer.is_active && !force) {
+    return res.status(409).json({
+      success: false,
+      error: 'TIMER_ALREADY_RUNNING',
+      message: 'Timer is already active. Please stop the current timer first or use force=true to restart.',
+      currentTimer: {
+        timer_id: currentTimer.timer_id,
+        startedAt: currentTimer.start_time,
+        duration: currentTimer.duration,
+        status: 'active'
+      },
+      suggestions: [
+        'Stop current timer first',
+        'Use force=true to restart timer',
+        'Check current timer status'
+      ]
+    });
+  }
+  
+  // If forcing restart, stop previous timer first
+  if (force && currentTimer.is_active) {
+    // Logic to stop previous timer would go here
+    console.log('Force stopping previous timer and starting new one');
+  }
+  
+  res.json({
+    success: true,
+    message: force ? 'Timer restarted successfully' : 'Timer started successfully',
     data: {
       timer_id: Math.floor(Math.random() * 1000) + 1,
       start_time: new Date().toISOString(),
-      status: 'active'
+      status: 'active',
+      force_restart: force
     }
   });
 });
@@ -1533,13 +1780,31 @@ app.post('/api/me/timer/stop', (req, res) => {
 });
 
 app.get('/api/me/timer/current', (req, res) => {
+  // Check if user has an active timer (proper implementation would check database)
+  // For now, simulating an active timer state that persists after start
+  const now = new Date();
+  const startTime = new Date(now.getTime() - (2 * 60 * 60 * 1000)); // 2 hours ago
+  const elapsedMs = now.getTime() - startTime.getTime();
+  const elapsedHours = Math.floor(elapsedMs / (1000 * 60 * 60));
+  const elapsedMins = Math.floor((elapsedMs % (1000 * 60 * 60)) / (1000 * 60));
+  const elapsedSecs = Math.floor((elapsedMs % (1000 * 60)) / 1000);
+  
   res.json({
     success: true,
     data: {
       is_active: true,
-      timer_id: 1,
-      start_time: '2025-12-23T09:00:00Z',
-      current_duration: '8h 30m'
+      current_task: 'API Development',
+      start_time: startTime.toISOString(),
+      elapsed_time: elapsedMs / 1000, // seconds
+      formatted_time: `${String(elapsedHours).padStart(2, '0')}:${String(elapsedMins).padStart(2, '0')}:${String(elapsedSecs).padStart(2, '0')}`,
+      project_id: 1,
+      project_name: 'API Layer Project',
+      last_activity: now.toISOString(),
+      break_status: {
+        on_break: false,
+        break_start: null,
+        break_duration: 0
+      }
     }
   });
 });
@@ -1791,1659 +2056,18 @@ app.post('/api/me/leave-requests', (req, res) => {
 
 // Swagger Documentation
 app.get('/swagger.json', (req, res) => {
-  const swaggerSpec = {
-    "openapi": "3.0.0",
-    "info": {
-      "title": "Time Tracking API - Complete Implementation with Bearer Token Auth",
-      "description": "Complete API for mobile time tracking app with all Figma screens implemented. Use /api/get-token to get a Bearer token for authentication.",
-      "version": "2.0.0",
-      "contact": {
-        "name": "API Support",
-        "url": "https://api-layer.vercel.app"
-      }
-    },
-    "servers": [
-      {
-        "url": "https://api-layer.vercel.app",
-        "description": "Production server"
-      }
-    ],
-    "security": [
-      {
-        "BearerAuth": []
-      }
-    ],
-    "components": {
-      "securitySchemes": {
-        "BearerAuth": {
-          "type": "http",
-          "scheme": "bearer",
-          "bearerFormat": "JWT",
-          "description": "Enter JWT token obtained from /api/get-token endpoint. Format: Bearer <token>"
-        }
-      },
-      "schemas": {
-        "Error": {
-          "type": "object",
-          "properties": {
-            "success": { "type": "boolean", "example": false },
-            "message": { "type": "string" },
-            "code": { "type": "string" }
-          }
-        },
-        "User": {
-          "type": "object",
-          "properties": {
-            "id": { "type": "integer", "example": 1 },
-            "tenantId": { "type": "integer", "example": 1 },
-            "firstName": { "type": "string", "example": "John" },
-            "lastName": { "type": "string", "example": "Doe" },
-            "email": { "type": "string", "format": "email", "example": "john.doe@example.com" },
-            "employeeNumber": { "type": "string", "example": "EMP001" },
-            "tenantName": { "type": "string", "example": "Demo Company" }
-          }
-        }
-      }
-    },
-    "paths": {
-      "/api/health": {
-        "get": {
-          "summary": "Health Check",
-          "description": "Check API server health status",
-          "tags": ["System"],
-          "responses": {
-            "200": {
-              "description": "Server is healthy"
-            }
-          }
-        }
-      },
-      "/api/auth/register": {
-        "post": {
-          "summary": "User Registration",
-          "description": "Register a new user account",
-          "tags": ["Authentication"],
-          "security": [],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["firstName", "lastName", "email", "password"],
-                  "properties": {
-                    "firstName": { "type": "string", "example": "John" },
-                    "lastName": { "type": "string", "example": "Doe" },
-                    "email": { "type": "string", "format": "email", "example": "john.doe@example.com" },
-                    "password": { "type": "string", "minLength": 6, "example": "password123" },
-                    "tenantName": { "type": "string", "example": "Demo Company" },
-                    "employeeNumber": { "type": "string", "example": "EMP001" }
-                  }
-                }
-              }
-            }
-          },
-          "responses": {
-            "201": {
-              "description": "User registered successfully",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "object",
-                    "properties": {
-                      "success": { "type": "boolean", "example": true },
-                      "message": { "type": "string", "example": "User registered successfully" },
-                      "data": {
-                        "type": "object",
-                        "properties": {
-                          "user": { "$ref": "#/components/schemas/User" },
-                          "token": { "type": "string", "description": "JWT Bearer token" },
-                          "access_token": { "type": "string", "description": "Same as token" }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "/api/auth/login": {
-        "post": {
-          "summary": "User Login",
-          "description": "Authenticate user and get JWT Bearer token",
-          "tags": ["Authentication"],
-          "security": [],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["email", "password"],
-                  "properties": {
-                    "email": { "type": "string", "format": "email", "example": "john.doe@example.com" },
-                    "password": { "type": "string", "example": "password123" }
-                  }
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Login successful",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "object",
-                    "properties": {
-                      "success": { "type": "boolean", "example": true },
-                      "message": { "type": "string", "example": "Login successful" },
-                      "data": {
-                        "type": "object",
-                        "properties": {
-                          "user": { "$ref": "#/components/schemas/User" },
-                          "token": { "type": "string", "description": "JWT Bearer token" },
-                          "access_token": { "type": "string", "description": "Same as token" }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            },
-            "400": {
-              "description": "Missing email or password",
-              "content": {
-                "application/json": {
-                  "schema": { "$ref": "#/components/schemas/Error" }
-                }
-              }
-            }
-          }
-        }
-      },
-      "/api/auth/logout": {
-        "post": {
-          "summary": "User Sign Out / Logout",
-          "description": "Sign out user from application. Invalidates current session.",
-          "tags": ["Authentication"],
-          "security": [{ "BearerAuth": [] }],
-          "responses": {
-            "200": {
-              "description": "Sign out successful",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "object",
-                    "properties": {
-                      "success": { "type": "boolean", "example": true },
-                      "message": { "type": "string", "example": "Your sign out success" },
-                      "data": {
-                        "type": "object",
-                        "properties": {
-                          "userId": { "type": "integer", "example": 1 },
-                          "loggedOutAt": { "type": "string", "format": "date-time" },
-                          "status": { "type": "string", "example": "logged_out" }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            },
-            "401": {
-              "description": "Unauthorized - Bearer token required",
-              "content": {
-                "application/json": {
-                  "schema": { "$ref": "#/components/schemas/Error" }
-                }
-              }
-            }
-          }
-        }
-      },
-      "/api/me": {
-        "get": {
-          "summary": "Get Current User Profile",
-          "description": "Get detailed information about the current authenticated user",
-          "tags": ["User Profile"],
-          "security": [{ "BearerAuth": [] }],
-          "responses": {
-            "200": {
-              "description": "User profile retrieved successfully",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "object",
-                    "properties": {
-                      "success": { "type": "boolean", "example": true },
-                      "data": { "$ref": "#/components/schemas/User" }
-                    }
-                  }
-                }
-              }
-            },
-            "401": {
-              "description": "Unauthorized - Bearer token required",
-              "content": {
-                "application/json": {
-                  "schema": { "$ref": "#/components/schemas/Error" }
-                }
-              }
-            },
-            "403": {
-              "description": "Forbidden - Invalid or expired token",
-              "content": {
-                "application/json": {
-                  "schema": { "$ref": "#/components/schemas/Error" }
-                }
-              }
-            }
-          }
-        }
-      },
-      "/api/profile": {
-        "get": {
-          "summary": "Get User Profile",
-          "description": "Get basic user profile data",
-          "tags": ["User Profile"],
-          "responses": {
-            "200": {
-              "description": "Profile retrieved successfully"
-            }
-          }
-        }
-      },
-      "/get-token": {
-        "get": {
-          "summary": "Get Test JWT Token",
-          "description": "Get a test JWT Bearer token for API authentication. Copy the token and use it in the 'Authorize' button above.",
-          "tags": ["Authentication"],
-          "security": [],
-          "responses": {
-            "200": {
-              "description": "Token generated successfully",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "object",
-                    "properties": {
-                      "success": { "type": "boolean", "example": true },
-                      "message": { "type": "string", "example": "Test token generated successfully" },
-                      "data": {
-                        "type": "object",
-                        "properties": {
-                          "token": { "type": "string", "description": "JWT Bearer token" },
-                          "access_token": { "type": "string", "description": "Same as token" },
-                          "expires_in": { "type": "string", "example": "24h" },
-                          "token_type": { "type": "string", "example": "Bearer" },
-                          "usage": { "type": "string", "example": "Copy this token and use it in Swagger UI Authorization" }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "/dashboard": {
-        "get": {
-          "summary": "Get Dashboard Data",
-          "description": "Get complete dashboard data for Figma dashboard screen",
-          "tags": ["Dashboard"],
-          "responses": {
-            "200": {
-              "description": "Dashboard data retrieved successfully"
-            }
-          }
-        }
-      },
-      "/dashboard/summary": {
-        "get": {
-          "summary": "Get Dashboard Summary",
-          "description": "Get summarized dashboard data",
-          "tags": ["Dashboard"],
-          "responses": {
-            "200": {
-              "description": "Dashboard summary retrieved successfully"
-            }
-          }
-        }
-      },
-      "/me/dashboard": {
-        "get": {
-          "summary": "Get User Dashboard",
-          "description": "Get user-specific dashboard data",
-          "tags": ["Dashboard"],
-          "responses": {
-            "200": {
-              "description": "User dashboard data retrieved successfully"
-            }
-          }
-        }
-      },
-      "/me/timer/start": {
-        "post": {
-          "summary": "Start Timer",
-          "description": "Start a new work timer (Figma Timer Screen)",
-          "tags": ["Timer"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "task_name": { "type": "string" },
-                    "project_id": { "type": "integer" },
-                    "description": { "type": "string" }
-                  }
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Timer started successfully"
-            }
-          }
-        }
-      },
-      "/me/timer/stop": {
-        "post": {
-          "summary": "Stop Timer",
-          "description": "Stop the currently running timer",
-          "tags": ["Timer"],
-          "responses": {
-            "200": {
-              "description": "Timer stopped successfully"
-            }
-          }
-        }
-      },
-      "/timer/start": {
-        "post": {
-          "summary": "Start Timer (Alternative)",
-          "description": "Alternative endpoint to start timer",
-          "tags": ["Timer"],
-          "responses": {
-            "200": {
-              "description": "Timer started successfully"
-            }
-          }
-        }
-      },
-      "/timer/stop": {
-        "post": {
-          "summary": "Stop Timer (Alternative)",
-          "description": "Alternative endpoint to stop timer",
-          "tags": ["Timer"],
-          "responses": {
-            "200": {
-              "description": "Timer stopped successfully"
-            }
-          }
-        }
-      },
-      "/timer/status": {
-        "get": {
-          "summary": "Get Timer Status",
-          "description": "Get current timer status and active session",
-          "tags": ["Timer"],
-          "responses": {
-            "200": {
-              "description": "Timer status retrieved successfully"
-            }
-          }
-        }
-      },
-      "/me/time-entries": {
-        "get": {
-          "summary": "Get Time Entries",
-          "description": "Get user time entries with pagination",
-          "tags": ["Time Entries"],
-          "parameters": [
-            {
-              "name": "page",
-              "in": "query",
-              "schema": { "type": "integer", "default": 1 }
-            },
-            {
-              "name": "limit", 
-              "in": "query",
-              "schema": { "type": "integer", "default": 20 }
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Time entries retrieved successfully"
-            }
-          }
-        },
-        "post": {
-          "summary": "Create Time Entry",
-          "description": "Create a new time entry",
-          "tags": ["Time Entries"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["date", "start_time", "end_time"],
-                  "properties": {
-                    "date": { "type": "string", "format": "date" },
-                    "start_time": { "type": "string", "format": "time" },
-                    "end_time": { "type": "string", "format": "time" },
-                    "task_name": { "type": "string" },
-                    "description": { "type": "string" }
-                  }
-                }
-              }
-            }
-          },
-          "responses": {
-            "201": {
-              "description": "Time entry created successfully"
-            }
-          }
-        }
-      },
-      "/projects": {
-        "get": {
-          "summary": "Get Projects",
-          "description": "Get list of all available projects",
-          "tags": ["Projects"],
-          "responses": {
-            "200": {
-              "description": "Projects retrieved successfully"
-            }
-          }
-        }
-      },
-      "/me/work-summary/weekly": {
-        "get": {
-          "summary": "Get Weekly Work Summary",
-          "description": "Get weekly work summary and breakdown",
-          "tags": ["Reports"],
-          "responses": {
-            "200": {
-              "description": "Weekly summary retrieved successfully"
-            }
-          }
-        }
-      },
-      "/leave-requests": {
-        "get": {
-          "summary": "Get Leave Requests",
-          "description": "Get list of leave requests",
-          "tags": ["Leave Management"],
-          "parameters": [
-            {
-              "name": "page",
-              "in": "query", 
-              "schema": { "type": "integer", "default": 1 }
-            },
-            {
-              "name": "limit",
-              "in": "query",
-              "schema": { "type": "integer", "default": 10 }
-            },
-            {
-              "name": "status",
-              "in": "query",
-              "schema": { "type": "string", "enum": ["pending", "approved", "rejected"] }
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Leave requests retrieved successfully"
-            }
-          }
-        },
-        "post": {
-          "summary": "Create Leave Request", 
-          "description": "Submit a new leave request",
-          "tags": ["Leave Management"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["leave_type", "start_date", "end_date"],
-                  "properties": {
-                    "leave_type": { "type": "string", "enum": ["vacation", "sick", "personal"] },
-                    "start_date": { "type": "string", "format": "date" },
-                    "end_date": { "type": "string", "format": "date" },
-                    "reason": { "type": "string" }
-                  }
-                }
-              }
-            }
-          },
-          "responses": {
-            "201": {
-              "description": "Leave request created successfully"
-            }
-          }
-        }
-      },
-      "/me/leave-requests": {
-        "get": {
-          "summary": "Get My Leave Requests",
-          "description": "Get user's own leave requests",
-          "tags": ["Leave Management"],
-          "responses": {
-            "200": {
-              "description": "User leave requests retrieved successfully"
-            }
-          }
-        },
-        "post": {
-          "summary": "Create My Leave Request",
-          "description": "Create a new leave request for current user",
-          "tags": ["Leave Management"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["leave_type", "start_date", "end_date"],
-                  "properties": {
-                    "leave_type": { "type": "string" },
-                    "start_date": { "type": "string", "format": "date" },
-                    "end_date": { "type": "string", "format": "date" },
-                    "reason": { "type": "string" }
-                  }
-                }
-              }
-            }
-          },
-          "responses": {
-            "201": {
-              "description": "Leave request submitted successfully"
-            }
-          }
-        }
-      },
-      "/leave-balances": {
-        "get": {
-          "summary": "Get Leave Balances",
-          "description": "Get current leave balances",
-          "tags": ["Leave Management"],
-          "responses": {
-            "200": {
-              "description": "Leave balances retrieved successfully"
-            }
-          }
-        }
-      },
-      "/quick-actions/manual-time-entry": {
-        "post": {
-          "summary": "Manual Time Entry Request",
-          "description": "Submit manual time entry request",
-          "tags": ["Quick Actions"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["date", "start_time", "end_time", "reason"],
-                  "properties": {
-                    "date": { "type": "string", "format": "date" },
-                    "start_time": { "type": "string", "format": "time" },
-                    "end_time": { "type": "string", "format": "time" },
-                    "reason": { "type": "string" }
-                  }
-                }
-              }
-            }
-          },
-          "responses": {
-            "201": {
-              "description": "Manual time entry request submitted"
-            }
-          }
-        }
-      },
-      "/quick-actions/time-correction": {
-        "post": {
-          "summary": "Time Correction Request",
-          "description": "Submit time correction request",
-          "tags": ["Quick Actions"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["original_entry_id", "correction_type", "reason"],
-                  "properties": {
-                    "original_entry_id": { "type": "integer" },
-                    "correction_type": { "type": "string" },
-                    "reason": { "type": "string" }
-                  }
-                }
-              }
-            }
-          },
-          "responses": {
-            "201": {
-              "description": "Time correction request submitted"
-            }
-          }
-        }
-      },
-      "/reports/timesheet": {
-        "get": {
-          "summary": "Generate Timesheet Report",
-          "description": "Generate detailed timesheet report",
-          "tags": ["Reports"],
-          "parameters": [
-            {
-              "name": "startDate",
-              "in": "query",
-              "schema": { "type": "string", "format": "date" }
-            },
-            {
-              "name": "endDate", 
-              "in": "query",
-              "schema": { "type": "string", "format": "date" }
-            },
-            {
-              "name": "format",
-              "in": "query",
-              "schema": { "type": "string", "enum": ["json", "csv", "pdf"] }
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Timesheet report generated successfully"
-            }
-          }
-        }
-      },
-      "/test": {
-        "get": {
-          "summary": "Test Endpoint",
-          "description": "Simple test endpoint to verify API connectivity",
-          "tags": ["Testing"],
-          "responses": {
-            "200": {
-              "description": "Test successful"
-            }
-          }
-        }
-      },
-      "/dashboard/summary": {
-        "get": {
-          "summary": "Get Dashboard Summary",
-          "description": "Get summarized dashboard data",
-          "tags": ["Dashboard"],
-          "responses": {
-            "200": {
-              "description": "Dashboard summary retrieved successfully"
-            }
-          }
-        }
-      },
-      "/me/timer/current": {
-        "get": {
-          "summary": "Get Current Timer Status",
-          "description": "Get current timer status and session details",
-          "tags": ["Timer"],
-          "responses": {
-            "200": {
-              "description": "Current timer status retrieved"
-            }
-          }
-        }
-      },
-      "/me/work-summary/today": {
-        "get": {
-          "summary": "Get Today's Work Summary",
-          "description": "Get work summary for today (Figma Work Status Screen)",
-          "tags": ["Reports"],
-          "responses": {
-            "200": {
-              "description": "Today's work summary retrieved"
-            }
-          }
-        }
-      },
-      "/notifications": {
-        "get": {
-          "summary": "Get Notifications",
-          "description": "Get user notifications (Figma Notifications Screen)",
-          "tags": ["Notifications"],
-          "responses": {
-            "200": {
-              "description": "Notifications retrieved successfully"
-            }
-          }
-        }
-      },
-      "/updates": {
-        "get": {
-          "summary": "Get Company Updates",
-          "description": "Get company updates and announcements",
-          "tags": ["Notifications"],
-          "responses": {
-            "200": {
-              "description": "Company updates retrieved successfully"
-            }
-          }
-        }
-      },
-      "/quick-actions": {
-        "get": {
-          "summary": "Get Quick Actions",
-          "description": "Get available quick actions for user",
-          "tags": ["Quick Actions"],
-          "responses": {
-            "200": {
-              "description": "Quick actions retrieved successfully"
-            }
-          }
-        }
-      },
-      "/leave-types": {
-        "get": {
-          "summary": "Get Leave Types",
-          "description": "Get available leave types",
-          "tags": ["Leave Management"],
-          "responses": {
-            "200": {
-              "description": "Leave types retrieved successfully"
-            }
-          }
-        }
-      },
-      "/user/profile": {
-        "get": {
-          "summary": "Get User Profile (Alias)",
-          "description": "Get user profile information (alternative route)",
-          "tags": ["User Profile"],
-          "responses": {
-            "200": {
-              "description": "User profile retrieved successfully"
-            }
-          }
-        }
-      },
-      "/profile/image": {
-        "get": {
-          "summary": "Get Profile Image",
-          "description": "Get user's profile image",
-          "tags": ["User Profile"],
-          "responses": {
-            "200": {
-              "description": "Profile image retrieved successfully"
-            }
-          }
-        },
-        "put": {
-          "summary": "Update Profile Image",
-          "description": "Upload or update user profile image",
-          "tags": ["User Profile"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "image": { "type": "string", "description": "Base64 encoded image" }
-                  }
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Profile image updated successfully"
-            }
-          }
-        },
-        "delete": {
-          "summary": "Delete Profile Image",
-          "description": "Remove user's profile image",
-          "tags": ["User Profile"],
-          "responses": {
-            "200": {
-              "description": "Profile image deleted successfully"
-            }
-          }
-        }
-      },
-      "/user/dashboard": {
-        "get": {
-          "summary": "Get User Dashboard (Alias)",
-          "description": "Get dashboard data (alternative route)",
-          "tags": ["Dashboard"],
-          "responses": {
-            "200": {
-              "description": "Dashboard data retrieved successfully"
-            }
-          }
-        }
-      },
-      "/me/timer/pause": {
-        "post": {
-          "summary": "Pause/Resume Timer",
-          "description": "Pause or resume the current timer",
-          "tags": ["Timer"],
-          "responses": {
-            "200": {
-              "description": "Timer paused/resumed successfully"
-            }
-          }
-        }
-      },
-      "/time-entries": {
-        "get": {
-          "summary": "Get Time Entries (Alias)",
-          "description": "Get time entries (alternative route)",
-          "tags": ["Time Entries"],
-          "parameters": [
-            {
-              "name": "page",
-              "in": "query",
-              "schema": { "type": "integer", "default": 1 }
-            },
-            {
-              "name": "limit",
-              "in": "query",
-              "schema": { "type": "integer", "default": 20 }
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Time entries retrieved successfully"
-            }
-          }
-        }
-      },
-      "/me/time-entries/{id}": {
-        "put": {
-          "summary": "Update Time Entry",
-          "description": "Update an existing time entry",
-          "tags": ["Time Entries"],
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
-              "schema": { "type": "integer" }
-            }
-          ],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "start_time": { "type": "string", "format": "time" },
-                    "end_time": { "type": "string", "format": "time" },
-                    "description": { "type": "string" },
-                    "break_duration": { "type": "integer" }
-                  }
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Time entry updated successfully"
-            }
-          }
-        },
-        "delete": {
-          "summary": "Delete Time Entry",
-          "description": "Delete a time entry",
-          "tags": ["Time Entries"],
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
-              "schema": { "type": "integer" }
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Time entry deleted successfully"
-            }
-          }
-        }
-      },
-      "/me/vacation/balance": {
-        "get": {
-          "summary": "Get Vacation Balance",
-          "description": "Get detailed vacation balance information",
-          "tags": ["Leave Management"],
-          "responses": {
-            "200": {
-              "description": "Vacation balance retrieved successfully"
-            }
-          }
-        }
-      },
-      "/me/vacation-balance": {
-        "get": {
-          "summary": "Get Vacation Balance (Simple)",
-          "description": "Get simple vacation balance overview",
-          "tags": ["Leave Management"],
-          "responses": {
-            "200": {
-              "description": "Vacation balance retrieved successfully"
-            }
-          }
-        }
-      },
-      "/me/overtime/summary": {
-        "get": {
-          "summary": "Get Overtime Summary",
-          "description": "Get overtime hours summary and compensation details",
-          "tags": ["Reports"],
-          "responses": {
-            "200": {
-              "description": "Overtime summary retrieved successfully"
-            }
-          }
-        }
-      },
-      "/me/work-status": {
-        "get": {
-          "summary": "Get Work Status",
-          "description": "Get current work session status and productivity metrics",
-          "tags": ["Reports"],
-          "responses": {
-            "200": {
-              "description": "Work status retrieved successfully"
-            }
-          }
-        }
-      },
-      "/me/notifications": {
-        "get": {
-          "summary": "Get User Notifications",
-          "description": "Get detailed user notifications with priority and actions",
-          "tags": ["Notifications"],
-          "responses": {
-            "200": {
-              "description": "Notifications retrieved successfully"
-            }
-          }
-        }
-      },
-      "/me/notifications/{id}/read": {
-        "post": {
-          "summary": "Mark Notification as Read",
-          "description": "Mark a specific notification as read",
-          "tags": ["Notifications"],
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
-              "schema": { "type": "integer" }
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Notification marked as read"
-            }
-          }
-        }
-      },
-      "/me/notifications/mark-all-read": {
-        "post": {
-          "summary": "Mark All Notifications as Read",
-          "description": "Mark all user notifications as read",
-          "tags": ["Notifications"],
-          "responses": {
-            "200": {
-              "description": "All notifications marked as read"
-            }
-          }
-        }
-      },
-      "/me/updates": {
-        "get": {
-          "summary": "Get Company Updates",
-          "description": "Get detailed company announcements and updates",
-          "tags": ["Notifications"],
-          "responses": {
-            "200": {
-              "description": "Company updates retrieved successfully"
-            }
-          }
-        }
-      },
-      "/projects/{id}/tasks": {
-        "get": {
-          "summary": "Get Project Tasks",
-          "description": "Get tasks for a specific project",
-          "tags": ["Projects"],
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
-              "schema": { "type": "integer" }
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Project tasks retrieved successfully"
-            }
-          }
-        }
-      },
-      "/setup-sample-tasks": {
-        "post": {
-          "summary": "Setup Sample Tasks",
-          "description": "Create sample tasks for testing and demonstration",
-          "tags": ["Projects"],
-          "responses": {
-            "201": {
-              "description": "Sample tasks created successfully"
-            }
-          }
-        }
-      },
-      "/me/quick-actions": {
-        "get": {
-          "summary": "Get Quick Actions",
-          "description": "Get available quick actions for the user",
-          "tags": ["Quick Actions"],
-          "responses": {
-            "200": {
-              "description": "Quick actions retrieved successfully"
-            }
-          }
-        }
-      },
-      "/me/time-corrections": {
-        "post": {
-          "summary": "Submit Time Correction",
-          "description": "Submit a time correction request",
-          "tags": ["Quick Actions"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["original_entry_id", "correction_type", "reason"],
-                  "properties": {
-                    "original_entry_id": { "type": "integer" },
-                    "correction_type": { "type": "string" },
-                    "reason": { "type": "string" },
-                    "corrected_start_time": { "type": "string", "format": "time" },
-                    "corrected_end_time": { "type": "string", "format": "time" }
-                  }
-                }
-              }
-            }
-          },
-          "responses": {
-            "201": {
-              "description": "Time correction request submitted successfully"
-            }
-          }
-        }
-      },
-      "/me/time-entries/manual": {
-        "post": {
-          "summary": "Add Manual Time Entry",
-          "description": "Submit a manual time entry request",
-          "tags": ["Quick Actions"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["date", "start_time", "end_time", "task_description", "reason"],
-                  "properties": {
-                    "date": { "type": "string", "format": "date" },
-                    "start_time": { "type": "string", "format": "time" },
-                    "end_time": { "type": "string", "format": "time" },
-                    "task_description": { "type": "string" },
-                    "reason": { "type": "string" }
-                  }
-                }
-              }
-            }
-          },
-          "responses": {
-            "201": {
-              "description": "Manual time entry submitted successfully"
-            }
-          }
-        }
-      },
-      "/me/time-corrections": {
-        "get": {
-          "summary": "Get Time Correction Requests",
-          "description": "Get all user's time correction requests (Based on Figma Design)",
-          "tags": ["Time Corrections"],
-          "responses": {
-            "200": {
-              "description": "Time correction requests retrieved successfully"
-            }
-          }
-        },
-        "post": {
-          "summary": "Create Time Correction Request",
-          "description": "Submit a new time correction request (Based on Figma Design)",
-          "tags": ["Time Corrections"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "type": { "type": "string", "enum": ["missing_work_entry", "wrong_clock_time", "missing_break", "overtime_request"] },
-                    "date": { "type": "string", "format": "date" },
-                    "reason": { "type": "string" },
-                    "issue_description": { "type": "string" }
-                  }
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Time correction request submitted successfully"
-            }
-          }
-        }
-      },
-      "/time-correction-types": {
-        "get": {
-          "summary": "Get Time Correction Types",
-          "description": "Get available time correction issue types",
-          "tags": ["Time Corrections"],
-          "responses": {
-            "200": {
-              "description": "Time correction types retrieved successfully"
-            }
-          }
-        }
-      },
-      "/time-corrections/{id}/status": {
-        "put": {
-          "summary": "Update Time Correction Status",
-          "description": "Update status of a time correction request (admin only)",
-          "tags": ["Time Corrections"],
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
-              "schema": { "type": "integer" }
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Status updated successfully"
-            }
-          }
-        }
-      },
-      "/me/time-corrections/history": {
-        "get": {
-          "summary": "Get Time Correction History",
-          "description": "Get historical time correction requests",
-          "tags": ["Time Corrections"],
-          "responses": {
-            "200": {
-              "description": "Time correction history retrieved successfully"
-            }
-          }
-        }
-      },
-      "/company/settings": {
-        "get": {
-          "summary": "Get Company Settings",
-          "description": "Get complete company settings and branding information (Admin/Owner only - Based on Figma Company Settings screen)",
-          "tags": ["Company Management"],
-          "responses": {
-            "200": {
-              "description": "Company settings retrieved successfully"
-            }
-          }
-        },
-        "put": {
-          "summary": "Update Company Settings",
-          "description": "Update general company settings (Admin/Owner only)",
-          "tags": ["Company Management"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "name": { "type": "string" },
-                    "industry": { "type": "string" },
-                    "brand_color": { "type": "string" },
-                    "support_email": { "type": "string", "format": "email" },
-                    "company_phone": { "type": "string" },
-                    "address": { "type": "string" }
-                  }
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Company settings updated successfully"
-            }
-          }
-        }
-      },
-      "/company/logo": {
-        "post": {
-          "summary": "Upload Company Logo",
-          "description": "Upload new company logo with variants generation (Based on Figma Upload Logos screen)",
-          "tags": ["Company Management"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "logo_data": { "type": "string" },
-                    "logo_type": { "type": "string", "example": "image/png" },
-                    "variant": { "type": "string", "example": "primary" }
-                  }
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Company logo uploaded successfully"
-            }
-          }
-        }
-      },
-      "/company/name": {
-        "put": {
-          "summary": "Update Company Name",
-          "description": "Update company name (Based on Figma Edit Company Name screen)",
-          "tags": ["Company Management"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "company_name": { "type": "string", "example": "ACME Inc." }
-                  },
-                  "required": ["company_name"]
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Company name updated successfully"
-            }
-          }
-        }
-      },
-      "/company/industry": {
-        "put": {
-          "summary": "Update Industry/Category",
-          "description": "Update company industry or category (Based on Figma Edit Industry screen)",
-          "tags": ["Company Management"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "industry": { "type": "string", "example": "IT Company" },
-                    "category": { "type": "string", "example": "Technology" }
-                  },
-                  "required": ["industry"]
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Industry updated successfully"
-            }
-          }
-        }
-      },
-      "/company/brand-color": {
-        "put": {
-          "summary": "Update Brand Color",
-          "description": "Update company brand color with predefined colors or custom color picker (Based on Figma Edit Brand Color screens)",
-          "tags": ["Company Management"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "brand_color": { "type": "string", "example": "#6366F1" },
-                    "color_name": { "type": "string", "enum": ["Blue", "Purple", "Burgundy", "Red", "Midnight Blue"] },
-                    "custom_color": { "type": "string", "example": "#FF5733" }
-                  }
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Brand color updated successfully"
-            }
-          }
-        }
-      },
-      "/company/support-email": {
-        "put": {
-          "summary": "Update Support Email",
-          "description": "Update company support email (Based on Figma Edit Support Email screen)",
-          "tags": ["Company Management"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "support_email": { "type": "string", "format": "email", "example": "acmeinc@gmail.com" }
-                  },
-                  "required": ["support_email"]
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Support email updated successfully"
-            }
-          }
-        }
-      },
-      "/company/phone": {
-        "put": {
-          "summary": "Update Company Phone",
-          "description": "Update company phone number (Based on Figma Edit Company Phone screen)",
-          "tags": ["Company Management"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "company_phone": { "type": "string", "example": "(+1) 740 - 8521" }
-                  },
-                  "required": ["company_phone"]
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Company phone updated successfully"
-            }
-          }
-        }
-      },
-      "/company/address": {
-        "put": {
-          "summary": "Update Company Address",
-          "description": "Update company address with location details (Based on Figma Edit Address screen)",
-          "tags": ["Company Management"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "address": { "type": "string", "example": "45 Cloudy Bay, Auckland, NZ" },
-                    "city": { "type": "string", "example": "Auckland" },
-                    "state": { "type": "string", "example": "Auckland" },
-                    "country": { "type": "string", "example": "New Zealand" },
-                    "postal_code": { "type": "string", "example": "1010" }
-                  },
-                  "required": ["address"]
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Company address updated successfully"
-            }
-          }
-        }
-      },
-      "/me/profile": {
-        "get": {
-          "summary": "Get User Profile",
-          "description": "Get complete user profile information (Based on Figma Personal Information screen)",
-          "tags": ["Profile Management"],
-          "responses": {
-            "200": {
-              "description": "Profile information retrieved successfully"
-            }
-          }
-        },
-        "put": {
-          "summary": "Update Profile",
-          "description": "Update user profile information",
-          "tags": ["Profile Management"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "first_name": { "type": "string" },
-                    "last_name": { "type": "string" },
-                    "email": { "type": "string", "format": "email" },
-                    "phone": { "type": "string" }
-                  }
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Profile updated successfully"
-            }
-          }
-        },
-        "delete": {
-          "summary": "Delete Account",
-          "description": "Delete user account permanently (Based on Figma Delete Account screens)",
-          "tags": ["Profile Management"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "confirmation_text": { "type": "string", "example": "DELETE" },
-                    "password": { "type": "string" }
-                  }
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Account deletion initiated"
-            }
-          }
-        }
-      },
-      "/me/profile/photo": {
-        "post": {
-          "summary": "Upload Profile Photo",
-          "description": "Upload new profile photo (Based on Figma Upload Photos screen)",
-          "tags": ["Profile Management"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "photo_data": { "type": "string" },
-                    "photo_type": { "type": "string", "example": "image/jpeg" }
-                  }
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Profile photo uploaded successfully"
-            }
-          }
-        }
-      },
-      "/me/profile/name": {
-        "put": {
-          "summary": "Update Name",
-          "description": "Update user's first and last name (Based on Figma Edit Full Name screen)",
-          "tags": ["Profile Management"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "first_name": { "type": "string", "example": "Jenny" },
-                    "last_name": { "type": "string", "example": "Wilson" }
-                  },
-                  "required": ["first_name", "last_name"]
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Name updated successfully"
-            }
-          }
-        }
-      },
-      "/me/profile/email": {
-        "put": {
-          "summary": "Update Email",
-          "description": "Update user's email address (Based on Figma Edit Email Address screen)",
-          "tags": ["Profile Management"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "email": { "type": "string", "format": "email", "example": "jenny.wilson@email.com" }
-                  },
-                  "required": ["email"]
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Email updated successfully"
-            }
-          }
-        }
-      },
-      "/me/profile/phone": {
-        "put": {
-          "summary": "Update Phone Number",
-          "description": "Update user's phone number (Based on Figma Edit Phone Number screen)",
-          "tags": ["Profile Management"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "phone": { "type": "string", "example": "(+1) 267 - 9041" }
-                  },
-                  "required": ["phone"]
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Phone number updated successfully"
-            }
-          }
-        }
-      },
-      "/me/profile/password": {
-        "put": {
-          "summary": "Change Password",
-          "description": "Change user's password (Based on Figma Edit Password screen)",
-          "tags": ["Profile Management"],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "current_password": { "type": "string" },
-                    "new_password": { "type": "string" },
-                    "confirm_password": { "type": "string" }
-                  },
-                  "required": ["current_password", "new_password", "confirm_password"]
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Password changed successfully"
-            }
-          }
-        }
-      }
-    }
-  };
-
-  res.json(swaggerSpec);
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const swaggerPath = path.join(__dirname, 'swagger-spec.json');
+    const swaggerSpec = JSON.parse(fs.readFileSync(swaggerPath, 'utf8'));
+    res.json(swaggerSpec);
+  } catch (error) {
+    console.error('Error loading swagger-spec.json:', error);
+    res.status(500).json({ error: 'Failed to load API documentation' });
+  }
 });
+
 
 // Swagger UI
 app.get('/api-docs', (req, res) => {
@@ -4249,7 +2873,692 @@ app.use('*', (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 // Only start server if not in Vercel environment
-if (process.env.VERCEL !== '1') {
+// Dashboard Recent Requests API
+app.get('/api/dashboard/recent-requests', (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const status = req.query.status || 'all';
+  const type = req.query.type || 'all';
+  
+  const allRequests = [
+    {
+      id: 1,
+      employeeName: 'Jenny Wilson',
+      type: 'Vacation',
+      date: '12 - 14 Nov 2025',
+      status: 'Pending',
+      submitted: 'Today, 08:04',
+      submittedDate: new Date().toISOString()
+    },
+    {
+      id: 2,
+      employeeName: 'Michael Kim',
+      type: 'Vacation',
+      date: '5 - 6 Nov 2025',
+      status: 'Approved',
+      submitted: 'Yesterday, 17:22',
+      submittedDate: new Date(Date.now() - 86400000).toISOString()
+    },
+    {
+      id: 3,
+      employeeName: 'Mark Evans',
+      type: 'Correction',
+      date: '9 Nov 2025',
+      status: 'Pending',
+      submitted: '2 days ago',
+      submittedDate: new Date(Date.now() - 172800000).toISOString()
+    },
+    {
+      id: 4,
+      employeeName: 'Sarah Anderson',
+      type: 'Correction',
+      date: '2 Nov 2025',
+      status: 'Reject',
+      submitted: '2 days ago',
+      submittedDate: new Date(Date.now() - 172800000).toISOString()
+    },
+    {
+      id: 5,
+      employeeName: 'Daniel Lee',
+      type: 'Correction',
+      date: '3 Nov 2025',
+      status: 'Reject',
+      submitted: 'Yesterday, 10:11',
+      submittedDate: new Date(Date.now() - 86400000).toISOString()
+    },
+    {
+      id: 6,
+      employeeName: 'Michael Chen',
+      type: 'Vacation',
+      date: '20 - 22 Dec 2025',
+      status: 'Pending',
+      submitted: 'Today, 09:45',
+      submittedDate: new Date().toISOString()
+    },
+    {
+      id: 7,
+      employeeName: 'Olivia Carter',
+      type: 'Vacation',
+      date: '10 Nov 2025',
+      status: 'Pending',
+      submitted: 'Today, 06:04',
+      submittedDate: new Date().toISOString()
+    },
+    {
+      id: 8,
+      employeeName: 'Joshua Kim',
+      type: 'Vacation',
+      date: '28 Nov 2025',
+      status: 'Approved',
+      submitted: '2 days ago',
+      submittedDate: new Date(Date.now() - 172800000).toISOString()
+    },
+    {
+      id: 9,
+      employeeName: 'Emily Davis',
+      type: 'Correction',
+      date: '1 Nov 2025',
+      status: 'Approved',
+      submitted: '3 days ago',
+      submittedDate: new Date(Date.now() - 259200000).toISOString()
+    },
+    {
+      id: 10,
+      employeeName: 'Michelle Hart',
+      type: 'Vacation',
+      date: '18 - 19 Nov 2025',
+      status: 'Pending',
+      submitted: 'Today, 11:12',
+      submittedDate: new Date().toISOString()
+    }
+  ];
+  
+  let filteredRequests = allRequests;
+  
+  if (status !== 'all') {
+    filteredRequests = filteredRequests.filter(req => req.status.toLowerCase() === status.toLowerCase());
+  }
+  
+  if (type !== 'all') {
+    filteredRequests = filteredRequests.filter(req => req.type.toLowerCase() === type.toLowerCase());
+  }
+  
+  const startIndex = (page - 1) * limit;
+  const endIndex = startIndex + limit;
+  const paginatedRequests = filteredRequests.slice(startIndex, endIndex);
+  
+  res.json({
+    success: true,
+    data: {
+      requests: paginatedRequests,
+      pagination: {
+        current_page: page,
+        total_pages: Math.ceil(filteredRequests.length / limit),
+        total_records: filteredRequests.length,
+        per_page: limit
+      },
+      filters: {
+        available_statuses: ['All Status', 'Pending', 'Approved', 'Reject'],
+        available_types: ['All Types', 'Vacation', 'Correction'],
+        current_status: status,
+        current_type: type
+      }
+    }
+  });
+});
+
+// Request Actions APIs
+app.post('/api/requests/:id/approve', (req, res) => {
+  const requestId = req.params.id;
+  res.json({
+    success: true,
+    message: 'Request approved successfully',
+    data: {
+      requestId: requestId,
+      status: 'approved',
+      approvedAt: new Date().toISOString(),
+      approvedBy: 'Admin'
+    }
+  });
+});
+
+app.post('/api/requests/:id/reject', (req, res) => {
+  const requestId = req.params.id;
+  const reason = req.body.reason || 'No reason provided';
+  res.json({
+    success: true,
+    message: 'Request rejected successfully',
+    data: {
+      requestId: requestId,
+      status: 'rejected',
+      rejectedAt: new Date().toISOString(),
+      rejectedBy: 'Admin',
+      reason: reason
+    }
+  });
+});
+
+// Workforce Activity API
+app.get('/api/dashboard/workforce-activity', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      todayStats: {
+        clockedInToday: {
+          count: 38,
+          description: 'Employees who have started their shift',
+          employees: ['John Doe', 'Jane Smith', 'Mike Johnson']
+        },
+        notClockedIn: {
+          count: 4,
+          description: 'Employees who haven\'t started their day yet',
+          employees: ['Sarah Wilson', 'David Brown']
+        },
+        onBreak: {
+          count: 7,
+          description: 'Currently on break or paused',
+          employees: ['Mark Evans', 'Lisa Wang']
+        },
+        clockedOutToday: {
+          count: 34,
+          description: 'Employees who have finished their shift',
+          employees: ['Alex Chen', 'Maria Garcia']
+        },
+        lateArrivals: {
+          count: 3,
+          description: 'Clocked in after the scheduled start time',
+          employees: ['Robert Taylor', 'Emma Davis', 'Chris Wilson']
+        }
+      },
+      realTimeUpdates: {
+        lastUpdated: new Date().toISOString(),
+        refreshRate: '30 seconds'
+      }
+    }
+  });
+});
+
+// Employee Stats API
+app.get('/api/dashboard/employees', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      totalEmployees: 42,
+      activeEmployees: 39,
+      onLeave: 3,
+      categories: {
+        fullTime: 35,
+        partTime: 7,
+        contractors: 0
+      },
+      departments: {
+        engineering: 18,
+        marketing: 8,
+        sales: 10,
+        hr: 4,
+        finance: 2
+      }
+    }
+  });
+});
+
+// Get All Employees API
+app.get('/api/employees', (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const status = req.query.status || 'all';
+  const role = req.query.role || 'all';
+  const department = req.query.department || 'all';
+  const search = req.query.search || '';
+  const dateJoined = req.query.dateJoined || 'all';
+
+  const allEmployees = [
+    {
+      id: 1,
+      name: "Jenny Wilson",
+      firstName: "Jenny",
+      lastName: "Wilson",
+      email: "jenny.wilson@email.com",
+      phone: "+1 234 567 890",
+      address: "42 Sunset Road, Westfield, NY",
+      role: "Employee",
+      department: "Design",
+      status: "Active",
+      dateJoined: "2024-08-17",
+      workingHours: "09:00 - 17:00",
+      workModel: "Hybrid",
+      manager: "Mark Evans",
+      employeeId: "EMP - 0232",
+      profileImage: "https://images.unsplash.com/photo-1494790108755-2616b612c937?w=150"
+    },
+    {
+      id: 2,
+      name: "Michael Kim",
+      firstName: "Michael",
+      lastName: "Kim",
+      email: "michael.kim@email.com",
+      phone: "+1 234 567 891",
+      address: "123 Oak Street, Boston, MA",
+      role: "Employee",
+      department: "Engineering",
+      status: "Active",
+      dateJoined: "2025-01-02",
+      workingHours: "09:00 - 18:00",
+      workModel: "Remote",
+      manager: "Sarah Tech",
+      employeeId: "EMP - 0233"
+    },
+    {
+      id: 3,
+      name: "Mark Evans",
+      firstName: "Mark",
+      lastName: "Evans",
+      email: "mark.evans@email.com",
+      phone: "+1 234 567 892",
+      address: "456 Pine Avenue, Seattle, WA",
+      role: "Manager",
+      department: "Operations",
+      status: "Active",
+      dateJoined: "2023-10-10",
+      workingHours: "08:00 - 17:00",
+      workModel: "Onsite",
+      manager: "CEO",
+      employeeId: "EMP - 0234"
+    },
+    {
+      id: 4,
+      name: "Sarah Anderson",
+      firstName: "Sarah",
+      lastName: "Anderson",
+      email: "sarah.anderson@email.com",
+      phone: "+1 234 567 893",
+      address: "789 Elm Street, Portland, OR",
+      role: "Employee",
+      department: "HR",
+      status: "Inactive",
+      dateJoined: "2023-03-03",
+      workingHours: "09:00 - 17:00",
+      workModel: "Hybrid",
+      manager: "HR Director",
+      employeeId: "EMP - 0235"
+    },
+    {
+      id: 5,
+      name: "Daniel Lee",
+      firstName: "Daniel",
+      lastName: "Lee",
+      email: "daniel.lee@email.com",
+      phone: "+1 234 567 894",
+      address: "321 Maple Drive, Austin, TX",
+      role: "Employee",
+      department: "Finance",
+      status: "Active",
+      dateJoined: "2024-05-12",
+      workingHours: "08:30 - 17:30",
+      workModel: "Onsite",
+      manager: "Finance Head",
+      employeeId: "EMP - 0236"
+    },
+    {
+      id: 6,
+      name: "Michael Chen",
+      firstName: "Michael",
+      lastName: "Chen",
+      email: "michael.chen@email.com",
+      phone: "+1 234 567 895",
+      address: "654 Broadway, New York, NY",
+      role: "Admin",
+      department: "IT",
+      status: "Active",
+      dateJoined: "2022-01-01",
+      workingHours: "07:00 - 16:00",
+      workModel: "Hybrid",
+      manager: "IT Director",
+      employeeId: "EMP - 0237"
+    },
+    {
+      id: 7,
+      name: "Olivia Carter",
+      firstName: "Olivia",
+      lastName: "Carter",
+      email: "olivia.carter@email.com",
+      phone: "+1 234 567 896",
+      address: "987 Fifth Avenue, Miami, FL",
+      role: "Employee",
+      department: "Marketing",
+      status: "Active",
+      dateJoined: "2024-09-09",
+      workingHours: "10:00 - 18:00",
+      workModel: "Remote",
+      manager: "Marketing Lead",
+      employeeId: "EMP - 0238"
+    },
+    {
+      id: 8,
+      name: "Joshua Kim",
+      firstName: "Joshua",
+      lastName: "Kim",
+      email: "joshua.kim@email.com",
+      phone: "+1 234 567 897",
+      address: "159 Wall Street, Chicago, IL",
+      role: "Employee",
+      department: "Logistics",
+      status: "Active",
+      dateJoined: "2025-02-28",
+      workingHours: "06:00 - 14:00",
+      workModel: "Onsite",
+      manager: "Operations Manager",
+      employeeId: "EMP - 0239"
+    },
+    {
+      id: 9,
+      name: "Emily Davis",
+      firstName: "Emily",
+      lastName: "Davis",
+      email: "emily.davis@email.com",
+      phone: "+1 234 567 898",
+      address: "753 Ocean Drive, San Diego, CA",
+      role: "Employee",
+      department: "Sales",
+      status: "Active",
+      dateJoined: "2024-11-11",
+      workingHours: "09:00 - 17:00",
+      workModel: "Hybrid",
+      manager: "Sales Director",
+      employeeId: "EMP - 0240"
+    },
+    {
+      id: 10,
+      name: "Michelle Hart",
+      firstName: "Michelle",
+      lastName: "Hart",
+      email: "michelle.hart@email.com",
+      phone: "+1 234 567 899",
+      address: "852 Lake Shore, Denver, CO",
+      role: "Employee",
+      department: "HR",
+      status: "Active",
+      dateJoined: "2024-04-14",
+      workingHours: "08:00 - 16:00",
+      workModel: "Onsite",
+      manager: "HR Manager",
+      employeeId: "EMP - 0241"
+    }
+  ];
+
+  let filteredEmployees = allEmployees;
+
+  // Apply search filter
+  if (search) {
+    filteredEmployees = filteredEmployees.filter(emp => 
+      emp.name.toLowerCase().includes(search.toLowerCase()) ||
+      emp.email.toLowerCase().includes(search.toLowerCase()) ||
+      emp.department.toLowerCase().includes(search.toLowerCase())
+    );
+  }
+
+  // Apply status filter
+  if (status !== 'all') {
+    filteredEmployees = filteredEmployees.filter(emp => 
+      emp.status.toLowerCase() === status.toLowerCase()
+    );
+  }
+
+  // Apply role filter
+  if (role !== 'all') {
+    filteredEmployees = filteredEmployees.filter(emp => 
+      emp.role.toLowerCase() === role.toLowerCase()
+    );
+  }
+
+  // Apply department filter
+  if (department !== 'all') {
+    filteredEmployees = filteredEmployees.filter(emp => 
+      emp.department.toLowerCase() === department.toLowerCase()
+    );
+  }
+
+  // Pagination
+  const startIndex = (page - 1) * limit;
+  const endIndex = startIndex + limit;
+  const paginatedEmployees = filteredEmployees.slice(startIndex, endIndex);
+
+  res.json({
+    success: true,
+    data: {
+      employees: paginatedEmployees,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(filteredEmployees.length / limit),
+        totalEmployees: filteredEmployees.length,
+        hasNextPage: endIndex < filteredEmployees.length,
+        hasPrevPage: page > 1
+      }
+    }
+  });
+});
+
+// Get Single Employee API
+app.get('/api/employees/:id', (req, res) => {
+  const employeeId = parseInt(req.params.id);
+  
+  const employee = {
+    id: employeeId,
+    name: "Jenny Wilson",
+    firstName: "Jenny",
+    lastName: "Wilson",
+    email: "jenny.wilson@email.com",
+    phone: "+1 234 567 890",
+    address: "42 Sunset Road, Westfield, NY",
+    dateOfBirth: "1995-10-14",
+    role: "Employee",
+    department: "Design",
+    status: "Active",
+    dateJoined: "2024-08-17",
+    workingHours: "09:00 - 17:00",
+    workModel: "Hybrid",
+    manager: "Mark Evans",
+    employeeId: "EMP - 0232",
+    profileImage: "https://images.unsplash.com/photo-1494790108755-2616b612c937?w=150",
+    timesheetSummary: {
+      hoursWorkedThisWeek: "38h 20m",
+      averageDailyHours: "7h 40m",
+      overtimeThisMonth: "4h 20m",
+      lastClockIn: "Today, 08:12",
+      lastClockOut: "Yesterday, 17:04"
+    },
+    recentRequests: [
+      {
+        id: 1,
+        type: "Vacation Request",
+        description: "Paid Leave 5-6 Nov 2025",
+        status: "Pending",
+        requestedDate: "2025-11-05",
+        submittedAt: "2025-10-28"
+      },
+      {
+        id: 2,
+        type: "Correction Request", 
+        description: "Incorrect clock-in time",
+        status: "Approved",
+        requestedDate: "2025-10-25",
+        submittedAt: "2025-10-26"
+      }
+    ],
+    recentActivity: [
+      {
+        id: 1,
+        type: "Clock In",
+        description: "Clocked in",
+        time: "Today, 08:12"
+      },
+      {
+        id: 2,
+        type: "Vacation request submitted",
+        description: "Requested 2 days off (5-6 Nov)",
+        time: "Today, 08:04"
+      }
+    ]
+  };
+
+  res.json({
+    success: true,
+    data: employee
+  });
+});
+
+// Create Employee API
+app.post('/api/employees', (req, res) => {
+  const newEmployee = {
+    id: Math.floor(Math.random() * 1000) + 100,
+    ...req.body,
+    status: "Active",
+    dateJoined: new Date().toISOString().split('T')[0],
+    employeeId: `EMP - ${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`
+  };
+
+  res.status(201).json({
+    success: true,
+    message: "Employee created successfully",
+    data: newEmployee
+  });
+});
+
+// Update Employee API
+app.put('/api/employees/:id', (req, res) => {
+  const employeeId = req.params.id;
+  const updatedData = req.body;
+
+  res.json({
+    success: true,
+    message: "Profile updated successfully",
+    data: {
+      id: employeeId,
+      ...updatedData,
+      updatedAt: new Date().toISOString()
+    }
+  });
+});
+
+// Deactivate Employee API
+app.patch('/api/employees/:id/deactivate', (req, res) => {
+  const employeeId = req.params.id;
+
+  res.json({
+    success: true,
+    message: "Employee deactivated",
+    data: {
+      employeeId: employeeId,
+      status: "Inactive",
+      deactivatedAt: new Date().toISOString(),
+      note: "Deactivated employees cannot log in, but their timesheets, requests, and history will be kept."
+    }
+  });
+});
+
+// Activate Employee API
+app.patch('/api/employees/:id/activate', (req, res) => {
+  const employeeId = req.params.id;
+
+  res.json({
+    success: true,
+    message: "Employee activated",
+    data: {
+      employeeId: employeeId,
+      status: "Active",
+      activatedAt: new Date().toISOString(),
+      note: "This employee can now log in and access the system based on their assigned role."
+    }
+  });
+});
+
+// Delete Employee API
+app.delete('/api/employees/:id', (req, res) => {
+  const employeeId = req.params.id;
+
+  res.json({
+    success: true,
+    message: "Employee deleted",
+    data: {
+      employeeId: employeeId,
+      deletedAt: new Date().toISOString(),
+      note: "The employee account has been permanently removed from the system."
+    }
+  });
+});
+
+// Get Employee Timesheet API
+app.get('/api/employees/:id/timesheet', (req, res) => {
+  const employeeId = req.params.id;
+  const period = req.query.period || 'weekly';
+
+  res.json({
+    success: true,
+    data: {
+      employeeId: employeeId,
+      period: period,
+      summary: {
+        hoursWorkedThisWeek: "38h 20m",
+        averageDailyHours: "7h 40m",
+        overtimeThisMonth: "4h 20m",
+        lastClockIn: "Today, 08:12",
+        lastClockOut: "Yesterday, 17:04"
+      },
+      entries: [
+        {
+          date: "2025-12-30",
+          clockIn: "08:12",
+          clockOut: "17:04",
+          totalHours: "8h 52m",
+          status: "Regular"
+        },
+        {
+          date: "2025-12-29", 
+          clockIn: "08:05",
+          clockOut: "17:10",
+          totalHours: "9h 5m",
+          status: "Overtime"
+        }
+      ]
+    }
+  });
+});
+
+// Get Employee Roles API
+app.get('/api/employees/roles', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      roles: [
+        { id: 1, name: "Employee", description: "Standard employee access" },
+        { id: 2, name: "Manager", description: "Team management access" },
+        { id: 3, name: "Admin", description: "Full system access" },
+        { id: 4, name: "HR", description: "Human resources access" }
+      ]
+    }
+  });
+});
+
+// Get Departments API
+app.get('/api/employees/departments', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      departments: [
+        { id: 1, name: "Engineering", employeeCount: 18 },
+        { id: 2, name: "Design", employeeCount: 8 },
+        { id: 3, name: "Marketing", employeeCount: 6 },
+        { id: 4, name: "HR", employeeCount: 4 },
+        { id: 5, name: "Finance", employeeCount: 3 },
+        { id: 6, name: "Sales", employeeCount: 3 },
+        { id: 7, name: "Operations", employeeCount: 2 },
+        { id: 8, name: "IT", employeeCount: 2 }
+      ]
+    }
+  });
+});
+
+if (require.main === module && process.env.VERCEL !== '1') {
   app.listen(PORT, () => {
     console.log(`✅ Server running on http://localhost:${PORT}`);
     console.log(`📚 API Docs: http://localhost:${PORT}/api-docs`);
