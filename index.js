@@ -251,72 +251,45 @@ app.get('/api/employees', authenticateToken, (req, res) => {
 });
 
 // Swagger docs
+// Swagger UI Documentation
 app.get('/api-docs', (req, res) => {
   res.send(`
     <!DOCTYPE html>
     <html>
     <head>
-      <title>🎨 Figma Invite Employee API</title>
+      <title>API Documentation</title>
+      <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui.css" />
       <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-        .endpoint { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
-        .method { font-weight: bold; color: #2196F3; }
-        .url { background: #333; color: white; padding: 5px 10px; border-radius: 3px; font-family: monospace; }
+        html { box-sizing: border-box; overflow: -moz-scrollbars-vertical; overflow-y: scroll; }
+        *, *:before, *:after { box-sizing: inherit; }
+        body { margin:0; background: #fafafa; }
       </style>
     </head>
     <body>
-      <h1>🎨 Figma Invite Employee API Documentation</h1>
-      <p><strong>Domain:</strong> api-layer.vercel.app</p>
-      <p><strong>Status:</strong> ✅ All Figma UI fields supported!</p>
-      
-      <h2>📋 Available Endpoints:</h2>
-      
-      <div class="endpoint">
-        <div class="method">POST</div>
-        <div class="url">/api/auth/login</div>
-        <p>Login to get authentication token</p>
-      </div>
-      
-      <div class="endpoint">
-        <div class="method">POST</div>
-        <div class="url">/api/employees/invite</div>
-        <p><strong>🎨 Main Figma UI Endpoint!</strong> Complete invite employee form with all 13 fields</p>
-        <p><strong>Fields:</strong> firstName, lastName, email, phone, dateOfBirth, address, role, department, manager, workingHours, workingModel, startDate, profilePhoto</p>
-      </div>
-      
-      <div class="endpoint">
-        <div class="method">GET</div>
-        <div class="url">/api/employees/roles</div>
-        <p>Get roles for dropdown (Figma UI)</p>
-      </div>
-      
-      <div class="endpoint">
-        <div class="method">GET</div>
-        <div class="url">/api/employees/departments</div>
-        <p>Get departments for dropdown (Figma UI)</p>
-      </div>
-      
-      <div class="endpoint">
-        <div class="method">GET</div>
-        <div class="url">/api/employees/working-models</div>
-        <p>Get working models for dropdown (Figma UI)</p>
-      </div>
-      
-      <div class="endpoint">
-        <div class="method">GET</div>
-        <div class="url">/api/employees</div>
-        <p>Get all employees list</p>
-      </div>
-      
-      <h2>🔑 Authentication</h2>
-      <p>Use Bearer token in Authorization header: <code>Authorization: Bearer YOUR_TOKEN</code></p>
-      
-      <h2>🧪 Testing</h2>
-      <ol>
-        <li>POST /api/auth/login with email/password to get token</li>
-        <li>Use token to access protected endpoints</li>
-        <li>POST /api/employees/invite with Figma form data</li>
-      </ol>
+      <div id="swagger-ui"></div>
+      <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"></script>
+      <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js"></script>
+      <script>
+        window.onload = function() {
+          const ui = SwaggerUIBundle({
+            url: '/swagger.json',
+            dom_id: '#swagger-ui',
+            deepLinking: true,
+            presets: [
+              SwaggerUIBundle.presets.apis,
+              SwaggerUIStandalonePreset
+            ],
+            plugins: [
+              SwaggerUIBundle.plugins.DownloadUrl
+            ],
+            layout: "StandaloneLayout"
+          });
+        };
+      </script>
+    </body>
+    </html>
+  `);
+});
       
       <p><a href="/swagger.json">📄 View Swagger JSON</a></p>
     </body>
@@ -328,18 +301,233 @@ app.get('/api-docs', (req, res) => {
 app.get('/swagger.json', (req, res) => {
   res.json({
     openapi: '3.0.0',
-    info: { title: 'Figma Invite Employee API', version: '1.0.0' },
+    info: { 
+      title: 'Figma Invite Employee API', 
+      version: '1.0.0',
+      description: 'Complete API for Figma UI invite employee functionality'
+    },
     servers: [{ url: 'https://api-layer.vercel.app' }],
-    components: { securitySchemes: { BearerAuth: { type: 'http', scheme: 'bearer' } } },
+    components: { 
+      securitySchemes: { 
+        BearerAuth: { 
+          type: 'http', 
+          scheme: 'bearer',
+          bearerFormat: 'JWT'
+        } 
+      } 
+    },
     paths: {
-      '/api/health': { get: { summary: 'Health Check', tags: ['System'] } },
-      '/api/auth/login': { post: { summary: 'User Login', tags: ['Auth'] } },
-      '/api/employees': { get: { summary: 'Get Employees', tags: ['Employees'], security: [{ BearerAuth: [] }] } },
-      '/api/employees/invite': { post: { summary: 'Invite Employee', tags: ['Employees'], security: [{ BearerAuth: [] }] } },
-      '/api/employees/roles': { get: { summary: 'Get Roles', tags: ['Employees'], security: [{ BearerAuth: [] }] } },
-      '/api/employees/departments': { get: { summary: 'Get Departments', tags: ['Employees'], security: [{ BearerAuth: [] }] } },
-      '/api/employees/working-models': { get: { summary: 'Get Working Models', tags: ['Employees'], security: [{ BearerAuth: [] }] } }
-    }
+      '/api/health': { 
+        get: { 
+          summary: 'Health Check', 
+          tags: ['System'],
+          responses: {
+            '200': {
+              description: 'Service is healthy',
+              content: {
+                'application/json': {
+                  example: {
+                    status: 'OK',
+                    timestamp: '2024-01-03T10:00:00Z',
+                    message: 'Invite Employee API working',
+                    domain: 'api-layer.vercel.app'
+                  }
+                }
+              }
+            }
+          }
+        } 
+      },
+      '/api/auth/login': { 
+        post: { 
+          summary: 'User Login', 
+          tags: ['Authentication'],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['email', 'password'],
+                  properties: {
+                    email: { type: 'string', example: 'admin@company.com' },
+                    password: { type: 'string', example: 'password123' },
+                    tenantName: { type: 'string', example: 'Demo Company' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            '200': {
+              description: 'Login successful',
+              content: {
+                'application/json': {
+                  example: {
+                    success: true,
+                    message: 'Login successful',
+                    data: {
+                      user: { id: 1, email: 'admin@company.com' },
+                      token: 'jwt-token-here'
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } 
+      },
+      '/api/employees': { 
+        get: { 
+          summary: 'Get All Employees', 
+          tags: ['Employees'], 
+          security: [{ BearerAuth: [] }],
+          responses: {
+            '200': {
+              description: 'Employees retrieved successfully',
+              content: {
+                'application/json': {
+                  example: {
+                    success: true,
+                    data: {
+                      employees: [
+                        {
+                          id: 'EMP001',
+                          firstName: 'John',
+                          lastName: 'Doe',
+                          email: 'john@company.com',
+                          role: 'Software Developer'
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } 
+      },
+      '/api/employees/invite': { 
+        post: { 
+          summary: 'Invite Employee (Figma UI)', 
+          tags: ['Employees'], 
+          security: [{ BearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['firstName', 'lastName', 'email', 'role', 'department', 'workingHours', 'workingModel', 'startDate'],
+                  properties: {
+                    firstName: { type: 'string', example: 'John' },
+                    lastName: { type: 'string', example: 'Doe' },
+                    email: { type: 'string', example: 'john.doe@company.com' },
+                    phone: { type: 'string', example: '+1234567890' },
+                    dateOfBirth: { type: 'string', example: '1990-01-15' },
+                    address: { type: 'string', example: '123 Main St' },
+                    role: { type: 'string', example: 'Software Developer' },
+                    department: { type: 'string', example: 'Engineering' },
+                    manager: { type: 'string', example: 'Jane Smith' },
+                    workingHours: { type: 'string', example: '40 hours/week' },
+                    workingModel: { type: 'string', example: 'Remote' },
+                    startDate: { type: 'string', example: '2024-02-01' },
+                    profilePhoto: { type: 'string', example: 'base64-image-data' }
+                  }
+                }
+              }
+            }
+          },
+          responses: {
+            '201': {
+              description: 'Employee invitation sent',
+              content: {
+                'application/json': {
+                  example: {
+                    success: true,
+                    message: 'Employee invitation sent successfully',
+                    data: {
+                      employee: {
+                        id: 'EMP123456',
+                        firstName: 'John',
+                        lastName: 'Doe',
+                        email: 'john.doe@company.com',
+                        status: 'invited'
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } 
+      },
+      '/api/employees/roles': { 
+        get: { 
+          summary: 'Get Roles', 
+          tags: ['Employees'], 
+          security: [{ BearerAuth: [] }],
+          responses: {
+            '200': {
+              description: 'List of roles',
+              content: {
+                'application/json': {
+                  example: {
+                    success: true,
+                    data: ['Software Developer', 'Product Manager', 'Designer']
+                  }
+                }
+              }
+            }
+          }
+        } 
+      },
+      '/api/employees/departments': { 
+        get: { 
+          summary: 'Get Departments', 
+          tags: ['Employees'], 
+          security: [{ BearerAuth: [] }],
+          responses: {
+            '200': {
+              description: 'List of departments',
+              content: {
+                'application/json': {
+                  example: {
+                    success: true,
+                    data: ['Engineering', 'Product', 'Design', 'Marketing']
+                  }
+                }
+              }
+            }
+          }
+        } 
+      },
+      '/api/employees/working-models': { 
+        get: { 
+          summary: 'Get Working Models', 
+          tags: ['Employees'], 
+          security: [{ BearerAuth: [] }],
+          responses: {
+            '200': {
+              description: 'List of working models',
+              content: {
+                'application/json': {
+                  example: {
+                    success: true,
+                    data: ['Remote', 'Hybrid', 'On-site', 'Flexible']
+                  }
+                }
+              }
+            }
+          }
+        } 
+      }
+    },
+    tags: [
+      { name: 'System', description: 'System health and status' },
+      { name: 'Authentication', description: 'User login and authentication' },
+      { name: 'Employees', description: 'Employee management for Figma UI' }
+    ]
   });
 });
 
