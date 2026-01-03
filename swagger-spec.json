@@ -1221,6 +1221,68 @@
         }
       }
     },
+    "/api/me/weekly-balance": {
+      "get": {
+        "summary": "Get Weekly Balance",
+        "description": "Get user's weekly work balance showing if they are ahead or behind target hours",
+        "tags": ["Time Tracking"],
+        "responses": {
+          "200": {
+            "description": "Weekly balance retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "weeklyBalance": {
+                          "type": "string",
+                          "example": "+0h 30m",
+                          "description": "Formatted balance string showing hours ahead/behind"
+                        },
+                        "balance_hours": {
+                          "type": "number",
+                          "example": 0.5,
+                          "description": "Numeric balance in hours"
+                        },
+                        "total_worked": {
+                          "type": "number",
+                          "example": 40.5
+                        },
+                        "target_hours": {
+                          "type": "number",
+                          "example": 40
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": ["ahead", "behind"],
+                          "example": "ahead"
+                        },
+                        "message": {
+                          "type": "string",
+                          "example": "You're +0h 30m ahead of your weekly target"
+                        },
+                        "percentage": {
+                          "type": "integer",
+                          "example": 101,
+                          "description": "Percentage of target hours completed"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/me/notifications": {
       "get": {
         "summary": "Get User Notifications",
@@ -1801,6 +1863,257 @@
         }
       }
     },
+    "/api/employees/invite": {
+      "post": {
+        "summary": "Invite New Employee",
+        "description": "Send invitation to new employee with comprehensive setup form matching Figma UI. Employee receives email invitation to set up their account.",
+        "tags": ["Employees"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["firstName", "lastName", "email", "role", "department", "workingHours", "workingModel", "startDate"],
+                "properties": {
+                  "firstName": {
+                    "type": "string",
+                    "description": "Employee's first name",
+                    "example": "John"
+                  },
+                  "lastName": {
+                    "type": "string",
+                    "description": "Employee's last name",
+                    "example": "Doe"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Employee's email address",
+                    "example": "john.doe@company.com"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "description": "Employee's phone number (optional)",
+                    "example": "+1234567890"
+                  },
+                  "dateOfBirth": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Employee's date of birth (optional)",
+                    "example": "1990-05-15"
+                  },
+                  "address": {
+                    "type": "string",
+                    "description": "Employee's address (optional)",
+                    "example": "123 Main St, City, State 12345"
+                  },
+                  "role": {
+                    "type": "string",
+                    "description": "Employee's role/position",
+                    "example": "Developer"
+                  },
+                  "department": {
+                    "type": "string",
+                    "description": "Employee's department",
+                    "example": "Engineering"
+                  },
+                  "manager": {
+                    "type": "string",
+                    "description": "Employee's manager name (optional)",
+                    "example": "Jane Smith"
+                  },
+                  "workingHours": {
+                    "type": "string",
+                    "description": "Employee's working hours",
+                    "example": "09:00 - 05:00 PM"
+                  },
+                  "workingModel": {
+                    "type": "string",
+                    "enum": ["Office", "Remote", "Hybrid", "Flexible", "Contract", "Part-time"],
+                    "description": "Employee's working model",
+                    "example": "Hybrid"
+                  },
+                  "startDate": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Employee's start date",
+                    "example": "2025-01-15"
+                  },
+                  "profilePhoto": {
+                    "type": "string",
+                    "description": "URL or base64 encoded profile photo (optional)",
+                    "example": "https://example.com/photo.jpg"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Employee invitation sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean", "example": true},
+                    "message": {"type": "string", "example": "Employee invitation sent successfully"},
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "employee": {"type": "object"},
+                        "invitationLink": {"type": "string"},
+                        "message": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "Bad request - missing required fields or invalid email"},
+          "401": {"description": "Unauthorized"}
+        }
+      }
+    },
+    "/api/employees/accept-invitation": {
+      "post": {
+        "summary": "Accept Employee Invitation",
+        "description": "Employee accepts invitation and sets up their account",
+        "tags": ["Employees"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["token", "password"],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "Invitation token from email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": "Password for the account"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Invitation accepted successfully"},
+          "400": {"description": "Invalid token or missing password"}
+        }
+      }
+    },
+    "/api/employees/roles": {
+      "get": {
+        "summary": "Get Employee Roles",
+        "description": "Get list of available employee roles for the invite form",
+        "tags": ["Employees"],
+        "responses": {
+          "200": {
+            "description": "List of available roles",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "message": {"type": "string"},
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {"type": "integer"},
+                          "name": {"type": "string"},
+                          "description": {"type": "string"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/employees/departments": {
+      "get": {
+        "summary": "Get Departments",
+        "description": "Get list of all departments with employee counts for the invite form",
+        "tags": ["Employees"],
+        "responses": {
+          "200": {
+            "description": "List of departments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "message": {"type": "string"},
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {"type": "integer"},
+                          "name": {"type": "string"},
+                          "employeeCount": {"type": "integer"},
+                          "description": {"type": "string"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/employees/working-models": {
+      "get": {
+        "summary": "Get Working Models",
+        "description": "Get list of available working models for the invite form",
+        "tags": ["Employees"],
+        "responses": {
+          "200": {
+            "description": "List of working models",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "message": {"type": "string"},
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {"type": "integer"},
+                          "name": {"type": "string"},
+                          "description": {"type": "string"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/employees": {
       "get": {
         "summary": "Get All Employees",
@@ -1869,7 +2182,7 @@
       },
       "post": {
         "summary": "Create Employee",
-        "description": "Create new employee account",
+        "description": "Create new employee account directly (without invitation process)",
         "tags": ["Employees"],
         "requestBody": {
           "required": true,
@@ -1878,21 +2191,91 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "firstName": {"type": "string"},
-                  "lastName": {"type": "string"},
-                  "email": {"type": "string"},
-                  "phone": {"type": "string"},
-                  "role": {"type": "string"},
-                  "department": {"type": "string"},
-                  "workingHours": {"type": "string"},
-                  "workModel": {"type": "string"}
+                  "firstName": {
+                    "type": "string",
+                    "description": "Employee's first name",
+                    "example": "John"
+                  },
+                  "lastName": {
+                    "type": "string", 
+                    "description": "Employee's last name",
+                    "example": "Doe"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Employee's email address",
+                    "example": "john.doe@company.com"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "description": "Employee's phone number",
+                    "example": "+1234567890"
+                  },
+                  "dateOfBirth": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Employee's date of birth",
+                    "example": "1990-05-15"
+                  },
+                  "address": {
+                    "type": "string",
+                    "description": "Employee's address",
+                    "example": "123 Main St, City, State 12345"
+                  },
+                  "role": {
+                    "type": "string",
+                    "description": "Employee's role/position",
+                    "example": "Developer"
+                  },
+                  "department": {
+                    "type": "string",
+                    "description": "Employee's department", 
+                    "example": "Engineering"
+                  },
+                  "manager": {
+                    "type": "string",
+                    "description": "Employee's manager name",
+                    "example": "Jane Smith"
+                  },
+                  "workingHours": {
+                    "type": "string",
+                    "description": "Employee's working hours",
+                    "example": "09:00 - 05:00 PM"
+                  },
+                  "workingModel": {
+                    "type": "string",
+                    "enum": ["Office", "Remote", "Hybrid", "Flexible", "Contract", "Part-time"],
+                    "description": "Employee's working model",
+                    "example": "Hybrid"
+                  },
+                  "startDate": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Employee's start date",
+                    "example": "2025-01-15"
+                  }
                 }
               }
             }
           }
         },
         "responses": {
-          "201": {"description": "Employee created successfully"}
+          "201": {
+            "description": "Employee created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean", "example": true},
+                    "message": {"type": "string", "example": "Employee created successfully"},
+                    "data": {"type": "object"}
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },

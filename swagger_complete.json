@@ -1,0 +1,378 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Invite Employee API",
+    "version": "1.0.0",
+    "description": "Complete API for Figma UI invite employee functionality with authentication"
+  },
+  "servers": [
+    {
+      "url": "https://api-layer.vercel.app",
+      "description": "Production server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Enter JWT Bearer token (get from /api/auth/login)"
+      }
+    }
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Check if the API service is running and healthy",
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "OK" },
+                    "timestamp": { "type": "string", "format": "date-time" },
+                    "message": { "type": "string", "example": "Invite Employee API working on api-layer.vercel.app" },
+                    "domain": { "type": "string", "example": "api-layer.vercel.app" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "summary": "User Login",
+        "description": "Authenticate user and get JWT token for accessing protected endpoints",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "admin@company.com" },
+                  "password": { "type": "string", "example": "password123" },
+                  "tenantName": { "type": "string", "example": "Demo Company" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Login successful" },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {
+                          "type": "object",
+                          "properties": {
+                            "id": { "type": "number", "example": 1 },
+                            "tenantId": { "type": "number", "example": 1 },
+                            "employeeNumber": { "type": "string", "example": "EMP001" },
+                            "firstName": { "type": "string", "example": "John" },
+                            "lastName": { "type": "string", "example": "Doe" },
+                            "email": { "type": "string", "example": "admin@company.com" },
+                            "tenantName": { "type": "string", "example": "Demo Company" }
+                          }
+                        },
+                        "token": { "type": "string", "example": "mock-jwt-token-1234567890" },
+                        "access_token": { "type": "string", "example": "mock-jwt-token-1234567890" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid credentials"
+          }
+        }
+      }
+    },
+    "/api/employees/roles": {
+      "get": {
+        "summary": "Get Employee Roles",
+        "description": "Get list of available job roles for the Figma UI dropdown",
+        "tags": ["Employee Management"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of roles retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "type": "string" },
+                      "example": ["Software Developer", "Senior Developer", "Team Lead", "Product Manager", "Designer", "QA Engineer", "DevOps Engineer", "Business Analyst", "HR Manager", "Marketing Manager"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Authentication required" }
+        }
+      }
+    },
+    "/api/employees/departments": {
+      "get": {
+        "summary": "Get Departments",
+        "description": "Get list of available departments for the Figma UI dropdown",
+        "tags": ["Employee Management"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of departments retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "type": "string" },
+                      "example": ["Engineering", "Product", "Design", "Marketing", "Sales", "HR", "Finance", "Operations", "Customer Success", "Legal"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Authentication required" }
+        }
+      }
+    },
+    "/api/employees/working-models": {
+      "get": {
+        "summary": "Get Working Models",
+        "description": "Get list of available working models for the Figma UI dropdown",
+        "tags": ["Employee Management"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of working models retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "type": "string" },
+                      "example": ["Remote", "Hybrid", "On-site", "Flexible"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Authentication required" }
+        }
+      }
+    },
+    "/api/employees": {
+      "get": {
+        "summary": "Get All Employees",
+        "description": "Get paginated list of all employees",
+        "tags": ["Employee Management"],
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Employees retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "employees": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": { "type": "string", "example": "EMP001" },
+                              "firstName": { "type": "string", "example": "John" },
+                              "lastName": { "type": "string", "example": "Doe" },
+                              "email": { "type": "string", "example": "john@company.com" },
+                              "role": { "type": "string", "example": "Software Developer" },
+                              "department": { "type": "string", "example": "Engineering" },
+                              "workingModel": { "type": "string", "example": "Remote" },
+                              "status": { "type": "string", "example": "active" }
+                            }
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "properties": {
+                            "page": { "type": "number", "example": 1 },
+                            "limit": { "type": "number", "example": 10 },
+                            "total": { "type": "number", "example": 2 }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Authentication required" }
+        }
+      }
+    },
+    "/api/employees/invite": {
+      "post": {
+        "summary": "Invite New Employee (Figma UI)",
+        "description": "Create invitation for new employee using complete Figma UI form data. Supports all 13 form fields from the Figma design.",
+        "tags": ["Employee Management"],
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["firstName", "lastName", "email", "role", "department", "workingHours", "workingModel", "startDate"],
+                "properties": {
+                  "firstName": { "type": "string", "example": "John", "description": "Employee first name" },
+                  "lastName": { "type": "string", "example": "Doe", "description": "Employee last name" },
+                  "email": { "type": "string", "format": "email", "example": "john.doe@company.com", "description": "Employee email address" },
+                  "phone": { "type": "string", "example": "+1234567890", "description": "Employee phone number (optional)" },
+                  "dateOfBirth": { "type": "string", "format": "date", "example": "1990-01-15", "description": "Employee date of birth (optional)" },
+                  "address": { "type": "string", "example": "123 Main St, City, State", "description": "Employee address (optional)" },
+                  "role": { "type": "string", "example": "Software Developer", "description": "Employee job role" },
+                  "department": { "type": "string", "example": "Engineering", "description": "Employee department" },
+                  "manager": { "type": "string", "example": "Jane Smith", "description": "Employee manager name (optional)" },
+                  "workingHours": { "type": "string", "example": "40 hours/week", "description": "Working hours per week" },
+                  "workingModel": { "type": "string", "example": "Remote", "description": "Working model" },
+                  "startDate": { "type": "string", "format": "date", "example": "2024-01-15", "description": "Employee start date" },
+                  "profilePhoto": { "type": "string", "example": "data:image/jpeg;base64,...", "description": "Profile photo as base64 (optional)" }
+                }
+              },
+              "examples": {
+                "complete_form": {
+                  "summary": "Complete Figma form data",
+                  "description": "Example with all 13 Figma UI fields",
+                  "value": {
+                    "firstName": "John",
+                    "lastName": "Doe",
+                    "email": "john.doe@company.com",
+                    "phone": "+1234567890",
+                    "dateOfBirth": "1990-01-15",
+                    "address": "123 Main St, City, State 12345",
+                    "role": "Software Developer",
+                    "department": "Engineering",
+                    "manager": "Jane Smith",
+                    "workingHours": "40 hours/week",
+                    "workingModel": "Remote",
+                    "startDate": "2024-02-01",
+                    "profilePhoto": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD..."
+                  }
+                },
+                "minimal_form": {
+                  "summary": "Required fields only",
+                  "description": "Minimum required data for invitation",
+                  "value": {
+                    "firstName": "Jane",
+                    "lastName": "Smith",
+                    "email": "jane.smith@company.com",
+                    "role": "Product Manager",
+                    "department": "Product",
+                    "workingHours": "40 hours/week",
+                    "workingModel": "Hybrid",
+                    "startDate": "2024-02-15"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Employee invitation sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Employee invitation sent successfully" },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "employee": {
+                          "type": "object",
+                          "properties": {
+                            "id": { "type": "string", "example": "EMP123456" },
+                            "firstName": { "type": "string", "example": "John" },
+                            "lastName": { "type": "string", "example": "Doe" },
+                            "email": { "type": "string", "example": "john.doe@company.com" },
+                            "role": { "type": "string", "example": "Software Developer" },
+                            "department": { "type": "string", "example": "Engineering" },
+                            "status": { "type": "string", "example": "invited" },
+                            "invitedBy": { "type": "string", "example": "John Doe" },
+                            "invitedAt": { "type": "string", "format": "date-time" },
+                            "tenantId": { "type": "number", "example": 1 }
+                          }
+                        },
+                        "invitation_status": { "type": "string", "example": "sent" },
+                        "email_sent": { "type": "boolean", "example": true }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing required fields or validation error"
+          },
+          "401": { "description": "Authentication required" },
+          "500": { "description": "Internal server error" }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "System",
+      "description": "System health and monitoring endpoints"
+    },
+    {
+      "name": "Authentication",
+      "description": "User authentication and token management"
+    },
+    {
+      "name": "Employee Management",
+      "description": "Employee invitation and management endpoints for Figma UI - Complete CRUD operations"
+    }
+  ]
+}
