@@ -296,9 +296,6 @@ app.get('/api-docs', (req, res) => {
 app.get('/test-swagger', (req, res) => {
   res.json({ message: 'Swagger deployment test v2.0', timestamp: new Date().toISOString() });
 });
-    </html>
-  `);
-});
 
 // Swagger JSON
 app.get('/swagger.json', (req, res) => {
