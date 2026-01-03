@@ -290,6 +290,11 @@ app.get('/api-docs', (req, res) => {
     </html>
   `);
 });
+
+// Test endpoint to verify deployment
+app.get('/test-swagger', (req, res) => {
+  res.json({ message: 'Swagger deployment test', timestamp: new Date().toISOString() });
+});
       
       <p><a href="/swagger.json">📄 View Swagger JSON</a></p>
     </body>
