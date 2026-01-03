@@ -497,7 +497,7 @@ app.get('/swagger.json', (req, res) => {
           tags: ['Employee Management'],
           security: [{ BearerAuth: [] }],
           responses: {
-            '200': {
+            '200': { 
               description: 'List of working models retrieved successfully',
               content: {
                 'application/json': {
@@ -604,35 +604,19 @@ app.get('/swagger.json', (req, res) => {
                 examples: {
                   complete_form: {
                     summary: 'Complete Figma form data',
-                    description: 'Example with all 13 Figma UI fields',
                     value: {
                       firstName: 'John',
                       lastName: 'Doe',
                       email: 'john.doe@company.com',
                       phone: '+1234567890',
                       dateOfBirth: '1990-01-15',
-                      address: '123 Main St, City, State 12345',
+                      address: '123 Main St, City',
                       role: 'Software Developer',
                       department: 'Engineering',
                       manager: 'Jane Smith',
                       workingHours: '40 hours/week',
                       workingModel: 'Remote',
-                      startDate: '2024-02-01',
-                      profilePhoto: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD...'
-                    }
-                  },
-                  minimal_form: {
-                    summary: 'Required fields only',
-                    description: 'Minimum required data for invitation',
-                    value: {
-                      firstName: 'Jane',
-                      lastName: 'Smith',
-                      email: 'jane.smith@company.com',
-                      role: 'Product Manager',
-                      department: 'Product',
-                      workingHours: '40 hours/week',
-                      workingModel: 'Hybrid',
-                      startDate: '2024-02-15'
+                      startDate: '2024-02-01'
                     }
                   }
                 }
