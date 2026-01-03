@@ -41,8 +41,9 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
     timestamp: new Date().toISOString(),
-    message: 'Invite Employee API working on api-layer.vercel.app',
-    domain: 'api-layer.vercel.app'
+    message: 'SWAGGER UI FIXED - v2.0 - index.js serving',
+    domain: 'api-layer.vercel.app',
+    swagger_url: '/api-docs'
   });
 });
 
@@ -251,13 +252,13 @@ app.get('/api/employees', authenticateToken, (req, res) => {
 });
 
 // Swagger docs
-// Swagger UI Documentation
+// Swagger UI Documentation - UPDATED v2.0
 app.get('/api-docs', (req, res) => {
   res.send(`
     <!DOCTYPE html>
     <html>
     <head>
-      <title>API Documentation</title>
+      <title>API Documentation - v2.0</title>
       <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui.css" />
       <style>
         html { box-sizing: border-box; overflow: -moz-scrollbars-vertical; overflow-y: scroll; }
@@ -293,11 +294,8 @@ app.get('/api-docs', (req, res) => {
 
 // Test endpoint to verify deployment
 app.get('/test-swagger', (req, res) => {
-  res.json({ message: 'Swagger deployment test', timestamp: new Date().toISOString() });
+  res.json({ message: 'Swagger deployment test v2.0', timestamp: new Date().toISOString() });
 });
-      
-      <p><a href="/swagger.json">📄 View Swagger JSON</a></p>
-    </body>
     </html>
   `);
 });
