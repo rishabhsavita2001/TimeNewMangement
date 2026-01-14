@@ -2,52 +2,164 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const nodemailer = require('nodemailer');
 
-// Persistent timer storage
-const TIMER_STORAGE_FILE = path.join(__dirname, 'timer_data.json');
+// Serverless-compatible persistence (in-memory with session lifetime)
+// Note: Vercel serverless functions can't write files, so we use memory + globals
 
-// Load timers from persistent storage
+// Initialize global data storage
+if (!global.persistentData) {
+  global.persistentData = {
+    timers: {
+      activeTimers: {},
+      stoppedTimersToday: {},
+      dailyWorkTime: {}
+    },
+    users: {
+      1: {
+        id: 1,
+        first_name: "Jenny",
+        last_name: "Wilson", 
+        full_name: "Jenny Wilson",
+        email: "jenny.wilson@email.com",
+        phone: "(+1) 267 - 9041",
+        profile_photo: "https://api-layer.vercel.app/api/me/profile/photo",
+        role: "Employee",
+        company: "ACME Inc.",
+        joined_date: "August 17, 2025",
+        employee_id: "EMP001",
+        department: "Engineering",
+        status: "Active",
+        timezone: "UTC-5",
+        last_login: "2024-12-24T09:41:00Z"
+      }
+    },
+    lastUpdated: new Date().toISOString()
+  };
+  console.log('🔄 Initialized global persistent data store');
+}
+
+// Load timers from global storage
 function loadTimers() {
   try {
-    if (fs.existsSync(TIMER_STORAGE_FILE)) {
-      const data = JSON.parse(fs.readFileSync(TIMER_STORAGE_FILE, 'utf8'));
-      global.activeTimers = data.activeTimers || {};
-      global.stoppedTimersToday = data.stoppedTimersToday || {};
-      console.log('⏱️  Loaded persisted timers:', Object.keys(global.activeTimers).length, 'active');
-    } else {
-      global.activeTimers = {};
-      global.stoppedTimersToday = {};
-    }
+    global.activeTimers = global.persistentData.timers.activeTimers || {};
+    global.stoppedTimersToday = global.persistentData.timers.stoppedTimersToday || {};
+    global.dailyWorkTime = global.persistentData.timers.dailyWorkTime || {};
+    console.log('⏱️  Loaded timers from global storage:', Object.keys(global.activeTimers).length, 'active');
   } catch (error) {
     console.error('❌ Error loading timers:', error);
     global.activeTimers = {};
     global.stoppedTimersToday = {};
+    global.dailyWorkTime = {};
   }
 }
 
-// Save timers to persistent storage
+// Save timers to global storage (serverless compatible)
 function saveTimers() {
   try {
-    const data = {
+    global.persistentData.timers = {
       activeTimers: global.activeTimers || {},
       stoppedTimersToday: global.stoppedTimersToday || {},
-      lastUpdated: new Date().toISOString()
+      dailyWorkTime: global.dailyWorkTime || {},
     };
-    fs.writeFileSync(TIMER_STORAGE_FILE, JSON.stringify(data, null, 2));
-    console.log('💾 Timers saved to persistent storage');
+    global.persistentData.lastUpdated = new Date().toISOString();
+    console.log('💾 Timers saved to global storage');
   } catch (error) {
     console.error('❌ Error saving timers:', error);
   }
 }
 
-// Initialize timer storage
+// Load user data from global storage
+function loadUserData() {
+  try {
+    global.userData = global.persistentData.users || getDefaultUserData();
+    console.log('👤 Loaded user data from global storage');
+    return global.userData;
+  } catch (error) {
+    console.error('❌ Error loading user data:', error);
+    global.userData = getDefaultUserData();
+    return global.userData;
+  }
+}
+
+// Save user data to global storage (serverless compatible)
+function saveUserData() {
+  try {
+    global.persistentData.users = global.userData || {};
+    global.persistentData.lastUpdated = new Date().toISOString();
+    console.log('💾 User data saved to global storage');
+  } catch (error) {
+    console.error('❌ Error saving user data:', error);
+  }
+}
+
+// Get default user data structure
+function getDefaultUserData() {
+  return {
+    1: {
+      id: 1,
+      first_name: "Jenny",
+      last_name: "Wilson", 
+      full_name: "Jenny Wilson",
+      email: "jenny.wilson@email.com",
+      phone: "(+1) 267 - 9041",
+      profile_photo: "https://api-layer.vercel.app/api/me/profile/photo",
+      role: "Employee",
+      company: "ACME Inc.",
+      joined_date: "August 17, 2025",
+      employee_id: "EMP001",
+      department: "Engineering",
+      status: "Active",
+      timezone: "UTC-5",
+      last_login: "2024-12-24T09:41:00Z"
+    }
+  };
+}
+
+// Sync userData with global persistent storage
+function syncUserData() {
+  userData = global.userData || getDefaultUserData();
+  return userData;
+}
+
+// Initialize persistent storage
 loadTimers();
+loadUserData();
 const jwt = require('jsonwebtoken');
 
 const app = express();
 
 // JWT Secret (in production, use environment variable)
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-for-development-only';
+
+// Nodemailer Configuration
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'managementtime04@gmail.com',
+    pass: 'sarx oodf rrxb bfuk' // App password
+  }
+});
+
+// OTP Storage (in production, use Redis or database)
+if (!global.otpStorage) {
+  global.otpStorage = {};
+}
+
+// Reset Token Storage
+if (!global.resetTokens) {
+  global.resetTokens = {};
+}
+
+// Generate 4-digit OTP
+function generateOTP() {
+  return Math.floor(1000 + Math.random() * 9000).toString();
+}
+
+// Generate reset token
+function generateResetToken(email) {
+  return `reset_${Date.now()}_${email.replace('@', '_').replace('.', '_')}`;
+}
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
@@ -311,12 +423,16 @@ app.post('/api/auth/login', (req, res) => {
 
 // Get Token API (for testing)
 app.get('/api/get-token', (req, res) => {
+  // Sync with persistent user data
+  userData = syncUserData();
+  const user = userData[1]; // Get user 1
+  
   const testUser = {
-    userId: 1,
+    userId: user.id,
     tenantId: 1,
-    email: 'test@example.com',
-    firstName: 'Test',
-    lastName: 'User'
+    email: user.email, // Use actual user email
+    firstName: user.first_name,
+    lastName: user.last_name
   };
   
   const token = jwt.sign(testUser, JWT_SECRET, { expiresIn: '24h' });
@@ -330,7 +446,8 @@ app.get('/api/get-token', (req, res) => {
       user: testUser,
       expires_in: '24h',
       token_type: 'Bearer',
-      usage: 'Copy this token and use it in Swagger UI Authorization header as: Bearer <token>'
+      usage: 'Copy this token and use it in Swagger UI Authorization header as: Bearer <token>',
+      note: 'Token email now synced with profile data'
     }
   });
 });
@@ -347,6 +464,252 @@ app.post('/api/auth/logout', (req, res) => {
       status: 'logged_out'
     }
   });
+});
+
+// ===== FORGOT PASSWORD FLOW APIS =====
+
+// 1. Request OTP - Forgot Password Step 1
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required'
+      });
+    }
+
+    // Generate 4-digit OTP
+    const otp = generateOTP();
+    const expiresAt = Date.now() + (5 * 60 * 1000); // 5 minutes expiry
+
+    // Store OTP with expiry
+    global.otpStorage[email] = {
+      otp,
+      expiresAt,
+      attempts: 0,
+      createdAt: Date.now()
+    };
+
+    // Send OTP email
+    const mailOptions = {
+      from: '"Time Management System" <managementtime04@gmail.com>',
+      to: email,
+      subject: 'Password Reset - Verification Code',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Password Reset Request</h2>
+          <p>Hi there,</p>
+          <p>You requested to reset your password. Please use the following 4-digit verification code:</p>
+          <div style="background: #f5f5f5; padding: 20px; text-align: center; margin: 20px 0;">
+            <h1 style="color: #007bff; font-size: 36px; margin: 0; letter-spacing: 10px;">${otp}</h1>
+          </div>
+          <p>This code will expire in 5 minutes.</p>
+          <p>If you didn't request this, please ignore this email.</p>
+          <p>Best regards,<br>Time Management Team</p>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.json({
+      success: true,
+      message: 'Verification code sent to your email address',
+      expiresIn: '5 minutes',
+      // For testing purposes (remove in production)
+      otpForTesting: otp
+    });
+
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send verification code. Please try again.'
+    });
+  }
+});
+
+// 2. Verify OTP - Forgot Password Step 2
+app.post('/api/auth/verify-otp', (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and OTP are required'
+      });
+    }
+
+    const otpData = global.otpStorage[email];
+    
+    if (!otpData) {
+      return res.status(400).json({
+        success: false,
+        message: 'No OTP request found for this email'
+      });
+    }
+
+    if (Date.now() > otpData.expiresAt) {
+      delete global.otpStorage[email];
+      return res.status(400).json({
+        success: false,
+        message: 'OTP has expired. Please request a new one.'
+      });
+    }
+
+    if (otpData.otp !== otp) {
+      otpData.attempts++;
+      if (otpData.attempts >= 3) {
+        delete global.otpStorage[email];
+        return res.status(400).json({
+          success: false,
+          message: 'Too many failed attempts. Please request a new OTP.'
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: `Invalid OTP. ${3 - otpData.attempts} attempts remaining.`
+      });
+    }
+
+    // Generate reset token
+    const resetToken = generateResetToken(email);
+    global.resetTokens[email] = {
+      token: resetToken,
+      expiresAt: Date.now() + (15 * 60 * 1000), // 15 minutes
+      verified: true
+    };
+
+    // Clean up OTP
+    delete global.otpStorage[email];
+
+    res.json({
+      success: true,
+      message: 'OTP verified successfully',
+      resetToken,
+      expiresIn: '15 minutes'
+    });
+
+  } catch (error) {
+    console.error('OTP verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to verify OTP. Please try again.'
+    });
+  }
+});
+
+// 3. Reset Password - Forgot Password Step 3
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { email, resetToken, newPassword, confirmPassword } = req.body;
+
+    if (!email || !resetToken || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'All fields are required'
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Passwords do not match'
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long'
+      });
+    }
+
+    const tokenData = global.resetTokens[email];
+    
+    if (!tokenData || tokenData.token !== resetToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid reset token'
+      });
+    }
+
+    if (Date.now() > tokenData.expiresAt) {
+      delete global.resetTokens[email];
+      return res.status(400).json({
+        success: false,
+        message: 'Reset token has expired. Please start the process again.'
+      });
+    }
+
+    // In a real app, update password in database
+    // For now, just simulate success
+    
+    // Clean up reset token
+    delete global.resetTokens[email];
+
+    // Send success email invitation
+    const invitationMailOptions = {
+      from: '"Time Management System" <managementtime04@gmail.com>',
+      to: email,
+      subject: 'Password Reset Successful - Account Invitation',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Password Reset Successful</h2>
+          <p>Hi there,</p>
+          <p>Your password has been reset successfully. You can now sign in with your new password.</p>
+          
+          <div style="background: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #28a745; margin: 0;">🎉 Welcome to Time Management System!</h3>
+            <p style="margin: 10px 0 0 0;">You have been invited by Sheila to join our internal system.</p>
+          </div>
+
+          <p><strong>What's next?</strong></p>
+          <ul>
+            <li>Your company and role will already be assigned</li>
+            <li>You can start tracking your working time, absences, and employee requests immediately</li>
+            <li>Submit working time requests for approval</li>
+          </ul>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="https://api-layer.vercel.app" style="background: #6f42c1; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+              Activate your account
+            </a>
+          </div>
+
+          <p><small>For security reasons, this invitation link will expire in 7 days.</small></p>
+          <p><small>Once your account is activated:</small></p>
+          <ul style="font-size: 12px;">
+            <li>Your company and role will already be assigned</li>
+            <li>You can start tracking your working time, absences, and submitting requests immediately</li>
+          </ul>
+
+          <p><small>If you did not expect this invitation, you can safely ignore this email.</small></p>
+          <p><small>If you have any questions, please contact your company administrator.</small></p>
+
+          <p>Best regards,<br>Danie Alex<br>Product Team - Time Management System</p>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(invitationMailOptions);
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully. You can now login with your new password',
+      emailSent: true
+    });
+
+  } catch (error) {
+    console.error('Password reset error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reset password. Please try again.'
+    });
+  }
 });
 
 // Timer Pause/Resume API
@@ -374,6 +737,7 @@ app.post('/api/me/timer/pause', (req, res) => {
     }
     activeTimer.isPaused = false;
     activeTimer.isBreak = false; // Resume means back to work
+    activeTimer.isContinue = true; // Mark that user has continued after break
     activeTimer.pauseStartTime = null;
     
     res.json({
@@ -382,6 +746,7 @@ app.post('/api/me/timer/pause', (req, res) => {
       data: {
         isPaused: false,
         isBreak: false,
+        isContinue: true, // Indicate this is a continuation after break
         timerId: activeTimer.timerId,
         totalPausedTime: Math.round(activeTimer.totalPausedTime / 1000 / 60) // minutes
       }
@@ -390,6 +755,7 @@ app.post('/api/me/timer/pause', (req, res) => {
     // Pause timer (break)
     activeTimer.isPaused = true;
     activeTimer.isBreak = true; // Pause means on break
+    activeTimer.isContinue = false; // Reset continue flag when pausing
     activeTimer.pauseStartTime = now.toISOString();
     
     res.json({
@@ -398,6 +764,7 @@ app.post('/api/me/timer/pause', (req, res) => {
       data: {
         isPaused: true,
         isBreak: true,
+        isContinue: false, // Not continuing, taking a break
         timerId: activeTimer.timerId,
         pausedAt: activeTimer.pauseStartTime
       }
@@ -574,47 +941,277 @@ app.post('/api/me/time-entries', (req, res) => {
   });
 });
 
-// Projects API
+// User Projects API (Mobile App Compatible) - User-specific projects
+app.get('/api/me/projects', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  const userEmail = req.user.email;
+  
+  // Get user-specific projects based on their role/assignment
+  // In a real app, this would query database with userId
+  const userProjects = getUserSpecificProjects(userId, userEmail);
+  
+  res.json({
+    success: true,
+    message: "User projects retrieved successfully",
+    data: {
+      projects: userProjects,
+      total: userProjects.length,
+      userId: userId
+    }
+  });
+});
+
+// Helper function to get user-specific projects
+function getUserSpecificProjects(userId, userEmail) {
+  // Demo: Different users get different projects
+  // In production, this would query your database
+  
+  const allProjects = [
+    {
+      id: 1,
+      name: 'Project A',
+      description: 'Development and design work',
+      color: '#4CAF50',
+      status: 'active',
+      role: 'developer'
+    },
+    {
+      id: 2,
+      name: 'Project B', 
+      description: 'Testing and quality assurance',
+      color: '#2196F3',
+      status: 'active',
+      role: 'tester'
+    },
+    {
+      id: 3,
+      name: 'Project C',
+      description: 'Client consultation and meetings',
+      color: '#FF9800',
+      status: 'active',
+      role: 'consultant'
+    },
+    {
+      id: 4,
+      name: 'Project D',
+      description: 'Research and documentation',
+      color: '#9C27B0',
+      status: 'active',
+      role: 'researcher'
+    },
+    {
+      id: 5,
+      name: 'Mobile App',
+      description: 'Mobile application development',
+      color: '#E91E63',
+      status: 'active',
+      role: 'mobile-dev'
+    }
+  ];
+  
+  // Demo logic: Based on user email, assign different projects
+  if (userEmail.includes('jenny.wilson')) {
+    // Jenny gets development projects
+    return allProjects.filter(p => ['developer', 'mobile-dev'].includes(p.role));
+  } else if (userEmail.includes('admin')) {
+    // Admin sees all projects
+    return allProjects;
+  } else {
+    // Other users get first 3 projects
+    return allProjects.slice(0, 3);
+  }
+}
+
+// Legacy Projects API (for backward compatibility)
 app.get('/api/projects', (req, res) => {
   res.json({
     success: true,
+    message: "Projects retrieved successfully (Legacy endpoint - use /api/me/projects for user-specific data)",
     data: {
       projects: [
         {
           id: 1,
-          name: 'API Development',
-          description: 'Time tracking API development',
-          client: 'Internal',
-          status: 'active',
+          name: 'Project A',
+          description: 'Development and design work',
           color: '#4CAF50',
-          start_date: '2025-01-01',
-          end_date: null,
-          total_hours_logged: 120.5
+          status: 'active'
         },
         {
           id: 2,
-          name: 'Testing',
-          description: 'API testing and QA',
-          client: 'Internal',
-          status: 'active',
+          name: 'Project B',
+          description: 'Testing and quality assurance',
           color: '#2196F3',
-          start_date: '2025-01-15',
-          end_date: null,
-          total_hours_logged: 45.25
+          status: 'active'
         },
         {
           id: 3,
-          name: 'Documentation',
-          description: 'API documentation and guides',
-          client: 'Internal',
-          status: 'active',
+          name: 'Project C',
+          description: 'Client consultation and meetings',
           color: '#FF9800',
-          start_date: '2025-02-01',
-          end_date: null,
-          total_hours_logged: 12.0
+          status: 'active'
+        },
+        {
+          id: 4,
+          name: 'Project D',
+          description: 'Research and documentation',
+          color: '#9C27B0',
+          status: 'active'
         }
       ],
-      total: 3
+      total: 4,
+      warning: "This endpoint returns generic projects. Use /api/me/projects for user-specific projects."
+    }
+  });
+});
+
+// Work Locations API (for Mobile App Start Working flow)
+app.get('/api/locations', (req, res) => {
+  res.json({
+    success: true,
+    message: "Work locations retrieved successfully",
+    data: {
+      locations: [
+        {
+          id: 1,
+          name: 'Office',
+          description: 'Main office location',
+          icon: '🏢',
+          address: 'Company Headquarters'
+        },
+        {
+          id: 2,
+          name: 'Home',
+          description: 'Work from home',
+          icon: '🏠',
+          address: 'Remote - Home Office'
+        },
+        {
+          id: 3,
+          name: 'Client Site',
+          description: 'At client premises',
+          icon: '🏬',
+          address: 'Client Office Location'
+        },
+        {
+          id: 4,
+          name: 'Remote',
+          description: 'Other remote location',
+          icon: '🌍',
+          address: 'Remote Work Location'
+        }
+      ]
+    }
+  });
+});
+
+// Break Types API (for Mobile App Take a Break flow)
+app.get('/api/break-types', (req, res) => {
+  res.json({
+    success: true,
+    message: "Break types retrieved successfully",
+    data: {
+      breakTypes: [
+        {
+          id: 1,
+          name: 'Coffee break',
+          description: 'Short coffee or refreshment break',
+          icon: '☕',
+          duration: '15 minutes',
+          color: '#8B4513'
+        },
+        {
+          id: 2,
+          name: 'Lunch break',
+          description: 'Meal break or lunch time',
+          icon: '🍽️',
+          duration: '30-60 minutes',
+          color: '#FF6B35'
+        },
+        {
+          id: 3,
+          name: 'Personal break',
+          description: 'Personal time or restroom break',
+          icon: '🚶',
+          duration: '5-15 minutes',
+          color: '#4CAF50'
+        },
+        {
+          id: 4,
+          name: 'Other',
+          description: 'Other type of break',
+          icon: '⏸️',
+          duration: 'Variable',
+          color: '#757575'
+        }
+      ]
+    }
+  });
+});
+
+// Start Break API (enhanced pause with break type)
+app.post('/api/me/timer/break', (req, res) => {
+  const { breakType, breakTypeId, notes } = req.body || {};
+  const userId = req.user?.userId || 1;
+  
+  const activeTimer = Object.values(global.activeTimers).find(
+    timer => timer.userId === userId && timer.isRunning
+  );
+  
+  if (!activeTimer) {
+    return res.status(404).json({
+      success: false,
+      message: 'No running timer found to pause'
+    });
+  }
+  
+  if (activeTimer.isPaused) {
+    return res.status(400).json({
+      success: false,
+      message: 'Timer is already on break',
+      data: {
+        currentBreakType: activeTimer.breakType || 'Unknown',
+        breakStartTime: activeTimer.pauseStartTime
+      }
+    });
+  }
+  
+  const now = new Date();
+  
+  // Pause the timer with break information
+  activeTimer.isPaused = true;
+  activeTimer.isBreak = true;
+  activeTimer.pauseStartTime = now.toISOString();
+  activeTimer.breakType = breakType || 'Other';
+  activeTimer.breakTypeId = breakTypeId || 4;
+  activeTimer.breakNotes = notes || '';
+  activeTimer.lastActivity = now.toISOString();
+  
+  // Save to persistent storage
+  saveTimers();
+  
+  // Get break type info
+  const breakTypes = {
+    1: { name: 'Coffee break', icon: '☕' },
+    2: { name: 'Lunch break', icon: '🍽️' },
+    3: { name: 'Personal break', icon: '🚶' },
+    4: { name: 'Other', icon: '⏸️' }
+  };
+  
+  const currentBreakInfo = breakTypes[breakTypeId] || breakTypes[4];
+  
+  res.json({
+    success: true,
+    message: `${currentBreakInfo.name} started successfully`,
+    data: {
+      timerId: activeTimer.timerId,
+      isPaused: true,
+      isBreak: true,
+      breakType: breakType || currentBreakInfo.name,
+      breakTypeId: breakTypeId || 4,
+      breakIcon: currentBreakInfo.icon,
+      breakStartTime: activeTimer.pauseStartTime,
+      breakNotes: notes || '',
+      message: `Enjoy your ${(breakType || currentBreakInfo.name).toLowerCase()}!`
     }
   });
 });
@@ -1963,7 +2560,7 @@ app.get('/api/dashboard/workforce-activity', (req, res) => {
 
 // Timer APIs
 app.post('/api/me/timer/start', (req, res) => {
-  const { projectId, taskId, notes, force = false } = req.body || {};
+  const { projectId, locationId, taskId, notes, force = false } = req.body || {};
   const userId = req.user?.userId || 1;
   const timerId = `timer_${userId}_${Date.now()}`;
   const startTime = new Date().toISOString();
@@ -2010,11 +2607,13 @@ app.post('/api/me/timer/start', (req, res) => {
     tenantId: req.user?.tenantId || 1,
     startTime,
     projectId,
+    locationId, // Add location support
     taskId,
     notes,
     isRunning: true,
     isPaused: false,
     isBreak: false,
+    isContinue: false, // Initialize as false for new timer
     totalPausedTime: 0,
     pauseStartTime: null,
     createdAt: new Date().toISOString(),
@@ -2026,6 +2625,10 @@ app.post('/api/me/timer/start', (req, res) => {
   
   console.log('⏱️  Timer started for user', userId, '- Timer ID:', timerId);
 
+  // Get project and location names for response
+  const projectName = projectId ? `Project ${String.fromCharCode(64 + parseInt(projectId))}` : null;
+  const locationName = locationId ? ['', 'Office', 'Home', 'Client Site', 'Remote'][locationId] : null;
+
   res.json({
     success: true,
     message: 'Timer started successfully',
@@ -2034,10 +2637,14 @@ app.post('/api/me/timer/start', (req, res) => {
       startTime, 
       isRunning: true,
       isPaused: false,
-      isBreak: false, 
-      projectId, 
-      taskId, 
-      notes,
+      isBreak: false,
+      isContinue: false, // New timer starts fresh, not continuing
+      projectId: projectId || null, 
+      projectName: projectName,
+      locationId: locationId || null,
+      locationName: locationName,
+      taskId: taskId || null, 
+      notes: notes || '',
       dailySession: true,
       persistent: true // Indicate this timer is now persistent
     }
@@ -2075,8 +2682,21 @@ app.post('/api/me/timer/stop', (req, res) => {
   // Mark that user stopped timer today
   global.stoppedTimersToday[userId] = today;
   
+  // Store today's total worked time for this user
+  if (!global.dailyWorkTime) {
+    global.dailyWorkTime = {};
+  }
+  global.dailyWorkTime[userId] = {
+    date: today,
+    totalWorked: durationString,
+    totalHours: totalHours
+  };
+  
   // Remove timer from active timers (THIS FIXES THE ISSUE!)
   delete global.activeTimers[activeTimer.timerId];
+
+  // Save updated timer data
+  saveTimers();
 
   res.json({
     success: true,
@@ -2092,8 +2712,11 @@ app.post('/api/me/timer/stop', (req, res) => {
   });
 });
 
-app.get('/api/me/timer/current', (req, res) => {
+app.get('/api/me/timer/current', authenticateToken, (req, res) => {
   const userId = req.user?.userId || 1;
+  
+  // Get consistent user data from userData object
+  const user = userData[userId] || userData[1];
   
   // Find user's running timer
   const activeTimer = Object.values(global.activeTimers).find(
@@ -2120,15 +2743,16 @@ app.get('/api/me/timer/current', (req, res) => {
         
         // THREE DATA POINTS REQUESTED BY CLIENT
         workSummary: {
-          totalWorked: "4h 30m",
-          weeklyBalance: "+0h 30m", // Updated to match weekly balance API
+          totalWorked: global.dailyWorkTime?.[userId]?.totalWorked || "0h 0m",
+          weeklyBalance: "+3h 20m", // Updated to match mobile app
           vacationLeft: "Left 8d",
           overtime: "4h",
-          status: stoppedToday ? "Session Complete" : "Available"
+          status: stoppedToday ? "Session Complete" : "Available",
+          projectLocation: "Ready to start"
         },
         dashboardData: {
           user: {
-            name: req.user ? `${req.user.firstName} ${req.user.lastName}` : 'John Doe',
+            name: user ? user.full_name : 'John Doe',
             status: stoppedToday ? "Session Complete" : "Available"
           },
           todaysTarget: "8h",
@@ -2139,6 +2763,7 @@ app.get('/api/me/timer/current', (req, res) => {
           isRunning: false,
           isPaused: false,
           isBreak: false,
+          isContinue: false,
           canStartToday: !stoppedToday
         },
         persistent: true // Indicate persistent storage is being used
@@ -2197,7 +2822,7 @@ app.get('/api/me/timer/current', (req, res) => {
       },
       dashboardData: {
         user: {
-          name: req.user ? `${req.user.firstName} ${req.user.lastName}` : 'John Doe',
+          name: user ? user.full_name : 'John Doe',
           status: activeTimer.isPaused ? "On Break" : "Working"
         },
         todaysTarget: "8h",
@@ -2208,8 +2833,108 @@ app.get('/api/me/timer/current', (req, res) => {
         isRunning: activeTimer.isRunning,
         isPaused: activeTimer.isPaused,
         isBreak: activeTimer.isBreak,
+        isContinue: activeTimer.isContinue || false, // Track if user resumed after break
         canForceStart: false
       }
+    }
+  });
+});
+
+// Get timer status (alias for current timer with additional metadata)
+app.get('/api/me/timer', authenticateToken, (req, res) => {
+  const userId = req.user?.userId || 1;
+  
+  // Sync with global persistent data first
+  userData = syncUserData();
+  const user = userData[userId] || userData[1];
+  
+  // Find user's running timer
+  const activeTimer = Object.values(global.activeTimers).find(
+    timer => timer.userId === userId && timer.isRunning
+  );
+  
+  const today = new Date().toISOString().split('T')[0];
+  const stoppedToday = global.stoppedTimersToday[userId] === today;
+  
+  if (!activeTimer) {
+    return res.json({
+      success: true,
+      data: {
+        hasActiveTimer: false,
+        timer: null,
+        stoppedToday,
+        canStart: !stoppedToday,
+        message: stoppedToday 
+          ? 'Work session completed for today. Timer ready for tomorrow.' 
+          : 'Ready to start timer - no active session',
+        user: {
+          id: user.id,
+          name: user.full_name,
+          email: user.email,
+          status: stoppedToday ? "Day Complete" : "Available"
+        },
+        timerPermissions: {
+          canStart: !stoppedToday,
+          canStop: false,
+          canPause: false,
+          canResume: false
+        }
+      }
+    });
+  }
+
+  // Calculate current duration
+  const startTime = new Date(activeTimer.startTime);
+  const now = new Date();
+  const diffMs = now - startTime;
+  const diffHours = diffMs / (1000 * 60 * 60);
+  const hours = Math.floor(diffHours);
+  const minutes = Math.floor((diffHours - hours) * 60);
+  const currentDuration = `${hours}h ${minutes}m`;
+
+  res.json({
+    success: true,
+    data: {
+      hasActiveTimer: true,
+      timer: {
+        timerId: activeTimer.timerId,
+        startTime: activeTimer.startTime,
+        isRunning: activeTimer.isRunning,
+        isPaused: activeTimer.isPaused,
+        isBreak: activeTimer.isBreak,
+        currentDuration,
+        currentHours: Math.round(diffHours * 100) / 100,
+        notes: activeTimer.notes
+      },
+      user: {
+        id: user.id,
+        name: user.full_name,
+        email: user.email,
+        status: activeTimer.isPaused ? "On Break" : "Working"
+      },
+      timerPermissions: {
+        canStart: false,
+        canStop: true,
+        canPause: !activeTimer.isPaused,
+        canResume: activeTimer.isPaused
+      },
+      workSummary: {
+        totalWorked: currentDuration,
+        weeklyBalance: "+3h 20m", // As shown in screenshot
+        vacationLeft: "Left 8d",
+        overtime: "4h",
+        projectLocation: activeTimer.projectId && activeTimer.locationId ? 
+          `Project ${String.fromCharCode(64 + parseInt(activeTimer.projectId))} · ${['', 'Office', 'Home', 'Client Site', 'Remote'][activeTimer.locationId]}` : 
+          "Working",
+        currentSession: currentDuration,
+        status: activeTimer.isPaused ? `On ${activeTimer.breakType || 'Break'}` : "Working"
+      },
+      breakInfo: activeTimer.isPaused ? {
+        isOnBreak: true,
+        breakType: activeTimer.breakType || 'Break',
+        breakStartTime: activeTimer.pauseStartTime,
+        breakNotes: activeTimer.breakNotes || ''
+      } : null
     }
   });
 });
@@ -2428,32 +3153,66 @@ app.get('/api/me/leave-requests', (req, res) => {
 });
 
 // Create Leave Request
-app.post('/api/me/leave-requests', (req, res) => {
-  const { leave_type, start_date, end_date, reason = '', is_half_day = false } = req.body;
+app.post('/api/me/leave-requests', authenticateToken, (req, res) => {
+  const { 
+    leaveTypeId, 
+    leave_type = leaveTypeId, 
+    startDate, 
+    start_date = startDate, 
+    endDate, 
+    end_date = endDate, 
+    reason = '', 
+    isHalfDay = false,
+    is_half_day = isHalfDay 
+  } = req.body;
+
+  // Use the new parameter names with fallback to old ones
+  const actualLeaveType = leaveTypeId || leave_type;
+  const actualStartDate = startDate || start_date;
+  const actualEndDate = endDate || end_date;
+  const actualHalfDay = isHalfDay || is_half_day;
+
+  if (!actualLeaveType || !actualStartDate || !actualEndDate) {
+    return res.status(400).json({
+      success: false,
+      message: 'Missing required fields: leaveTypeId, startDate, endDate'
+    });
+  }
+
+  const leaveTypeNames = {
+    'paid_leave': 'Paid Leave',
+    'sick_leave': 'Sick Leave', 
+    'half_day': 'Half Day Leave',
+    'personal_leave': 'Personal Leave',
+    'maternity_leave': 'Maternity Leave',
+    'unpaid_leave': 'Unpaid Leave'
+  };
 
   const newRequest = {
     leave_request_id: Math.floor(Math.random() * 1000) + 100,
-    title: `${leave_type.replace('_', ' ')} - ${reason}`,
-    leave_type,
-    leave_type_name: leave_type.replace('_', ' '),
-    start_date,
-    end_date,
-    duration: is_half_day ? 0.5 : Math.ceil((new Date(end_date) - new Date(start_date)) / (1000 * 60 * 60 * 24)) + 1,
+    title: `${leaveTypeNames[actualLeaveType] || actualLeaveType} - ${reason || 'Leave request'}`,
+    leave_type: actualLeaveType,
+    leave_type_name: leaveTypeNames[actualLeaveType] || actualLeaveType,
+    start_date: actualStartDate,
+    end_date: actualEndDate,
+    duration: actualHalfDay ? 0.5 : Math.ceil((new Date(actualEndDate) - new Date(actualStartDate)) / (1000 * 60 * 60 * 24)) + 1,
     reason,
     status: 'pending',
     status_display: 'Pending',
     status_color: '#FFA500',
-    is_paid: leave_type !== 'unpaid_leave',
-    is_half_day,
-    date_display: start_date === end_date ? start_date : `${start_date} - ${end_date}`
+    is_paid: actualLeaveType !== 'unpaid_leave',
+    is_half_day: actualHalfDay,
+    date_display: actualStartDate === actualEndDate ? actualStartDate : `${actualStartDate} - ${actualEndDate}`,
+    submitted_at: new Date().toISOString(),
+    submitted_by: req.user?.userId || 1
   };
 
   res.status(201).json({
     success: true,
-    message: 'Vacation request sent Γ£à',
+    message: 'Leave request submitted successfully ✅',
     data: {
       request: newRequest,
-      success_message: 'Vacation request sent Γ£à',
+      success_message: 'Leave request submitted successfully ✅',
       success_title: 'Request Submitted'
     }
   });
@@ -2704,24 +3463,17 @@ app.get('/api/company/settings', authenticateToken, (req, res) => {
     message: "Company settings retrieved successfully",
     data: {
       company: {
-        id: 1,
-        name: "ACME Inc.",
+        ...companyData,
         logo_url: "https://api-layer.vercel.app/api/company/logo",
-        industry: "IT Company",
         category: "Technology",
-        brand_color: "#6366F1",
         brand_color_name: "Purple",
-        support_email: "acmeinc@gmail.com",
-        company_phone: "(+1) 740 - 8521",
-        address: "45 Cloudy Bay, Auckland, NZ",
         founded_date: "2020-01-01",
         employee_count: 150,
         timezone: "Pacific/Auckland",
-        website: "https://acme.inc",
-        description: "Leading technology company providing innovative solutions"
+        website: "https://acme.inc"
       },
       branding: {
-        primary_color: "#6366F1",
+        primary_color: companyData.brand_color,
         secondary_color: "#8B5CF6", 
         accent_color: "#F59E0B",
         logo_variants: {
@@ -2744,22 +3496,22 @@ app.get('/api/company/settings', authenticateToken, (req, res) => {
 app.put('/api/company/settings', authenticateToken, (req, res) => {
   const { name, industry, brand_color, support_email, company_phone, address, description } = req.body;
   
+  // Actually update the company data
+  if (name) companyData.name = name;
+  if (industry) companyData.industry = industry;
+  if (brand_color) companyData.brand_color = brand_color;
+  if (support_email) companyData.support_email = support_email;
+  if (company_phone) companyData.company_phone = company_phone;
+  if (address) companyData.address = address;
+  if (description) companyData.description = description;
+  companyData.updated_at = new Date().toISOString();
+  companyData.updated_by = "Admin User";
+  
   res.json({
     success: true,
     message: "Company settings updated successfully",
     data: {
-      company: {
-        id: 1,
-        name: name || "ACME Inc.",
-        industry: industry || "IT Company",
-        brand_color: brand_color || "#6366F1",
-        support_email: support_email || "acmeinc@gmail.com",
-        company_phone: company_phone || "(+1) 740 - 8521", 
-        address: address || "45 Cloudy Bay, Auckland, NZ",
-        description: description,
-        updated_at: new Date().toISOString(),
-        updated_by: "Admin User"
-      }
+      company: companyData
     }
   });
 });
@@ -2990,28 +3742,38 @@ app.put('/api/company/address', authenticateToken, (req, res) => {
 // ========== Profile Management APIs (Based on Figma Settings Screens) ==========
 
 // Get user profile information
+// Use persistent user data storage
+let userData = global.userData || getDefaultUserData();
+
+let companyData = {
+  id: 1,
+  name: "ACME Inc.",
+  industry: "IT Company",
+  brand_color: "#6366F1",
+  support_email: "acmeinc@gmail.com",
+  company_phone: "(+1) 740 - 8521", 
+  address: "45 Cloudy Bay, Auckland, NZ",
+  description: "A leading software company",
+  logo: "https://api-layer.vercel.app/api/company/logo",
+  website: "https://acme.com",
+  founded: "2020",
+  employees: 50,
+  updated_at: new Date().toISOString(),
+  updated_by: "Admin User"
+};
+
 app.get('/api/me/profile', authenticateToken, (req, res) => {
+  const userId = req.user.id || 1;
+  
+  // Ensure userData is synced with global persistent data
+  userData = syncUserData();
+  const user = userData[userId] || userData[1];
+  
   res.json({
     success: true,
     message: "Profile information retrieved successfully",
     data: {
-      user: {
-        id: 1,
-        first_name: "Jenny",
-        last_name: "Wilson", 
-        full_name: "Jenny Wilson",
-        email: "jenny.wilson@email.com",
-        phone: "(+1) 267 - 9041",
-        profile_photo: "https://api-layer.vercel.app/api/me/profile/photo",
-        role: "Employee",
-        company: "ACME Inc.",
-        joined_date: "August 17, 2025",
-        employee_id: "EMP001",
-        department: "Engineering",
-        status: "Active",
-        timezone: "UTC-5",
-        last_login: "2024-12-24T09:41:00Z"
-      },
+      user,
       permissions: {
         can_edit_profile: true,
         can_change_password: true,
@@ -3025,21 +3787,56 @@ app.get('/api/me/profile', authenticateToken, (req, res) => {
 // Update profile information  
 app.put('/api/me/profile', authenticateToken, (req, res) => {
   const { first_name, last_name, email, phone, timezone } = req.body;
+  const userId = req.user.id || 1;
+  
+  // Sync with global persistent data
+  userData = syncUserData();
+  
+  // Actually update the user data
+  if (userData[userId]) {
+    if (first_name) {
+      userData[userId].first_name = first_name;
+      userData[userId].full_name = `${first_name} ${userData[userId].last_name}`;
+    }
+    if (last_name) {
+      userData[userId].last_name = last_name;
+      userData[userId].full_name = `${userData[userId].first_name} ${last_name}`;
+    }
+    if (email) userData[userId].email = email;
+    if (phone) userData[userId].phone = phone;
+    if (timezone) userData[userId].timezone = timezone;
+    userData[userId].updated_at = new Date().toISOString();
+    
+    // Update global userData and save to persistent storage
+    global.userData = userData;
+    saveUserData();
+  }
   
   res.json({
     success: true,
     message: "Profile updated successfully",
     data: {
-      user: {
-        id: 1,
-        first_name: first_name || "Jenny",
-        last_name: last_name || "Wilson",
-        full_name: `${first_name || "Jenny"} ${last_name || "Wilson"}`,
-        email: email || "jenny.wilson@email.com", 
-        phone: phone || "(+1) 267 - 9041",
-        timezone: timezone || "UTC-5",
-        updated_at: new Date().toISOString()
-      }
+      user: userData[userId] || userData[1]
+    }
+  });
+});
+
+// Get profile photo
+app.get('/api/me/profile/photo', authenticateToken, (req, res) => {
+  const userId = req.user.id || 1;
+  
+  // For demo purposes, return a placeholder image or base64 data
+  // In real implementation, you would fetch from database or file storage
+  res.json({
+    success: true,
+    message: "Profile photo retrieved successfully",
+    data: {
+      photo_url: "https://api-layer.vercel.app/api/me/profile/photo",
+      photo_base64: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/wAALCAABAAEBAREA/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCgAAAAA==",
+      file_type: "image/jpeg",
+      file_size: "2.3 MB",
+      upload_time: "2025-01-01T10:00:00Z",
+      thumbnail_url: "https://api-layer.vercel.app/api/me/profile/photo/thumb"
     }
   });
 });
@@ -3065,6 +3862,10 @@ app.post('/api/me/profile/photo', authenticateToken, (req, res) => {
 // Update name specifically  
 app.put('/api/me/profile/name', authenticateToken, (req, res) => {
   const { first_name, last_name } = req.body;
+  const userId = req.user.id || 1;
+  
+  // Sync with global persistent data
+  userData = syncUserData();
   
   // Validation
   if (!first_name || !last_name) {
@@ -3076,6 +3877,18 @@ app.put('/api/me/profile/name', authenticateToken, (req, res) => {
         last_name: !last_name ? "Last name is required" : null
       }
     });
+  }
+  
+  // Actually update the user data
+  if (userData[userId]) {
+    userData[userId].first_name = first_name;
+    userData[userId].last_name = last_name;
+    userData[userId].full_name = `${first_name} ${last_name}`;
+    userData[userId].updated_at = new Date().toISOString();
+    
+    // Update global userData and save to persistent storage
+    global.userData = userData;
+    saveUserData();
   }
   
   res.json({
@@ -3093,6 +3906,10 @@ app.put('/api/me/profile/name', authenticateToken, (req, res) => {
 // Update email specifically
 app.put('/api/me/profile/email', authenticateToken, (req, res) => {
   const { email } = req.body;
+  const userId = req.user.id || 1;
+  
+  // Sync with global persistent data
+  userData = syncUserData();
   
   // Email validation
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -3104,6 +3921,16 @@ app.put('/api/me/profile/email', authenticateToken, (req, res) => {
         email: "Please enter a valid email address"
       }
     });
+  }
+  
+  // Actually update the user data
+  if (userData[userId]) {
+    userData[userId].email = email;
+    userData[userId].updated_at = new Date().toISOString();
+    
+    // Update global userData and save to persistent storage
+    global.userData = userData;
+    saveUserData();
   }
   
   res.json({
@@ -3121,6 +3948,10 @@ app.put('/api/me/profile/email', authenticateToken, (req, res) => {
 // Update phone number specifically
 app.put('/api/me/profile/phone', authenticateToken, (req, res) => {
   const { phone } = req.body;
+  const userId = req.user.id || 1;
+  
+  // Sync with global persistent data
+  userData = syncUserData();
   
   // Phone validation
   if (!phone) {
@@ -3131,6 +3962,16 @@ app.put('/api/me/profile/phone', authenticateToken, (req, res) => {
         phone: "Please enter a valid phone number"
       }
     });
+  }
+  
+  // Actually update the user data
+  if (userData[userId]) {
+    userData[userId].phone = phone;
+    userData[userId].updated_at = new Date().toISOString();
+    
+    // Update global userData and save to persistent storage
+    global.userData = userData;
+    saveUserData();
   }
   
   res.json({

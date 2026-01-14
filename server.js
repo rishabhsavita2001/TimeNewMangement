@@ -3,11 +3,41 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
+const nodemailer = require('nodemailer');
 
 const app = express();
 
 // JWT Secret
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-for-development-only';
+
+// Nodemailer Configuration
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'managementtime04@gmail.com',
+    pass: 'sarx oodf rrxb bfuk' // App password
+  }
+});
+
+// OTP Storage (in production, use Redis or database)
+if (!global.otpStorage) {
+  global.otpStorage = {};
+}
+
+// Reset Token Storage
+if (!global.resetTokens) {
+  global.resetTokens = {};
+}
+
+// Generate 4-digit OTP
+function generateOTP() {
+  return Math.floor(1000 + Math.random() * 9000).toString();
+}
+
+// Generate reset token
+function generateResetToken(email) {
+  return `reset_${Date.now()}_${email.replace('@', '_').replace('.', '_')}`;
+}
 
 // Swagger configuration with Logout endpoint
 const swaggerOptions = {
@@ -333,6 +363,385 @@ app.post('/api/auth/logout', authenticateToken, (req, res) => {
       status: 'logged_out'
     }
   });
+});
+
+// ===== FORGOT PASSWORD FLOW APIS =====
+
+/**
+ * @swagger
+ * /api/auth/forgot-password:
+ *   post:
+ *     summary: Request OTP for password reset
+ *     description: Send 4-digit OTP to user's email for password reset
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "user@example.com"
+ *             required:
+ *               - email
+ *     responses:
+ *       200:
+ *         description: OTP sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Verification code sent to your email address"
+ *                 expiresIn:
+ *                   type: string
+ *                   example: "5 minutes"
+ *                 otpForTesting:
+ *                   type: string
+ *                   example: "1234"
+ *       400:
+ *         description: Bad request - Email required
+ */
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required'
+      });
+    }
+
+    // Generate 4-digit OTP
+    const otp = generateOTP();
+    const expiresAt = Date.now() + (5 * 60 * 1000); // 5 minutes expiry
+
+    // Store OTP with expiry
+    global.otpStorage[email] = {
+      otp,
+      expiresAt,
+      attempts: 0,
+      createdAt: Date.now()
+    };
+
+    // Send OTP email
+    const mailOptions = {
+      from: '"Time Management System" <managementtime04@gmail.com>',
+      to: email,
+      subject: 'Password Reset - Verification Code',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Password Reset Request</h2>
+          <p>Hi there,</p>
+          <p>You requested to reset your password. Please use the following 4-digit verification code:</p>
+          <div style="background: #f5f5f5; padding: 20px; text-align: center; margin: 20px 0;">
+            <h1 style="color: #007bff; font-size: 36px; margin: 0; letter-spacing: 10px;">${otp}</h1>
+          </div>
+          <p>This code will expire in 5 minutes.</p>
+          <p>If you didn't request this, please ignore this email.</p>
+          <p>Best regards,<br>Time Management Team</p>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.json({
+      success: true,
+      message: 'Verification code sent to your email address',
+      expiresIn: '5 minutes',
+      // For testing purposes (remove in production)
+      otpForTesting: otp
+    });
+
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send verification code. Please try again.'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/auth/verify-otp:
+ *   post:
+ *     summary: Verify OTP for password reset
+ *     description: Verify 4-digit OTP and get reset token
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "user@example.com"
+ *               otp:
+ *                 type: string
+ *                 example: "1234"
+ *             required:
+ *               - email
+ *               - otp
+ *     responses:
+ *       200:
+ *         description: OTP verified successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "OTP verified successfully"
+ *                 resetToken:
+ *                   type: string
+ *                   example: "reset_1768372640_user_example_com"
+ *                 expiresIn:
+ *                   type: string
+ *                   example: "15 minutes"
+ */
+app.post('/api/auth/verify-otp', (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and OTP are required'
+      });
+    }
+
+    const otpData = global.otpStorage[email];
+    
+    if (!otpData) {
+      return res.status(400).json({
+        success: false,
+        message: 'No OTP request found for this email'
+      });
+    }
+
+    if (Date.now() > otpData.expiresAt) {
+      delete global.otpStorage[email];
+      return res.status(400).json({
+        success: false,
+        message: 'OTP has expired. Please request a new one.'
+      });
+    }
+
+    if (otpData.otp !== otp) {
+      otpData.attempts++;
+      if (otpData.attempts >= 3) {
+        delete global.otpStorage[email];
+        return res.status(400).json({
+          success: false,
+          message: 'Too many failed attempts. Please request a new OTP.'
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: `Invalid OTP. ${3 - otpData.attempts} attempts remaining.`
+      });
+    }
+
+    // Generate reset token
+    const resetToken = generateResetToken(email);
+    global.resetTokens[email] = {
+      token: resetToken,
+      expiresAt: Date.now() + (15 * 60 * 1000), // 15 minutes
+      verified: true
+    };
+
+    // Clean up OTP
+    delete global.otpStorage[email];
+
+    res.json({
+      success: true,
+      message: 'OTP verified successfully',
+      resetToken,
+      expiresIn: '15 minutes'
+    });
+
+  } catch (error) {
+    console.error('OTP verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to verify OTP. Please try again.'
+    });
+  }
+});
+
+/**
+ * @swagger
+ * /api/auth/reset-password:
+ *   post:
+ *     summary: Reset password with new password
+ *     description: Reset password using reset token and send invitation email
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "user@example.com"
+ *               resetToken:
+ *                 type: string
+ *                 example: "reset_1768372640_user_example_com"
+ *               newPassword:
+ *                 type: string
+ *                 example: "mynewpassword123"
+ *               confirmPassword:
+ *                 type: string
+ *                 example: "mynewpassword123"
+ *             required:
+ *               - email
+ *               - resetToken
+ *               - newPassword
+ *               - confirmPassword
+ *     responses:
+ *       200:
+ *         description: Password reset successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Password reset successfully. You can now login with your new password"
+ *                 emailSent:
+ *                   type: boolean
+ *                   example: true
+ */
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { email, resetToken, newPassword, confirmPassword } = req.body;
+
+    if (!email || !resetToken || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'All fields are required'
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Passwords do not match'
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long'
+      });
+    }
+
+    const tokenData = global.resetTokens[email];
+    
+    if (!tokenData || tokenData.token !== resetToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid reset token'
+      });
+    }
+
+    if (Date.now() > tokenData.expiresAt) {
+      delete global.resetTokens[email];
+      return res.status(400).json({
+        success: false,
+        message: 'Reset token has expired. Please start the process again.'
+      });
+    }
+
+    // In a real app, update password in database
+    // For now, just simulate success
+    
+    // Clean up reset token
+    delete global.resetTokens[email];
+
+    // Send success email invitation
+    const invitationMailOptions = {
+      from: '"Time Management System" <managementtime04@gmail.com>',
+      to: email,
+      subject: 'Password Reset Successful - Account Invitation',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Password Reset Successful</h2>
+          <p>Hi Jenny,</p>
+          <p>Your password has been reset successfully. You can now sign in with your new password.</p>
+          
+          <div style="background: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #28a745; margin: 0;">🎉 You have been invited by Sheila to join</h3>
+            <p style="margin: 10px 0 0 0;"><strong>Time Management System</strong> - our internal system used to manage working time, absences, and employee requests.</p>
+          </div>
+
+          <p><strong>What's next?</strong></p>
+          <p>To activate your account, please click the button below and create your password:</p>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="https://api-layer.vercel.app" style="background: #6f42c1; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+              Activate your account
+            </a>
+          </div>
+
+          <p><strong>For security reasons, this invitation link will expire in 7 days.</strong></p>
+          
+          <p><strong>Once your account is activated:</strong></p>
+          <ul>
+            <li>• Your company and role will already be assigned</li>
+            <li>• You can start tracking your working time, absences, and employee requests immediately</li>
+            <li>• Submit working time requests for approval</li>
+          </ul>
+
+          <p><small>If you did not expect this invitation, you can safely ignore this email.</small></p>
+          <p><small>If you have any questions, please contact your company administrator.</small></p>
+
+          <p>Best regards,<br><strong>Danie Alex</strong><br>Product Team - Time Management System</p>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(invitationMailOptions);
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully. You can now login with your new password',
+      emailSent: true
+    });
+
+  } catch (error) {
+    console.error('Password reset error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reset password. Please try again.'
+    });
+  }
 });
 
 /**
