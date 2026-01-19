@@ -4,8 +4,18 @@ const fs = require('fs');
 const path = require('path');
 const nodemailer = require('nodemailer');
 
-// Serverless-compatible persistence (in-memory with session lifetime)
-// Note: Vercel serverless functions can't write files, so we use memory + globals
+// File-based persistence for Vercel serverless compatibility
+const DATA_DIR = process.env.VERCEL ? '/tmp' : path.join(__dirname, 'data');
+const TIMERS_FILE = path.join(DATA_DIR, 'timers.json');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
+
+// Ensure data directory exists
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  console.log('📁 Created data directory:', DATA_DIR);
+}
+
+// Serverless-compatible persistence with file backup
 
 // Initialize global data storage
 if (!global.persistentData) {
@@ -165,6 +175,40 @@ function getDefaultUserData() {
       status: "Active",
       timezone: "UTC-5",
       last_login: "2024-12-24T09:41:00Z"
+    },
+    2: {
+      id: 2,
+      first_name: "John",
+      last_name: "Doe", 
+      full_name: "John Doe",
+      email: "john.doe@email.com",
+      phone: "(+1) 555 - 0123",
+      profile_photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
+      role: "Developer",
+      company: "ACME Inc.",
+      joined_date: "January 15, 2025",
+      employee_id: "EMP002",
+      department: "Engineering",
+      status: "Active",
+      timezone: "UTC-5",
+      last_login: new Date().toISOString()
+    },
+    3: {
+      id: 3,
+      first_name: "Sarah",
+      last_name: "Johnson", 
+      full_name: "Sarah Johnson",
+      email: "sarah.johnson@email.com",
+      phone: "(+1) 555 - 0456",
+      profile_photo: "https://images.unsplash.com/photo-1494790108755-2616b612c937?w=150",
+      role: "Designer",
+      company: "ACME Inc.",
+      joined_date: "December 01, 2024",
+      employee_id: "EMP003",
+      department: "Design",
+      status: "Active",
+      timezone: "UTC-5",
+      last_login: new Date().toISOString()
     }
   };
 }
@@ -478,7 +522,10 @@ app.post('/api/auth/login', (req, res) => {
 app.get('/api/get-token', (req, res) => {
   // Sync with persistent user data
   userData = syncUserData();
-  const user = userData[1]; // Get user 1
+  
+  // Allow user selection via query parameter for testing
+  const requestedUserId = parseInt(req.query.userId) || 1;
+  const user = userData[requestedUserId] || userData[1];
   
   const testUser = {
     userId: user.id,
@@ -500,7 +547,33 @@ app.get('/api/get-token', (req, res) => {
       expires_in: '24h',
       token_type: 'Bearer',
       usage: 'Copy this token and use it in Swagger UI Authorization header as: Bearer <token>',
-      note: 'Token email now synced with profile data'
+      note: `Token for ${user.full_name} (ID: ${user.id}) - Use ?userId=2 or ?userId=3 to test other users`
+    }
+  });
+});
+
+// List available test users
+app.get('/api/test-users', (req, res) => {
+  userData = syncUserData();
+  
+  const usersList = Object.values(userData).map(user => ({
+    id: user.id,
+    name: user.full_name,
+    email: user.email,
+    role: user.role,
+    department: user.department,
+    employee_id: user.employee_id,
+    status: user.status,
+    tokenUrl: `https://api-layer.vercel.app/api/get-token?userId=${user.id}`
+  }));
+  
+  res.json({
+    success: true,
+    message: 'Available test users for API testing',
+    data: {
+      users: usersList,
+      instructions: 'Use /api/get-token?userId=X to get token for specific user',
+      note: 'Each user has separate timer state and profile data'
     }
   });
 });
