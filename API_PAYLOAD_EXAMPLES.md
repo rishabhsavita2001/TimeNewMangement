@@ -3,7 +3,7 @@
 ## 🔐 SIGN-IN API (Login)
 
 ### Endpoint: `POST /api/auth/login`
-**URL**: https://api-layer.vercel.app/api/auth/login
+**URL**: https://apilayer.vercel.app/api/auth/login
 
 ### Request Payload:
 ```json
@@ -39,7 +39,7 @@
 // Sign-in API call for mobile app
 const signIn = async (email, password) => {
   try {
-    const response = await fetch('https://api-layer.vercel.app/api/auth/login', {
+    const response = await fetch('https://apilayer.vercel.app/api/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -85,7 +85,7 @@ const signIn = async (email, password) => {
 
 ### Step 1: Request OTP
 **Endpoint**: `POST /api/auth/forgot-password`  
-**URL**: https://api-layer.vercel.app/api/auth/forgot-password
+**URL**: https://apilayer.vercel.app/api/auth/forgot-password
 
 #### Request Payload:
 ```json
@@ -106,7 +106,7 @@ const signIn = async (email, password) => {
 
 ### Step 2: Verify OTP
 **Endpoint**: `POST /api/auth/verify-otp`  
-**URL**: https://api-layer.vercel.app/api/auth/verify-otp
+**URL**: https://apilayer.vercel.app/api/auth/verify-otp
 
 #### Request Payload:
 ```json
@@ -128,7 +128,7 @@ const signIn = async (email, password) => {
 
 ### Step 3: Reset Password
 **Endpoint**: `POST /api/auth/reset-password`  
-**URL**: https://api-layer.vercel.app/api/auth/reset-password
+**URL**: https://apilayer.vercel.app/api/auth/reset-password
 
 #### Request Payload:
 ```json
@@ -157,7 +157,7 @@ class ForgotPasswordService {
   // Step 1: Request OTP
   static async requestOTP(email) {
     try {
-      const response = await fetch('https://api-layer.vercel.app/api/auth/forgot-password', {
+      const response = await fetch('https://apilayer.vercel.app/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
@@ -171,7 +171,7 @@ class ForgotPasswordService {
   // Step 2: Verify OTP
   static async verifyOTP(email, otp) {
     try {
-      const response = await fetch('https://api-layer.vercel.app/api/auth/verify-otp', {
+      const response = await fetch('https://apilayer.vercel.app/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp })
@@ -185,7 +185,7 @@ class ForgotPasswordService {
   // Step 3: Reset Password
   static async resetPassword(email, resetToken, newPassword, confirmPassword) {
     try {
-      const response = await fetch('https://api-layer.vercel.app/api/auth/reset-password', {
+      const response = await fetch('https://apilayer.vercel.app/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, resetToken, newPassword, confirmPassword })

@@ -1,0 +1,273 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Working Time Management API",
+    "description": "Complete API for Working Time Management with Authentication and Forgot Password functionality",
+    "version": "1.0.0",
+    "contact": {
+      "email": "support@api-layer.vercel.app"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://apilayer.vercel.app",
+      "description": "Production server"
+    },
+    {
+      "url": "http://localhost:3000",
+      "description": "Development server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Check API health status",
+        "tags": ["System"],
+        "responses": {
+          "200": {
+            "description": "API is healthy"
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "summary": "User Login",
+        "description": "Authenticate user and get access token",
+        "tags": ["Authentication"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": {"type": "string", "example": "admin@company.com"},
+                  "password": {"type": "string", "example": "password123"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "message": {"type": "string"},
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "token": {"type": "string"},
+                        "access_token": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "summary": "User Logout",
+        "description": "Logout current user session",
+        "tags": ["Authentication"],
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Logout successful"
+          }
+        }
+      }
+    },
+    "/api/auth/forgot-password": {
+      "post": {
+        "summary": "Request OTP for Password Reset",
+        "description": "Send 4-digit OTP to user's email address for password reset. OTP expires in 5 minutes.",
+        "tags": ["Authentication"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email"],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "User's email address",
+                    "example": "user@example.com"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP sent successfully to email",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean", "example": true},
+                    "message": {"type": "string", "example": "Verification code sent to your email address"},
+                    "expiresIn": {"type": "string", "example": "5 minutes"},
+                    "otpForTesting": {"type": "string", "example": "1234", "description": "OTP for testing (remove in production)"}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Email required"
+          },
+          "500": {
+            "description": "Server error - Failed to send email"
+          }
+        }
+      }
+    },
+    "/api/auth/verify-otp": {
+      "post": {
+        "summary": "Verify OTP for Password Reset",
+        "description": "Verify the 4-digit OTP sent to user's email and get reset token. Token expires in 15 minutes.",
+        "tags": ["Authentication"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "otp"],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "User's email address",
+                    "example": "user@example.com"
+                  },
+                  "otp": {
+                    "type": "string",
+                    "description": "4-digit OTP code received via email",
+                    "example": "1234",
+                    "minLength": 4,
+                    "maxLength": 4
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP verified successfully, reset token generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean", "example": true},
+                    "message": {"type": "string", "example": "OTP verified successfully"},
+                    "resetToken": {"type": "string", "example": "reset_1768372640_user_example_com", "description": "Token for password reset (valid for 15 minutes)"},
+                    "expiresIn": {"type": "string", "example": "15 minutes"}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid OTP, expired, or missing fields"
+          }
+        }
+      }
+    },
+    "/api/auth/reset-password": {
+      "post": {
+        "summary": "Reset Password with New Password",
+        "description": "Reset user's password using reset token and send invitation email. Password must be at least 6 characters.",
+        "tags": ["Authentication"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "resetToken", "newPassword", "confirmPassword"],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "User's email address",
+                    "example": "user@example.com"
+                  },
+                  "resetToken": {
+                    "type": "string",
+                    "description": "Reset token received from OTP verification",
+                    "example": "reset_1768372640_user_example_com"
+                  },
+                  "newPassword": {
+                    "type": "string",
+                    "description": "New password (minimum 6 characters)",
+                    "example": "mynewpassword123",
+                    "minLength": 6
+                  },
+                  "confirmPassword": {
+                    "type": "string",
+                    "description": "Confirm new password (must match newPassword)",
+                    "example": "mynewpassword123",
+                    "minLength": 6
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset successfully, invitation email sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean", "example": true},
+                    "message": {"type": "string", "example": "Password reset successfully. You can now login with your new password"},
+                    "emailSent": {"type": "boolean", "example": true}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Validation errors"
+          }
+        }
+      }
+    }
+  }
+}
