@@ -42,11 +42,45 @@ if (!global.persistentData) {
         status: "Active",
         timezone: "UTC-5",
         last_login: "2024-12-24T09:41:00Z"
+      },
+      2: {
+        id: 2,
+        first_name: "John",
+        last_name: "Doe", 
+        full_name: "John Doe",
+        email: "john.doe@email.com",
+        phone: "(+1) 555 - 0123",
+        profile_photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
+        role: "Developer",
+        company: "ACME Inc.",
+        joined_date: "January 15, 2025",
+        employee_id: "EMP002",
+        department: "Engineering",
+        status: "Active",
+        timezone: "UTC-5",
+        last_login: new Date().toISOString()
+      },
+      3: {
+        id: 3,
+        first_name: "Sarah",
+        last_name: "Johnson", 
+        full_name: "Sarah Johnson",
+        email: "sarah.johnson@email.com",
+        phone: "(+1) 555 - 0456",
+        profile_photo: "https://images.unsplash.com/photo-1494790108755-2616b612c937?w=150",
+        role: "Designer",
+        company: "ACME Inc.",
+        joined_date: "December 01, 2024",
+        employee_id: "EMP003",
+        department: "Design",
+        status: "Active",
+        timezone: "UTC-5",
+        last_login: new Date().toISOString()
       }
     },
     lastUpdated: new Date().toISOString()
   };
-  console.log('🔄 Initialized global persistent data store');
+  console.log('🔄 Initialized global persistent data store with 3 test users');
 }
 
 // Load timers from global storage
@@ -554,7 +588,9 @@ app.get('/api/get-token', (req, res) => {
 
 // List available test users
 app.get('/api/test-users', (req, res) => {
-  userData = syncUserData();
+  // Force refresh user data to ensure we have all users
+  userData = getDefaultUserData();
+  saveUserData(); // Save to file immediately
   
   const usersList = Object.values(userData).map(user => ({
     id: user.id,
@@ -576,6 +612,33 @@ app.get('/api/test-users', (req, res) => {
       note: 'Each user has separate timer state and profile data'
     }
   });
+});
+
+// Force refresh user data (for debugging)
+app.get('/api/refresh-users', (req, res) => {
+  try {
+    // Reset to default users
+    global.userData = getDefaultUserData();
+    global.persistentData.users = global.userData;
+    
+    // Save immediately
+    saveUserData();
+    
+    res.json({
+      success: true,
+      message: 'User data refreshed successfully',
+      data: {
+        userCount: Object.keys(global.userData).length,
+        users: Object.values(global.userData).map(u => ({ id: u.id, name: u.full_name }))
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to refresh user data',
+      error: error.message
+    });
+  }
 });
 
 // Sign Out / Logout API
