@@ -86,25 +86,27 @@ if (!global.persistentData) {
 // Load timers from global storage
 function loadTimers() {
   try {
-    // First try to load from file system (persistent across restarts)
-    let timersData = {};
-    if (fs.existsSync(TIMERS_FILE)) {
-      const fileData = fs.readFileSync(TIMERS_FILE, 'utf8');
-      timersData = JSON.parse(fileData);
-      console.log('⏱️  Loaded timers from persistent file storage');
-    } else if (global.persistentData.timers) {
-      timersData = global.persistentData.timers;
-      console.log('⏱️  Loaded timers from global storage');
+    // In serverless environment, rely more on global storage with enhanced persistence
+    if (global.persistentData && global.persistentData.timers) {
+      global.activeTimers = global.persistentData.timers.activeTimers || {};
+      global.stoppedTimersToday = global.persistentData.timers.stoppedTimersToday || {};
+      global.dailyWorkTime = global.persistentData.timers.dailyWorkTime || {};
+      console.log('⏱️  Timers loaded from global storage:', Object.keys(global.activeTimers).length, 'active');
     }
     
-    global.activeTimers = timersData.activeTimers || {};
-    global.stoppedTimersToday = timersData.stoppedTimersToday || {};
-    global.dailyWorkTime = timersData.dailyWorkTime || {};
-    
-    // Update global storage
-    global.persistentData.timers = timersData;
-    
-    console.log('⏱️  Active timers loaded:', Object.keys(global.activeTimers).length);
+    // Try to load from file as backup (if exists)
+    if (fs.existsSync(TIMERS_FILE)) {
+      try {
+        const fileData = JSON.parse(fs.readFileSync(TIMERS_FILE, 'utf8'));
+        // Merge file data with global data (file data takes priority for active timers)
+        if (fileData.activeTimers && Object.keys(fileData.activeTimers).length > 0) {
+          global.activeTimers = { ...global.activeTimers, ...fileData.activeTimers };
+          console.log('⏱️  Enhanced with file data:', Object.keys(fileData.activeTimers).length, 'additional timers');
+        }
+      } catch (fileError) {
+        console.log('⚠️  File read error (using global storage):', fileError.message);
+      }
+    }
   } catch (error) {
     console.error('❌ Error loading timers:', error);
     global.activeTimers = {};
@@ -123,14 +125,24 @@ function saveTimers() {
       lastUpdated: new Date().toISOString()
     };
     
-    // Save to file system for persistence across serverless restarts
-    fs.writeFileSync(TIMERS_FILE, JSON.stringify(timersData, null, 2));
-    
-    // Also keep in global for immediate access
+    // CRITICAL: Save to global storage first (always works in serverless)
     global.persistentData.timers = timersData;
     global.persistentData.lastUpdated = timersData.lastUpdated;
     
-    console.log('💾 Timers saved to persistent storage and file system');
+    // Try to save to file as backup (may fail in some serverless environments)
+    try {
+      fs.writeFileSync(TIMERS_FILE, JSON.stringify(timersData, null, 2));
+      console.log('💾 Timers saved to both global storage and file system');
+    } catch (fileError) {
+      console.log('💾 Timers saved to global storage (file save failed):', fileError.message);
+    }
+    
+    // Debug: Log current active timers
+    console.log('📊 Active timers count after save:', Object.keys(global.activeTimers).length);
+    if (Object.keys(global.activeTimers).length > 0) {
+      console.log('📊 Active timer IDs:', Object.keys(global.activeTimers));
+    }
+    
   } catch (error) {
     console.error('❌ Error saving timers:', error);
   }
@@ -3029,10 +3041,17 @@ app.post('/api/me/timer/start', (req, res) => {
     lastActivity: new Date().toISOString()
   };
 
-  // Save to persistent storage immediately
+  // CRITICAL: Save to persistent storage immediately with verification
   saveTimers();
   
-  console.log('⏱️  Timer started for user', userId, '- Timer ID:', timerId);
+  // Verify timer was saved properly
+  const verifyTimer = global.activeTimers[timerId];
+  console.log(`⏱️  Timer created for user ${userId}:`, {
+    timerId,
+    saved: !!verifyTimer,
+    isRunning: verifyTimer?.isRunning,
+    totalActiveTimers: Object.keys(global.activeTimers).length
+  });
 
   // Get project and location names for response
   const projectName = projectId ? `Project ${String.fromCharCode(64 + parseInt(projectId))}` : null;
@@ -3124,8 +3143,18 @@ app.post('/api/me/timer/stop', (req, res) => {
 app.get('/api/me/timer/current', authenticateToken, (req, res) => {
   const userId = req.user?.userId || 1;
   
+  // CRITICAL FIX: Reload timers from storage before checking
+  loadTimers();
+  
   // Get consistent user data from userData object
   const user = userData[userId] || userData[1];
+  
+  // Debug logging
+  console.log(`🔍 Timer check for user ${userId}:`, {
+    totalActiveTimers: Object.keys(global.activeTimers).length,
+    activeTimerIds: Object.keys(global.activeTimers),
+    userActiveTimers: Object.values(global.activeTimers).filter(t => t.userId === userId).length
+  });
   
   // Find user's running timer
   const activeTimer = Object.values(global.activeTimers).find(
@@ -3135,6 +3164,8 @@ app.get('/api/me/timer/current', authenticateToken, (req, res) => {
   if (!activeTimer) {
     const today = new Date().toISOString().split('T')[0];
     const stoppedToday = global.stoppedTimersToday[userId] === today;
+    
+    console.log(`❌ No active timer found for user ${userId} - stopped today: ${stoppedToday}`);
     
     return res.json({
       success: true,
@@ -3175,10 +3206,18 @@ app.get('/api/me/timer/current', authenticateToken, (req, res) => {
           isContinue: false,
           canStartToday: !stoppedToday
         },
-        persistent: true // Indicate persistent storage is being used
+        persistent: true, // Indicate persistent storage is being used
+        debug: {
+          userId,
+          globalTimersCount: Object.keys(global.activeTimers).length,
+          stoppedToday,
+          loadedFromStorage: true
+        }
       }
     });
   }
+  
+  console.log(`✅ Active timer found for user ${userId}: ${activeTimer.timerId}`);
   
   // Update last activity timestamp
   activeTimer.lastActivity = new Date().toISOString();
