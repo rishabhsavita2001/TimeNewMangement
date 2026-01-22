@@ -911,6 +911,53 @@ app.get('/api/me/projects', authenticateToken, (req, res) => {
   });
 });
 
+// ===== LOCATIONS API (For Dropdown) =====
+app.get('/api/locations', authenticateToken, (req, res) => {
+  const locations = [
+    {
+      id: 1,
+      name: "Office",
+      description: "Main office location",
+      icon: "🏢",
+      address: "Company Headquarters",
+      type: "physical"
+    },
+    {
+      id: 2,
+      name: "Home",
+      description: "Work from home",
+      icon: "🏠",
+      address: "Remote - Home Office",
+      type: "remote"
+    },
+    {
+      id: 3,
+      name: "Client Site",
+      description: "At client premises",
+      icon: "🏬",
+      address: "Client Office Location",
+      type: "physical"
+    },
+    {
+      id: 4,
+      name: "Remote",
+      description: "Other remote location",
+      icon: "🌍",
+      address: "Any Remote Location",
+      type: "remote"
+    }
+  ];
+
+  res.json({
+    success: true,
+    message: 'Work locations retrieved successfully',
+    data: {
+      locations: locations,
+      total: locations.length
+    }
+  });
+});
+
 // ===== LOCATION MANAGEMENT APIs =====
 // GET Location Details
 app.get('/api/me/location', authenticateToken, (req, res) => {
