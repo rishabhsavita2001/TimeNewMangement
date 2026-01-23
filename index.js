@@ -1041,6 +1041,258 @@ app.put('/api/me/location', authenticateToken, (req, res) => {
   });
 });
 
+// ===== LEAVE MANAGEMENT APIs =====
+// Persistent leave data
+let persistentLeaveRequests = {
+  1: {
+    id: 1,
+    userId: 1,
+    leaveTypeId: 1,
+    leaveType: "Paid Leave",
+    startDate: "2026-02-01",
+    endDate: "2026-02-05",
+    status: "approved",
+    comment: "Family trip",
+    createdAt: "2026-01-20",
+    approvedAt: "2026-01-21"
+  }
+};
+
+// GET Leave Types (Dropdown)
+app.get('/api/leave-types', authenticateToken, (req, res) => {
+  const leaveTypes = [
+    {
+      id: 1,
+      name: "Paid Leave",
+      displayName: "Paid Leave",
+      color: "#4CAF50",
+      icon: "💰",
+      description: "Paid vacation days"
+    },
+    {
+      id: 2,
+      name: "Sick Leave",
+      displayName: "Sick Leave",
+      color: "#FF6B6B",
+      icon: "🤒",
+      description: "Sick leave for health reasons"
+    },
+    {
+      id: 3,
+      name: "Unpaid Leave",
+      displayName: "Unpaid Leave",
+      color: "#FFA500",
+      icon: "📋",
+      description: "Unpaid leave time"
+    },
+    {
+      id: 4,
+      name: "Maternity Leave",
+      displayName: "Maternity Leave",
+      color: "#FF69B4",
+      icon: "👶",
+      description: "Maternity leave for expectant mothers"
+    },
+    {
+      id: 5,
+      name: "Paternity Leave",
+      displayName: "Paternity Leave",
+      color: "#1E90FF",
+      icon: "👨‍👧",
+      description: "Paternity leave for new fathers"
+    },
+    {
+      id: 6,
+      name: "Training / Education Leave",
+      displayName: "Training / Education Leave",
+      color: "#9370DB",
+      icon: "📚",
+      description: "Training and educational programs"
+    },
+    {
+      id: 7,
+      name: "Special Leave",
+      displayName: "Special Leave",
+      color: "#20B2AA",
+      icon: "⭐",
+      description: "Special occasions leave"
+    },
+    {
+      id: 8,
+      name: "Half-day Leave",
+      displayName: "Half-day Leave",
+      color: "#FFD700",
+      icon: "⏳",
+      description: "Half day leave (morning or afternoon)"
+    }
+  ];
+
+  res.json({
+    success: true,
+    message: "Leave types retrieved successfully",
+    data: {
+      leaveTypes: leaveTypes,
+      total: leaveTypes.length
+    }
+  });
+});
+
+// GET User's Leave Requests
+app.get('/api/me/leave-requests', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  const userLeaveRequests = Object.values(persistentLeaveRequests).filter(lr => lr.userId === userId);
+
+  res.json({
+    success: true,
+    message: "Leave requests retrieved successfully",
+    data: {
+      leaveRequests: userLeaveRequests,
+      total: userLeaveRequests.length,
+      userId: userId
+    }
+  });
+});
+
+// POST Create Leave Request
+app.post('/api/me/leave-requests', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  const { leaveTypeId, leaveType, startDate, endDate, comment, dayPart, trainingName, provider, expectedDeliveryDate } = req.body;
+
+  if (!leaveTypeId || !startDate) {
+    return res.status(400).json({
+      success: false,
+      message: "Leave type and start date are required"
+    });
+  }
+
+  // Generate new ID
+  const newId = Math.max(...Object.keys(persistentLeaveRequests).map(Number), 0) + 1;
+
+  const newLeaveRequest = {
+    id: newId,
+    userId: userId,
+    leaveTypeId: leaveTypeId,
+    leaveType: leaveType,
+    startDate: startDate,
+    endDate: endDate || startDate,
+    status: "pending",
+    comment: comment || "",
+    dayPart: dayPart || null,
+    trainingName: trainingName || null,
+    provider: provider || null,
+    expectedDeliveryDate: expectedDeliveryDate || null,
+    createdAt: new Date().toISOString().split('T')[0],
+    approvedAt: null
+  };
+
+  persistentLeaveRequests[newId] = newLeaveRequest;
+
+  res.status(201).json({
+    success: true,
+    message: "Leave request submitted successfully",
+    data: newLeaveRequest
+  });
+});
+
+// PUT Update Leave Request
+app.put('/api/me/leave-requests/:id', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  const requestId = req.params.id;
+  const leaveRequest = persistentLeaveRequests[requestId];
+
+  if (!leaveRequest || leaveRequest.userId !== userId) {
+    return res.status(404).json({
+      success: false,
+      message: "Leave request not found"
+    });
+  }
+
+  // Update fields
+  if (req.body.leaveTypeId) leaveRequest.leaveTypeId = req.body.leaveTypeId;
+  if (req.body.leaveType) leaveRequest.leaveType = req.body.leaveType;
+  if (req.body.startDate) leaveRequest.startDate = req.body.startDate;
+  if (req.body.endDate) leaveRequest.endDate = req.body.endDate;
+  if (req.body.comment) leaveRequest.comment = req.body.comment;
+  if (req.body.dayPart) leaveRequest.dayPart = req.body.dayPart;
+  if (req.body.trainingName) leaveRequest.trainingName = req.body.trainingName;
+  if (req.body.provider) leaveRequest.provider = req.body.provider;
+  if (req.body.expectedDeliveryDate) leaveRequest.expectedDeliveryDate = req.body.expectedDeliveryDate;
+
+  res.json({
+    success: true,
+    message: "Leave request updated successfully",
+    data: leaveRequest
+  });
+});
+
+// GET Leave Balance
+app.get('/api/me/leave-balance', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+
+  const leaveBalance = {
+    userId: userId,
+    totalBalance: {
+      paidLeave: 20,
+      sickLeave: 10,
+      unpaidLeave: 5,
+      maternityLeave: 90,
+      paternityLeave: 15,
+      trainingLeave: 5,
+      specialLeave: 3,
+      halfDayLeave: 8
+    },
+    used: {
+      paidLeave: 5,
+      sickLeave: 2,
+      unpaidLeave: 0,
+      maternityLeave: 0,
+      paternityLeave: 0,
+      trainingLeave: 0,
+      specialLeave: 1,
+      halfDayLeave: 1
+    },
+    remaining: {
+      paidLeave: 15,
+      sickLeave: 8,
+      unpaidLeave: 5,
+      maternityLeave: 90,
+      paternityLeave: 15,
+      trainingLeave: 5,
+      specialLeave: 2,
+      halfDayLeave: 7
+    },
+    pendingRequests: 2
+  };
+
+  res.json({
+    success: true,
+    message: "Leave balance retrieved successfully",
+    data: leaveBalance
+  });
+});
+
+// GET Leave Balance by Type
+app.get('/api/me/leave-balance/:leaveTypeId', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  const leaveTypeId = req.params.leaveTypeId;
+
+  const balanceData = {
+    userId: userId,
+    leaveTypeId: leaveTypeId,
+    total: 20,
+    used: 5,
+    remaining: 15,
+    pending: 2,
+    lastUpdated: new Date().toISOString().split('T')[0]
+  };
+
+  res.json({
+    success: true,
+    message: "Leave balance retrieved successfully",
+    data: balanceData
+  });
+});
+
 // Test endpoints for debugging
 app.get('/api/test-users', (req, res) => {
   const users = Object.values(persistentUsers).map(user => ({
