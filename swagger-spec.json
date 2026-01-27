@@ -1355,6 +1355,193 @@
         }
       }
     },
+    "/api/company/settings/name": {
+      "put": {
+        "summary": "Update Company Name",
+        "description": "Update company name specifically",
+        "tags": ["Company Settings"],
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {"type": "string", "example": "Acme Inc."}
+                },
+                "required": ["name"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Company name updated successfully"}
+        }
+      }
+    },
+    "/api/company/settings/industry": {
+      "put": {
+        "summary": "Update Company Industry",
+        "description": "Update company industry",
+        "tags": ["Company Settings"],
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "industry": {"type": "string", "example": "IT Company"}
+                },
+                "required": ["industry"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Company industry updated successfully"}
+        }
+      }
+    },
+    "/api/company/settings/brand-color": {
+      "put": {
+        "summary": "Update Company Brand Color",
+        "description": "Update company brand color",
+        "tags": ["Company Settings"],
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "brand_color": {"type": "string", "example": "#6366F1"},
+                  "brand_color_name": {"type": "string", "example": "Purple"}
+                },
+                "required": ["brand_color"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Company brand color updated successfully"}
+        }
+      }
+    },
+    "/api/company/settings/support-email": {
+      "put": {
+        "summary": "Update Company Support Email",
+        "description": "Update company support email",
+        "tags": ["Company Settings"],
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "support_email": {"type": "string", "example": "support@company.com"}
+                },
+                "required": ["support_email"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Support email updated successfully"}
+        }
+      }
+    },
+    "/api/company/settings/company-phone": {
+      "put": {
+        "summary": "Update Company Phone",
+        "description": "Update company phone number",
+        "tags": ["Company Settings"],
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "company_phone": {"type": "string", "example": "(+1) 740-8521"}
+                },
+                "required": ["company_phone"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Company phone updated successfully"}
+        }
+      }
+    },
+    "/api/company/settings/address": {
+      "put": {
+        "summary": "Update Company Address",
+        "description": "Update company address",
+        "tags": ["Company Settings"],
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "address": {"type": "string", "example": "45 Cloudy Bay, Auckland, NZ"}
+                },
+                "required": ["address"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Company address updated successfully"}
+        }
+      }
+    },
+    "/api/company/settings/logo": {
+      "post": {
+        "summary": "Upload Company Logo",
+        "description": "Upload or update company logo",
+        "tags": ["Company Settings"],
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "logo_url": {"type": "string", "example": "https://example.com/logo.png"}
+                },
+                "required": ["logo_url"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Company logo updated successfully"}
+        }
+      }
+    },
+    "/api/company/brand-colors": {
+      "get": {
+        "summary": "Get Available Brand Colors",
+        "description": "Get list of available brand colors for company settings",
+        "tags": ["Company Settings"],
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {"description": "Brand colors retrieved successfully"}
+        }
+      }
+    },
     "/api/me/time-entries/{id}": {
       "put": {
         "summary": "Update Time Entry",
@@ -2162,6 +2349,280 @@
         "security": [{"BearerAuth": []}],
         "responses": {
           "200": {"description": "Time correction types retrieved"}
+        }
+      }
+    },
+    "/api/me/work-summary/today": {
+      "get": {
+        "summary": "Get Today's Work Summary",
+        "description": "Get comprehensive work summary for current day including time worked, tasks, and productivity metrics",
+        "tags": ["Work Summary"],
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Today's work summary retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "message": {"type": "string"},
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {"type": "object"},
+                        "date": {"type": "string"},
+                        "work_status": {"type": "string"},
+                        "current_task": {"type": "string"},
+                        "time_worked": {
+                          "type": "object",
+                          "properties": {
+                            "total_seconds": {"type": "integer"},
+                            "formatted": {"type": "string"},
+                            "hours": {"type": "integer"},
+                            "minutes": {"type": "integer"}
+                          }
+                        },
+                        "daily_goal": {
+                          "type": "object",
+                          "properties": {
+                            "target_hours": {"type": "integer"},
+                            "target_seconds": {"type": "integer"},
+                            "completion_percentage": {"type": "integer"}
+                          }
+                        },
+                        "productivity": {"type": "object"},
+                        "tasks": {"type": "array"},
+                        "activity_log": {"type": "array"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/work-summary/week": {
+      "get": {
+        "summary": "Get Weekly Work Summary",
+        "description": "Get comprehensive work summary for current week including daily breakdown and productivity analysis",
+        "tags": ["Work Summary"],
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Weekly work summary retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "message": {"type": "string"},
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {"type": "object"},
+                        "week_period": {"type": "object"},
+                        "total_hours_worked": {"type": "number"},
+                        "average_daily_hours": {"type": "number"},
+                        "days_active": {"type": "integer"},
+                        "productivity_score": {"type": "integer"},
+                        "daily_breakdown": {"type": "array"},
+                        "top_tasks": {"type": "array"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/work-summary/month": {
+      "get": {
+        "summary": "Get Monthly Work Summary",
+        "description": "Get comprehensive work summary for current month including weekly breakdown and productivity metrics",
+        "tags": ["Work Summary"],
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Monthly work summary retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "message": {"type": "string"},
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "user": {"type": "object"},
+                        "month_period": {"type": "object"},
+                        "total_hours_worked": {"type": "number"},
+                        "expected_hours": {"type": "integer"},
+                        "completion_percentage": {"type": "integer"},
+                        "average_daily_hours": {"type": "number"},
+                        "working_days": {"type": "integer"},
+                        "days_active": {"type": "integer"},
+                        "productivity_metrics": {"type": "object"},
+                        "weekly_breakdown": {"type": "array"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/languages": {
+      "get": {
+        "summary": "Get Available Languages",
+        "description": "Get list of supported languages for user preferences",
+        "tags": ["User Preferences"],
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {"description": "Languages retrieved successfully"}
+        }
+      }
+    },
+    "/api/user/preferences": {
+      "get": {
+        "summary": "Get User Preferences",
+        "description": "Get current user preferences including language, timezone, date format, etc.",
+        "tags": ["User Preferences"],
+        "security": [{"BearerAuth": []}],
+        "responses": {
+          "200": {"description": "User preferences retrieved successfully"}
+        }
+      },
+      "put": {
+        "summary": "Update User Preferences",
+        "description": "Update multiple user preferences at once",
+        "tags": ["User Preferences"],
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "language": {"type": "string"},
+                  "language_code": {"type": "string"},
+                  "time_format": {"type": "string"},
+                  "first_day_of_week": {"type": "string"},
+                  "timezone": {"type": "string"},
+                  "date_format": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "User preferences updated successfully"}
+        }
+      }
+    },
+    "/api/user/preferences/language": {
+      "put": {
+        "summary": "Update User Language Preference",
+        "description": "Update user's language and language code preference",
+        "tags": ["User Preferences"],
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "language": {"type": "string", "example": "English"},
+                  "language_code": {"type": "string", "example": "en"}
+                },
+                "required": ["language", "language_code"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Language preference updated successfully"}
+        }
+      }
+    },
+    "/api/user/preferences/time-format": {
+      "put": {
+        "summary": "Update User Time Format Preference",
+        "description": "Update user's time format preference (12-hour or 24-hour)",
+        "tags": ["User Preferences"],
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "time_format": {"type": "string", "example": "24-hour", "enum": ["12-hour", "24-hour"]}
+                },
+                "required": ["time_format"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Time format preference updated successfully"}
+        }
+      }
+    },
+    "/api/user/preferences/first-day-of-week": {
+      "put": {
+        "summary": "Update First Day of Week Preference",
+        "description": "Update user's first day of week preference",
+        "tags": ["User Preferences"],
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "first_day_of_week": {"type": "string", "example": "Monday", "enum": ["Sunday", "Monday"]}
+                },
+                "required": ["first_day_of_week"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "First day of week preference updated successfully"}
+        }
+      }
+    },
+    "/api/test-users": {
+      "get": {
+        "summary": "Get Test Users",
+        "description": "Get list of test users with tokens for development testing",
+        "tags": ["Development"],
+        "responses": {
+          "200": {"description": "Test users retrieved successfully"}
+        }
+      }
+    },
+    "/api/auth/test-token": {
+      "get": {
+        "summary": "Get Test Token",
+        "description": "Generate a test JWT token for API testing and Swagger UI authentication",
+        "tags": ["Authentication"],
+        "responses": {
+          "200": {"description": "Test token generated successfully"}
         }
       }
     }
