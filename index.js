@@ -77,6 +77,59 @@ let persistentUsers = {
 let persistentTimers = {};
 let dailyLimits = {};
 
+// PERSISTENT COMPANY SETTINGS STORAGE
+let companySettings = {
+  id: 1,
+  name: "Acme Inc.",
+  industry: "IT Company",
+  brand_color: "#6366F1",
+  brand_color_name: "Purple",
+  support_email: "Acmeinc@gmail.com",
+  company_phone: "(+1) 740-8521",
+  address: "45 Cloudy Bay, Auckland, NZ",
+  logo_url: "https://ui-avatars.com/api/?name=Acme+Inc&size=200&background=6366F1&color=ffffff",
+  website: "https://acme.inc",
+  timezone: "Pacific/Auckland",
+  founded_date: "2020-01-01",
+  employee_count: 150,
+  description: "Leading technology company providing innovative solutions",
+  updated_at: new Date().toISOString()
+};
+
+// PERSISTENT USER PREFERENCES STORAGE
+let userPreferences = {
+  1: {
+    user_id: 1,
+    language: "English",
+    language_code: "en",
+    time_format: "24-hour",
+    first_day_of_week: "Monday",
+    timezone: "UTC",
+    date_format: "YYYY-MM-DD",
+    updated_at: new Date().toISOString()
+  },
+  2: {
+    user_id: 2,
+    language: "English",
+    language_code: "en",
+    time_format: "24-hour",
+    first_day_of_week: "Monday",
+    timezone: "UTC",
+    date_format: "YYYY-MM-DD",
+    updated_at: new Date().toISOString()
+  },
+  3: {
+    user_id: 3,
+    language: "English",
+    language_code: "en",
+    time_format: "24-hour",
+    first_day_of_week: "Monday",
+    timezone: "UTC",
+    date_format: "YYYY-MM-DD",
+    updated_at: new Date().toISOString()
+  }
+};
+
 // Load data from files if they exist
 function loadPersistentData() {
   // In serverless environment, use in-memory storage
@@ -1290,6 +1343,429 @@ app.get('/api/me/leave-balance/:leaveTypeId', authenticateToken, (req, res) => {
     success: true,
     message: "Leave balance retrieved successfully",
     data: balanceData
+  });
+});
+
+// ========== COMPANY SETTINGS APIs (Based on Figma Screens) ==========
+
+// GET Company Settings - Main screen
+app.get('/api/company/settings', authenticateToken, (req, res) => {
+  res.json({
+    success: true,
+    message: "Company settings retrieved successfully",
+    data: {
+      company: companySettings,
+      permissions: {
+        can_edit: true,
+        can_upload_logo: true,
+        role_required: "admin"
+      }
+    }
+  });
+});
+
+// UPDATE Complete Company Settings
+app.put('/api/company/settings', authenticateToken, (req, res) => {
+  const allowedFields = ['name', 'industry', 'brand_color', 'brand_color_name', 'support_email', 'company_phone', 'address', 'website', 'description'];
+  
+  allowedFields.forEach(field => {
+    if (req.body[field] !== undefined) {
+      companySettings[field] = req.body[field];
+    }
+  });
+  
+  companySettings.updated_at = new Date().toISOString();
+  
+  res.json({
+    success: true,
+    message: "Company settings updated successfully",
+    data: { company: companySettings }
+  });
+});
+
+// UPDATE Company Name
+app.put('/api/company/settings/name', authenticateToken, (req, res) => {
+  const { name } = req.body;
+  
+  if (!name || name.trim() === '') {
+    return res.status(400).json({
+      success: false,
+      message: "Company name is required"
+    });
+  }
+  
+  companySettings.name = name;
+  companySettings.updated_at = new Date().toISOString();
+  
+  res.json({
+    success: true,
+    message: "Company name updated successfully",
+    data: {
+      name: companySettings.name,
+      updated_at: companySettings.updated_at
+    }
+  });
+});
+
+// UPDATE Industry/Category
+app.put('/api/company/settings/industry', authenticateToken, (req, res) => {
+  const { industry } = req.body;
+  
+  if (!industry || industry.trim() === '') {
+    return res.status(400).json({
+      success: false,
+      message: "Industry is required"
+    });
+  }
+  
+  companySettings.industry = industry;
+  companySettings.updated_at = new Date().toISOString();
+  
+  res.json({
+    success: true,
+    message: "Industry updated successfully",
+    data: {
+      industry: companySettings.industry,
+      updated_at: companySettings.updated_at
+    }
+  });
+});
+
+// UPDATE Brand Color
+app.put('/api/company/settings/brand-color', authenticateToken, (req, res) => {
+  const { brand_color, brand_color_name } = req.body;
+  
+  if (!brand_color) {
+    return res.status(400).json({
+      success: false,
+      message: "Brand color is required"
+    });
+  }
+  
+  companySettings.brand_color = brand_color;
+  if (brand_color_name) {
+    companySettings.brand_color_name = brand_color_name;
+  }
+  companySettings.updated_at = new Date().toISOString();
+  
+  res.json({
+    success: true,
+    message: "Edit brand color successfully updated",
+    data: {
+      brand_color: companySettings.brand_color,
+      brand_color_name: companySettings.brand_color_name,
+      updated_at: companySettings.updated_at
+    }
+  });
+});
+
+// UPDATE Support Email
+app.put('/api/company/settings/support-email', authenticateToken, (req, res) => {
+  const { support_email } = req.body;
+  
+  if (!support_email || !support_email.includes('@')) {
+    return res.status(400).json({
+      success: false,
+      message: "Valid support email is required"
+    });
+  }
+  
+  companySettings.support_email = support_email;
+  companySettings.updated_at = new Date().toISOString();
+  
+  res.json({
+    success: true,
+    message: "Support email updated successfully",
+    data: {
+      support_email: companySettings.support_email,
+      updated_at: companySettings.updated_at
+    }
+  });
+});
+
+// UPDATE Company Phone
+app.put('/api/company/settings/company-phone', authenticateToken, (req, res) => {
+  const { company_phone } = req.body;
+  
+  if (!company_phone || company_phone.trim() === '') {
+    return res.status(400).json({
+      success: false,
+      message: "Company phone is required"
+    });
+  }
+  
+  companySettings.company_phone = company_phone;
+  companySettings.updated_at = new Date().toISOString();
+  
+  res.json({
+    success: true,
+    message: "Company phone updated successfully",
+    data: {
+      company_phone: companySettings.company_phone,
+      updated_at: companySettings.updated_at
+    }
+  });
+});
+
+// UPDATE Address
+app.put('/api/company/settings/address', authenticateToken, (req, res) => {
+  const { address } = req.body;
+  
+  if (!address || address.trim() === '') {
+    return res.status(400).json({
+      success: false,
+      message: "Address is required"
+    });
+  }
+  
+  companySettings.address = address;
+  companySettings.updated_at = new Date().toISOString();
+  
+  res.json({
+    success: true,
+    message: "Address updated successfully",
+    data: {
+      address: companySettings.address,
+      updated_at: companySettings.updated_at
+    }
+  });
+});
+
+// UPLOAD Company Logo
+app.post('/api/company/settings/logo', authenticateToken, (req, res) => {
+  const { logo_data, logo_type } = req.body;
+  
+  if (!logo_data) {
+    return res.status(400).json({
+      success: false,
+      message: "Logo data is required"
+    });
+  }
+  
+  // In a real app, this would upload to cloud storage
+  const logoId = `LOGO_${Date.now()}`;
+  companySettings.logo_url = `https://api-layer.vercel.app/api/company/logo/${logoId}`;
+  companySettings.updated_at = new Date().toISOString();
+  
+  res.json({
+    success: true,
+    message: "Company logo uploaded successfully",
+    data: {
+      logo_url: companySettings.logo_url,
+      logo_id: logoId,
+      updated_at: companySettings.updated_at
+    }
+  });
+});
+
+// GET Available Brand Colors
+app.get('/api/company/brand-colors', authenticateToken, (req, res) => {
+  const brandColors = [
+    { id: 1, name: "Blue", hex: "#3B82F6", icon: "🔵" },
+    { id: 2, name: "Purple", hex: "#6366F1", icon: "🟣" },
+    { id: 3, name: "Burgundy", hex: "#991B1B", icon: "🟤" },
+    { id: 4, name: "Red", hex: "#EF4444", icon: "🔴" },
+    { id: 5, name: "Midnight Blue", hex: "#1E3A8A", icon: "🔵" },
+    { id: 6, name: "Orange", hex: "#F97316", icon: "🟠" },
+    { id: 7, name: "Lavender Purple", hex: "#A78BFA", icon: "🟣" },
+    { id: 8, name: "Customize Color", hex: null, icon: "🎨" }
+  ];
+  
+  res.json({
+    success: true,
+    message: "Brand colors retrieved successfully",
+    data: { colors: brandColors }
+  });
+});
+
+// ========== USER PREFERENCES APIs (Based on Figma Screens) ==========
+
+// GET User Preferences
+app.get('/api/user/preferences', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  const preferences = userPreferences[userId] || {
+    user_id: userId,
+    language: "English",
+    language_code: "en",
+    time_format: "24-hour",
+    first_day_of_week: "Monday",
+    timezone: "UTC",
+    date_format: "YYYY-MM-DD",
+    updated_at: new Date().toISOString()
+  };
+  
+  res.json({
+    success: true,
+    message: "User preferences retrieved successfully",
+    data: { preferences }
+  });
+});
+
+// UPDATE Language
+app.put('/api/user/preferences/language', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  const { language, language_code } = req.body;
+  
+  if (!language) {
+    return res.status(400).json({
+      success: false,
+      message: "Language is required"
+    });
+  }
+  
+  if (!userPreferences[userId]) {
+    userPreferences[userId] = {
+      user_id: userId,
+      language: "English",
+      language_code: "en",
+      time_format: "24-hour",
+      first_day_of_week: "Monday",
+      timezone: "UTC",
+      date_format: "YYYY-MM-DD"
+    };
+  }
+  
+  userPreferences[userId].language = language;
+  if (language_code) {
+    userPreferences[userId].language_code = language_code;
+  }
+  userPreferences[userId].updated_at = new Date().toISOString();
+  
+  res.json({
+    success: true,
+    message: "Language updated successfully",
+    data: {
+      language: userPreferences[userId].language,
+      language_code: userPreferences[userId].language_code,
+      updated_at: userPreferences[userId].updated_at
+    }
+  });
+});
+
+// UPDATE Time Format
+app.put('/api/user/preferences/time-format', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  const { time_format } = req.body;
+  
+  if (!time_format || !["24-hour", "12-hour"].includes(time_format)) {
+    return res.status(400).json({
+      success: false,
+      message: "Valid time format is required (24-hour or 12-hour)"
+    });
+  }
+  
+  if (!userPreferences[userId]) {
+    userPreferences[userId] = {
+      user_id: userId,
+      language: "English",
+      language_code: "en",
+      time_format: "24-hour",
+      first_day_of_week: "Monday",
+      timezone: "UTC",
+      date_format: "YYYY-MM-DD"
+    };
+  }
+  
+  userPreferences[userId].time_format = time_format;
+  userPreferences[userId].updated_at = new Date().toISOString();
+  
+  res.json({
+    success: true,
+    message: "Time format successfully updated",
+    data: {
+      time_format: userPreferences[userId].time_format,
+      updated_at: userPreferences[userId].updated_at
+    }
+  });
+});
+
+// UPDATE First Day of Week
+app.put('/api/user/preferences/first-day-of-week', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  const { first_day_of_week } = req.body;
+  
+  if (!first_day_of_week || !["Monday", "Sunday"].includes(first_day_of_week)) {
+    return res.status(400).json({
+      success: false,
+      message: "Valid first day of week is required (Monday or Sunday)"
+    });
+  }
+  
+  if (!userPreferences[userId]) {
+    userPreferences[userId] = {
+      user_id: userId,
+      language: "English",
+      language_code: "en",
+      time_format: "24-hour",
+      first_day_of_week: "Monday",
+      timezone: "UTC",
+      date_format: "YYYY-MM-DD"
+    };
+  }
+  
+  userPreferences[userId].first_day_of_week = first_day_of_week;
+  userPreferences[userId].updated_at = new Date().toISOString();
+  
+  res.json({
+    success: true,
+    message: "First day of week successfully updated",
+    data: {
+      first_day_of_week: userPreferences[userId].first_day_of_week,
+      updated_at: userPreferences[userId].updated_at
+    }
+  });
+});
+
+// UPDATE All Preferences at Once
+app.put('/api/user/preferences', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  const { language, language_code, time_format, first_day_of_week, timezone, date_format } = req.body;
+  
+  if (!userPreferences[userId]) {
+    userPreferences[userId] = {
+      user_id: userId,
+      language: "English",
+      language_code: "en",
+      time_format: "24-hour",
+      first_day_of_week: "Monday",
+      timezone: "UTC",
+      date_format: "YYYY-MM-DD"
+    };
+  }
+  
+  if (language) userPreferences[userId].language = language;
+  if (language_code) userPreferences[userId].language_code = language_code;
+  if (time_format) userPreferences[userId].time_format = time_format;
+  if (first_day_of_week) userPreferences[userId].first_day_of_week = first_day_of_week;
+  if (timezone) userPreferences[userId].timezone = timezone;
+  if (date_format) userPreferences[userId].date_format = date_format;
+  
+  userPreferences[userId].updated_at = new Date().toISOString();
+  
+  res.json({
+    success: true,
+    message: "User preferences updated successfully",
+    data: { preferences: userPreferences[userId] }
+  });
+});
+
+// GET Available Languages
+app.get('/api/languages', authenticateToken, (req, res) => {
+  const languages = [
+    { id: 1, name: "Switzerland", code: "de-CH", flag: "🇨🇭" },
+    { id: 2, name: "English", code: "en", flag: "🇺🇸" },
+    { id: 3, name: "Spanish", code: "es", flag: "🇪🇸" },
+    { id: 4, name: "Germany", code: "de", flag: "🇩🇪" },
+    { id: 5, name: "Japan", code: "ja", flag: "🇯🇵" },
+    { id: 6, name: "Indonesia", code: "id", flag: "🇮🇩" },
+    { id: 7, name: "Italy", code: "it", flag: "🇮🇹" },
+    { id: 8, name: "Netherlands", code: "nl", flag: "🇳🇱" }
+  ];
+  
+  res.json({
+    success: true,
+    message: "Languages retrieved successfully",
+    data: { languages }
   });
 });
 

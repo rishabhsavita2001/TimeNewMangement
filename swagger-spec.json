@@ -10,8 +10,12 @@
   },
   "servers": [
     {
-      "url": "https://apilayer.vercel.app",
+      "url": "https://api-layer.vercel.app",
       "description": "Production server"
+    },
+    {
+      "url": "https://apilayer.vercel.app",
+      "description": "Alternative Production server"
     },
     {
       "url": "http://localhost:3000",
@@ -48,6 +52,19 @@
         "responses": {
           "200": {
             "description": "Test successful"
+          }
+        }
+      }
+    },
+    "/api/auth/test-token": {
+      "get": {
+        "summary": "Get Test Token for Swagger UI",
+        "description": "Generate a test JWT token for Swagger UI authentication",
+        "tags": ["Authentication"],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Test token generated successfully"
           }
         }
       }
