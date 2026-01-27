@@ -1994,6 +1994,49 @@ app.get('/api/me/work-summary/week', authenticateToken, (req, res) => {
   });
 });
 
+// GET Weekly Work Summary (Alternative endpoint: /weekly)
+app.get('/api/me/work-summary/weekly', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  const user = persistentUsers[userId];
+  
+  // Mock weekly data - in real app would come from database
+  const weeklyData = {
+    user: {
+      id: user.id,
+      name: user.full_name,
+      email: user.email
+    },
+    week_period: {
+      start_date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      end_date: new Date().toISOString().split('T')[0]
+    },
+    total_hours_worked: 32.5,
+    average_daily_hours: 6.5,
+    days_active: 5,
+    productivity_score: 85,
+    daily_breakdown: [
+      { date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], hours: 8.2, tasks: 5 },
+      { date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], hours: 7.8, tasks: 4 },
+      { date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], hours: 6.5, tasks: 3 },
+      { date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], hours: 0, tasks: 0 },
+      { date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], hours: 0, tasks: 0 },
+      { date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], hours: 5.8, tasks: 3 },
+      { date: new Date().toISOString().split('T')[0], hours: 4.2, tasks: 2 }
+    ],
+    top_tasks: [
+      { name: "Development", time_spent: "18.5h", percentage: 57 },
+      { name: "Code Review", time_spent: "8.2h", percentage: 25 },
+      { name: "Meetings", time_spent: "5.8h", percentage: 18 }
+    ]
+  };
+  
+  res.json({
+    success: true,
+    message: "Weekly work summary retrieved successfully",
+    data: weeklyData
+  });
+});
+
 // GET Monthly Work Summary
 app.get('/api/me/work-summary/month', authenticateToken, (req, res) => {
   const userId = req.user.userId;
