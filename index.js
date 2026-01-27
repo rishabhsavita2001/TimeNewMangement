@@ -1769,6 +1769,174 @@ app.get('/api/languages', authenticateToken, (req, res) => {
   });
 });
 
+// ========== WORK SUMMARY APIs ==========
+
+// GET Today's Work Summary
+app.get('/api/me/work-summary/today', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  const user = persistentUsers[userId];
+  const today = new Date().toISOString().split('T')[0];
+  
+  // Calculate today's work summary
+  const todayTimer = persistentTimers[userId];
+  let totalWorked = 0;
+  let status = 'Not Started';
+  let currentTask = null;
+  
+  if (todayTimer) {
+    if (todayTimer.isActive) {
+      status = todayTimer.isPaused ? 'Paused' : 'Active';
+      currentTask = todayTimer.task_name || 'Working';
+      const currentTime = new Date();
+      const sessionTime = Math.floor((currentTime - todayTimer.startTime) / 1000);
+      totalWorked = (todayTimer.totalTime || 0) + sessionTime;
+    } else {
+      status = 'Stopped';
+      totalWorked = todayTimer.totalTime || 0;
+    }
+  }
+  
+  // Convert seconds to hours and minutes
+  const hours = Math.floor(totalWorked / 3600);
+  const minutes = Math.floor((totalWorked % 3600) / 60);
+  
+  const workSummary = {
+    user: {
+      id: user.id,
+      name: user.full_name,
+      email: user.email,
+      profile_photo: user.profile_photo
+    },
+    date: today,
+    work_status: status,
+    current_task: currentTask,
+    time_worked: {
+      total_seconds: totalWorked,
+      formatted: `${hours}h ${minutes}m`,
+      hours: hours,
+      minutes: minutes
+    },
+    daily_goal: {
+      target_hours: 8,
+      target_seconds: 28800,
+      completion_percentage: Math.min(Math.round((totalWorked / 28800) * 100), 100)
+    },
+    productivity: {
+      efficiency_score: Math.min(Math.round((totalWorked / 28800) * 100), 100),
+      breaks_taken: 0,
+      focus_time: totalWorked,
+      interruptions: 0
+    },
+    tasks: [
+      {
+        id: 1,
+        name: currentTask || "Development Work",
+        time_spent: totalWorked,
+        status: status.toLowerCase(),
+        priority: "high"
+      }
+    ],
+    activity_log: [
+      {
+        time: todayTimer?.startTime ? new Date(todayTimer.startTime).toISOString() : new Date().toISOString(),
+        action: status === 'Active' ? 'Started Work' : 'Work Session',
+        duration: totalWorked > 0 ? `${hours}h ${minutes}m` : '0m'
+      }
+    ]
+  };
+  
+  res.json({
+    success: true,
+    message: "Today's work summary retrieved successfully",
+    data: workSummary
+  });
+});
+
+// GET Weekly Work Summary
+app.get('/api/me/work-summary/week', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  const user = persistentUsers[userId];
+  
+  // Mock weekly data - in real app would come from database
+  const weeklyData = {
+    user: {
+      id: user.id,
+      name: user.full_name,
+      email: user.email
+    },
+    week_period: {
+      start_date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      end_date: new Date().toISOString().split('T')[0]
+    },
+    total_hours_worked: 32.5,
+    average_daily_hours: 6.5,
+    days_active: 5,
+    productivity_score: 85,
+    daily_breakdown: [
+      { date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], hours: 8.2, tasks: 5 },
+      { date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], hours: 7.8, tasks: 4 },
+      { date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], hours: 6.5, tasks: 3 },
+      { date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], hours: 0, tasks: 0 },
+      { date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], hours: 0, tasks: 0 },
+      { date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], hours: 5.8, tasks: 3 },
+      { date: new Date().toISOString().split('T')[0], hours: 4.2, tasks: 2 }
+    ],
+    top_tasks: [
+      { name: "Development", time_spent: "18.5h", percentage: 57 },
+      { name: "Code Review", time_spent: "8.2h", percentage: 25 },
+      { name: "Meetings", time_spent: "5.8h", percentage: 18 }
+    ]
+  };
+  
+  res.json({
+    success: true,
+    message: "Weekly work summary retrieved successfully",
+    data: weeklyData
+  });
+});
+
+// GET Monthly Work Summary
+app.get('/api/me/work-summary/month', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  const user = persistentUsers[userId];
+  
+  const monthlyData = {
+    user: {
+      id: user.id,
+      name: user.full_name,
+      email: user.email
+    },
+    month_period: {
+      year: new Date().getFullYear(),
+      month: new Date().getMonth() + 1,
+      month_name: new Date().toLocaleString('default', { month: 'long' })
+    },
+    total_hours_worked: 160.5,
+    expected_hours: 176,
+    completion_percentage: 91,
+    average_daily_hours: 7.3,
+    working_days: 22,
+    days_active: 20,
+    productivity_metrics: {
+      efficiency_score: 88,
+      goal_achievement: 91,
+      consistency_score: 85
+    },
+    weekly_breakdown: [
+      { week: 1, hours: 42.5, days: 5 },
+      { week: 2, hours: 38.8, days: 5 },
+      { week: 3, hours: 41.2, days: 5 },
+      { week: 4, hours: 38.0, days: 5 }
+    ]
+  };
+  
+  res.json({
+    success: true,
+    message: "Monthly work summary retrieved successfully", 
+    data: monthlyData
+  });
+});
+
 // Test endpoints for debugging
 app.get('/api/test-users', (req, res) => {
   const users = Object.values(persistentUsers).map(user => ({
