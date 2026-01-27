@@ -442,6 +442,90 @@ app.put('/api/me/profile', authenticateToken, (req, res) => {
   });
 });
 
+// ===== TIMER OVERVIEW API - General timer information =====
+app.get('/api/me/timer', authenticateToken, (req, res) => {
+  const userId = req.user?.userId || 1;
+  const user = persistentUsers[userId];
+  const timerData = persistentTimers[userId];
+  
+  // Calculate current timer status
+  let timerStatus = {
+    has_active_timer: false,
+    is_running: false,
+    is_paused: false,
+    current_timer: null,
+    today_total: 0,
+    week_total: 0
+  };
+  
+  if (timerData) {
+    timerStatus.has_active_timer = true;
+    timerStatus.is_running = timerData.isActive && !timerData.isPaused;
+    timerStatus.is_paused = timerData.isPaused;
+    
+    if (timerData.isActive) {
+      // Calculate current session time
+      const currentTime = new Date();
+      const startTime = new Date(timerData.startTime);
+      const sessionTime = Math.floor((currentTime - startTime) / 1000);
+      const totalTime = (timerData.totalTime || 0) + sessionTime;
+      
+      timerStatus.current_timer = {
+        timer_id: timerData.timerId,
+        task_name: timerData.task_name,
+        project_id: timerData.project_id,
+        start_time: timerData.startTime,
+        current_duration: Math.max(0, sessionTime),
+        total_duration: Math.max(0, totalTime),
+        formatted_duration: `${Math.floor(totalTime / 3600)}h ${Math.floor((totalTime % 3600) / 60)}m`,
+        status: timerData.isPaused ? 'paused' : 'running'
+      };
+      
+      timerStatus.today_total = totalTime;
+    } else {
+      // Timer stopped but data exists
+      timerStatus.current_timer = {
+        timer_id: timerData.timerId,
+        task_name: timerData.task_name,
+        total_duration: timerData.totalTime || 0,
+        formatted_duration: `${Math.floor((timerData.totalTime || 0) / 3600)}h ${Math.floor(((timerData.totalTime || 0) % 3600) / 60)}m`,
+        status: 'stopped'
+      };
+      
+      timerStatus.today_total = timerData.totalTime || 0;
+    }
+  }
+  
+  // Mock week total (in real app would come from database)
+  timerStatus.week_total = timerStatus.today_total + (6.5 * 3600); // Add mock previous days
+  
+  const response = {
+    user: {
+      id: user.id,
+      name: user.full_name,
+      email: user.email
+    },
+    timer_overview: timerStatus,
+    available_actions: {
+      can_start: !timerStatus.is_running,
+      can_pause: timerStatus.is_running,
+      can_resume: timerStatus.is_paused,
+      can_stop: timerStatus.has_active_timer
+    },
+    quick_stats: {
+      today_hours: Math.round((timerStatus.today_total / 3600) * 10) / 10,
+      week_hours: Math.round((timerStatus.week_total / 3600) * 10) / 10,
+      productivity_score: Math.min(Math.round((timerStatus.today_total / 28800) * 100), 100)
+    }
+  };
+  
+  res.json({
+    success: true,
+    message: "Timer information retrieved successfully",
+    data: response
+  });
+});
+
 // ===== FIX 4: TIMER START API - Persistent, won't auto-stop =====
 app.post('/api/me/timer/start', authenticateToken, (req, res) => {
   const userId = req.user?.userId || 1;
