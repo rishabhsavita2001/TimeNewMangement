@@ -742,20 +742,30 @@ app.post('/api/me/timer/stop', authenticateToken, (req, res) => {
   const now = new Date();
   const startTime = new Date(timerData.startTime);
   const durationMs = now - startTime - (timerData.totalPausedTime || 0);
-  const hours = Math.floor(durationMs / (1000 * 60 * 60));
-  const minutes = Math.round((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+  const durationSeconds = Math.floor(durationMs / 1000);
+  const hours = Math.floor(durationSeconds / 3600);
+  const minutes = Math.round((durationSeconds % 3600) / 60);
   const duration = `${hours}h ${minutes}m`;
   
   // Mark as stopped today
   dailyLimits[userId] = today;
   
-  // Clear timer
-  delete persistentTimers[userId];
+  // IMPORTANT: Store the total time instead of deleting timer data
+  persistentTimers[userId] = {
+    ...timerData,
+    isActive: false,
+    isPaused: false,
+    totalTime: (timerData.totalTime || 0) + durationSeconds,
+    endTime: now,
+    lastSessionDuration: durationSeconds,
+    stoppedAt: now.toISOString(),
+    status: 'stopped'
+  };
   
   // Save changes
   savePersistentData();
   
-  console.log(`✅ Timer stopped for user ${userId} - Duration: ${duration}`);
+  console.log(`✅ Timer stopped for user ${userId} - Duration: ${duration}, Total Time: ${persistentTimers[userId].totalTime} seconds`);
   
   res.json({
     success: true,
@@ -763,8 +773,10 @@ app.post('/api/me/timer/stop', authenticateToken, (req, res) => {
     data: {
       timer_id: timerData.timerId,
       end_time: now.toISOString(),
-      total_duration: duration,
-      status: 'completed'
+      session_duration: duration,
+      total_time_seconds: persistentTimers[userId].totalTime,
+      total_duration: `${Math.floor(persistentTimers[userId].totalTime / 3600)}h ${Math.floor((persistentTimers[userId].totalTime % 3600) / 60)}m`,
+      status: 'stopped'
     }
   });
 });
@@ -1788,11 +1800,14 @@ app.get('/api/me/work-summary/today', authenticateToken, (req, res) => {
       status = todayTimer.isPaused ? 'Paused' : 'Active';
       currentTask = todayTimer.task_name || 'Working';
       const currentTime = new Date();
-      const sessionTime = Math.floor((currentTime - todayTimer.startTime) / 1000);
+      const startTime = new Date(todayTimer.startTime);
+      const sessionTime = Math.floor((currentTime - startTime) / 1000);
       totalWorked = (todayTimer.totalTime || 0) + sessionTime;
     } else {
+      // Timer has been stopped - show the total accumulated time
       status = 'Stopped';
       totalWorked = todayTimer.totalTime || 0;
+      currentTask = todayTimer.task_name || 'Completed Work';
     }
   }
   
