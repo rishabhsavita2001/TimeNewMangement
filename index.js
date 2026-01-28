@@ -17,14 +17,16 @@ const authenticateToken = (req, res, next) => {
     '/api/health', 
     '/api/get-token', 
     '/api/auth/login', 
-    '/api/auth/register', 
+    '/api/auth/register',
+    '/api/employees/accept-invitation',
     '/swagger.json', 
     '/api-docs',
     '/api/test',
     '/health',
     '/get-token',
     '/auth/login',
-    '/auth/register'
+    '/auth/register',
+    '/employees/accept-invitation'
   ];
   
   // Check both full path and relative path
@@ -2246,6 +2248,196 @@ app.get('/api/employees/:id', (req, res) => {
   res.json({
     success: true,
     data: employee
+  });
+});
+
+// POST /api/employees/invite - Invite new employee
+app.post('/api/employees/invite', (req, res) => {
+  const { 
+    firstName, 
+    lastName, 
+    email, 
+    role, 
+    department, 
+    workingHours, 
+    workingModel, 
+    startDate 
+  } = req.body;
+
+  // Validation
+  if (!firstName || !lastName || !email || !role || !department) {
+    return res.status(400).json({
+      success: false,
+      message: "Required fields: firstName, lastName, email, role, department"
+    });
+  }
+
+  // Email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid email format"
+    });
+  }
+
+  const employeeNumber = `EMP-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`;
+  const invitationToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
+  const newEmployee = {
+    id: Math.floor(Math.random() * 1000) + 100,
+    employeeNumber,
+    firstName,
+    lastName,
+    email,
+    role,
+    department,
+    workingHours: workingHours || '09:00 - 17:00',
+    workingModel: workingModel || 'office',
+    startDate: startDate || new Date().toISOString().split('T')[0],
+    status: "Invited",
+    invitationToken,
+    invitationSent: new Date().toISOString(),
+    createdAt: new Date().toISOString()
+  };
+
+  const invitationLink = `https://api-layer.vercel.app/accept-invitation?token=${invitationToken}`;
+
+  res.status(201).json({
+    success: true,
+    message: "Employee invitation sent successfully",
+    data: {
+      employee: newEmployee,
+      invitationLink: invitationLink,
+      message: `Invitation email sent to ${email}`
+    }
+  });
+});
+
+// POST /api/employees/accept-invitation - Accept employee invitation
+app.post('/api/employees/accept-invitation', (req, res) => {
+  const { token, password } = req.body;
+
+  if (!token || !password) {
+    return res.status(400).json({
+      success: false,
+      message: "Invitation token and password are required"
+    });
+  }
+
+  // Simulate finding employee by token and activating account
+  const employee = {
+    id: 123,
+    firstName: "John",
+    lastName: "Doe",
+    email: "john.doe@company.com",
+    status: "Active",
+    dateJoined: new Date().toISOString().split('T')[0]
+  };
+
+  res.json({
+    success: true,
+    message: "Invitation accepted successfully. Employee account is now active.",
+    data: {
+      employee,
+      message: "You can now log in with your email and password."
+    }
+  });
+});
+
+// GET /api/employees/roles - Get available roles
+app.get('/api/employees/roles', (req, res) => {
+  const roles = [
+    { id: 1, name: "Employee", description: "Standard employee role" },
+    { id: 2, name: "Manager", description: "Department manager" },
+    { id: 3, name: "Admin", description: "System administrator" },
+    { id: 4, name: "HR", description: "Human Resources" },
+    { id: 5, name: "Developer", description: "Software developer" }
+  ];
+
+  res.json({
+    success: true,
+    message: "Available roles retrieved successfully",
+    data: roles
+  });
+});
+
+// GET /api/employees/departments - Get available departments
+app.get('/api/employees/departments', (req, res) => {
+  const departments = [
+    { id: 1, name: "Engineering", employeeCount: 15 },
+    { id: 2, name: "Human Resources", employeeCount: 5 },
+    { id: 3, name: "Marketing", employeeCount: 8 },
+    { id: 4, name: "Sales", employeeCount: 12 },
+    { id: 5, name: "Finance", employeeCount: 6 },
+    { id: 6, name: "Operations", employeeCount: 10 },
+    { id: 7, name: "Design", employeeCount: 7 }
+  ];
+
+  res.json({
+    success: true,
+    message: "Available departments retrieved successfully",
+    data: departments
+  });
+});
+
+// PUT /api/employees/:id - Update employee
+app.put('/api/employees/:id', (req, res) => {
+  const employeeId = req.params.id;
+  const updatedData = req.body;
+
+  res.json({
+    success: true,
+    message: "Employee updated successfully",
+    data: {
+      id: parseInt(employeeId),
+      ...updatedData,
+      updatedAt: new Date().toISOString()
+    }
+  });
+});
+
+// DELETE /api/employees/:id - Delete employee
+app.delete('/api/employees/:id', (req, res) => {
+  const employeeId = req.params.id;
+
+  res.json({
+    success: true,
+    message: "Employee deleted successfully",
+    data: {
+      employeeId: parseInt(employeeId),
+      deletedAt: new Date().toISOString()
+    }
+  });
+});
+
+// PATCH /api/employees/:id/deactivate - Deactivate employee
+app.patch('/api/employees/:id/deactivate', (req, res) => {
+  const employeeId = req.params.id;
+
+  res.json({
+    success: true,
+    message: "Employee deactivated",
+    data: {
+      employeeId: parseInt(employeeId),
+      status: "Inactive",
+      deactivatedAt: new Date().toISOString()
+    }
+  });
+});
+
+// PATCH /api/employees/:id/activate - Activate employee
+app.patch('/api/employees/:id/activate', (req, res) => {
+  const employeeId = req.params.id;
+
+  res.json({
+    success: true,
+    message: "Employee activated",
+    data: {
+      employeeId: parseInt(employeeId),
+      status: "Active",
+      activatedAt: new Date().toISOString()
+    }
   });
 });
 
