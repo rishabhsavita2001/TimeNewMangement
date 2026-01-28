@@ -798,6 +798,184 @@ app.delete('/api/me/profile/photo', authenticateToken, (req, res) => {
   });
 });
 
+// ===== PROFILE NAME UPDATE API =====
+app.put('/api/me/profile/name', authenticateToken, (req, res) => {
+  const userId = req.user?.userId || 1;
+  const user = persistentUsers[userId];
+  
+  console.log(`📝 Profile name update request from user: ${user.full_name} (ID: ${userId})`);
+  
+  const { name, first_name, last_name } = req.body;
+  
+  // Validate input
+  if (!name && !first_name && !last_name) {
+    return res.status(400).json({
+      success: false,
+      message: 'Name, first_name, or last_name is required',
+      data: {
+        required_fields: ['name (full name)', 'first_name + last_name', 'first_name', 'last_name'],
+        current_name: user.full_name
+      }
+    });
+  }
+  
+  let updatedFirstName = user.first_name;
+  let updatedLastName = user.last_name;
+  let updatedFullName = user.full_name;
+  
+  // Handle different input patterns
+  if (name) {
+    // If full name is provided, try to split it
+    const nameParts = name.trim().split(' ');
+    updatedFirstName = nameParts[0] || user.first_name;
+    updatedLastName = nameParts.slice(1).join(' ') || user.last_name || '';
+    updatedFullName = name.trim();
+  } else {
+    // If individual parts are provided
+    if (first_name) updatedFirstName = first_name.trim();
+    if (last_name) updatedLastName = last_name.trim();
+    updatedFullName = `${updatedFirstName} ${updatedLastName}`.trim();
+  }
+  
+  // Validate name length
+  if (updatedFullName.length < 2) {
+    return res.status(400).json({
+      success: false,
+      message: 'Name must be at least 2 characters long',
+      data: {
+        provided_name: updatedFullName,
+        min_length: 2
+      }
+    });
+  }
+  
+  // Store old name for comparison
+  const oldName = user.full_name;
+  
+  // Update user data
+  persistentUsers[userId].first_name = updatedFirstName;
+  persistentUsers[userId].last_name = updatedLastName;
+  persistentUsers[userId].full_name = updatedFullName;
+  persistentUsers[userId].name_updated_at = new Date().toISOString();
+  
+  // Save changes
+  savePersistentData();
+  
+  console.log(`✅ Profile name updated successfully: ${oldName} → ${updatedFullName}`);
+  
+  res.json({
+    success: true,
+    message: "Profile name updated successfully",
+    data: {
+      user: {
+        id: user.id,
+        first_name: updatedFirstName,
+        last_name: updatedLastName,
+        full_name: updatedFullName,
+        email: user.email,
+        profile_photo: user.profile_photo,
+        name_updated_at: persistentUsers[userId].name_updated_at
+      },
+      changes: {
+        old_name: oldName,
+        new_name: updatedFullName,
+        first_name: updatedFirstName,
+        last_name: updatedLastName
+      }
+    }
+  });
+});
+
+// ===== PROFILE EMAIL UPDATE API =====
+app.put('/api/me/profile/email', authenticateToken, (req, res) => {
+  const userId = req.user?.userId || 1;
+  const user = persistentUsers[userId];
+  
+  console.log(`📧 Profile email update request from user: ${user.full_name} (ID: ${userId})`);
+  
+  const { email, current_password } = req.body;
+  
+  // Validate input
+  if (!email) {
+    return res.status(400).json({
+      success: false,
+      message: 'New email is required',
+      data: {
+        required_fields: ['email'],
+        current_email: user.email
+      }
+    });
+  }
+  
+  // Basic email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Please provide a valid email address',
+      data: {
+        provided_email: email,
+        format_required: 'user@domain.com'
+      }
+    });
+  }
+  
+  // Check if email is already in use
+  const existingUser = Object.values(persistentUsers).find(u => u.email === email && u.id !== userId);
+  if (existingUser) {
+    return res.status(409).json({
+      success: false,
+      message: 'This email is already registered with another account',
+      data: {
+        email: email,
+        error: 'email_already_exists'
+      }
+    });
+  }
+  
+  // Verify current password for security (optional but recommended)
+  if (current_password && user.password !== current_password) {
+    return res.status(401).json({
+      success: false,
+      message: 'Current password is incorrect',
+      data: {
+        error: 'invalid_password'
+      }
+    });
+  }
+  
+  // Store old email
+  const oldEmail = user.email;
+  
+  // Update email
+  persistentUsers[userId].email = email;
+  persistentUsers[userId].email_updated_at = new Date().toISOString();
+  
+  // Save changes
+  savePersistentData();
+  
+  console.log(`✅ Profile email updated successfully: ${oldEmail} → ${email}`);
+  
+  res.json({
+    success: true,
+    message: "Profile email updated successfully",
+    data: {
+      user: {
+        id: user.id,
+        name: user.full_name,
+        email: email,
+        profile_photo: user.profile_photo,
+        email_updated_at: persistentUsers[userId].email_updated_at
+      },
+      changes: {
+        old_email: oldEmail,
+        new_email: email
+      },
+      security_note: "Please update your login credentials and verify the new email address"
+    }
+  });
+});
+
 // ===== TIMER OVERVIEW API - General timer information =====
 app.get('/api/me/timer', authenticateToken, (req, res) => {
   const userId = req.user?.userId || 1;
