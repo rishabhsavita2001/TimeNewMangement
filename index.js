@@ -354,6 +354,68 @@ app.post('/api/auth/register', (req, res) => {
   });
 });
 
+// ===== LOGOUT API - User Logout =====
+app.post('/api/auth/logout', authenticateToken, (req, res) => {
+  const userId = req.user?.userId;
+  const userEmail = req.user?.email;
+  
+  console.log(`🚪 Logout request from user: ${userEmail} (ID: ${userId})`);
+  
+  // In a real application, you would:
+  // 1. Blacklist the token
+  // 2. Clear server-side sessions
+  // 3. Update last logout time in database
+  // 4. Clear any active timers or sessions
+  
+  // For this implementation, we'll clear any active timers
+  if (userId && persistentTimers[userId] && persistentTimers[userId].isActive) {
+    console.log(`⏰ Auto-stopping active timer for user ${userId} during logout`);
+    
+    // Calculate and save final timer state
+    const timerData = persistentTimers[userId];
+    const now = new Date();
+    const startTime = new Date(timerData.startTime);
+    const durationMs = now - startTime - (timerData.totalPausedTime || 0);
+    const durationSeconds = Math.floor(durationMs / 1000);
+    
+    // Store final timer state
+    persistentTimers[userId] = {
+      ...timerData,
+      isActive: false,
+      isPaused: false,
+      totalTime: (timerData.totalTime || 0) + durationSeconds,
+      endTime: now,
+      stoppedAt: now.toISOString(),
+      status: 'auto_stopped_logout'
+    };
+    
+    savePersistentData();
+  }
+  
+  // Update user's last logout time
+  if (userId && persistentUsers[userId]) {
+    persistentUsers[userId].last_logout = new Date().toISOString();
+    savePersistentData();
+  }
+  
+  console.log(`✅ User ${userEmail} logged out successfully`);
+  
+  res.json({
+    success: true,
+    message: 'Logout successful',
+    data: {
+      logged_out: true,
+      logout_time: new Date().toISOString(),
+      message: 'You have been successfully logged out',
+      next_steps: [
+        'Clear local storage/session storage',
+        'Redirect to login page',
+        'Remove authorization headers'
+      ]
+    }
+  });
+});
+
 // ===== FIX 2: PROFILE API - Dynamic, not hardcoded Jenny Wilson =====
 app.get('/api/me/profile', authenticateToken, (req, res) => {
   const userId = req.user?.userId || 1;
