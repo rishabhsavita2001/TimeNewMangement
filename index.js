@@ -341,20 +341,56 @@ app.get('/api/time-entries', (req, res) => {
 });
 
 app.put('/api/me/time-entries/:id', (req, res) => {
-  const { id } = req.params;
-  const { start_time, end_time, description, break_duration } = req.body;
+  const entryId = parseInt(req.params.id);
+  
+  // Validate ID
+  if (isNaN(entryId)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid time entry ID. Must be a number."
+    });
+  }
+  
+  const { startTime, endTime, description, start_time, end_time, break_duration } = req.body;
+  
+  // Support both camelCase and snake_case
+  const finalStartTime = startTime || start_time;
+  const finalEndTime = endTime || end_time;
+  
+  // Handle ISO timestamp format (convert to time string)
+  let processedStartTime = finalStartTime;
+  let processedEndTime = finalEndTime;
+  
+  if (finalStartTime && finalStartTime.includes('T')) {
+    const startDate = new Date(finalStartTime);
+    processedStartTime = startDate.toTimeString().split(' ')[0];
+  }
+  
+  if (finalEndTime && finalEndTime.includes('T')) {
+    const endDate = new Date(finalEndTime);
+    processedEndTime = endDate.toTimeString().split(' ')[0];
+  }
+  
+  // Calculate total hours
+  let totalHours = 8.5; // default
+  if (processedStartTime && processedEndTime) {
+    const start = new Date(`2024-01-01 ${processedStartTime}`);
+    const end = new Date(`2024-01-01 ${processedEndTime}`);
+    const durationMs = end - start;
+    totalHours = Math.round((durationMs / (1000 * 60 * 60)) * 100) / 100;
+  }
   
   res.json({
     success: true,
     message: 'Time entry updated successfully',
     data: {
       entry: {
-        id: parseInt(id),
-        start_time,
-        end_time,
-        description,
-        break_duration,
-        total_hours: 8.5,
+        id: entryId,
+        start_time: processedStartTime || start_time,
+        end_time: processedEndTime || end_time,
+        description: description || '',
+        break_duration: break_duration || 0,
+        total_hours: totalHours,
         updated_at: new Date().toISOString()
       }
     }
