@@ -184,6 +184,28 @@ app.get('/api/test', (req, res) => {
   });
 });
 
+// Get token for testing
+app.get('/api/get-token', (req, res) => {
+  const token = jwt.sign(
+    { 
+      userId: 1, 
+      email: 'test@example.com',
+      role: 'user',
+      employeeNumber: 'EMP001'
+    }, 
+    JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+  
+  res.json({
+    success: true,
+    token: token,
+    expiresIn: '24 hours',
+    usage: 'Add this token to Authorization header as: Bearer <token>',
+    example: `curl -H "Authorization: Bearer ${token}" https://api-layer.vercel.app/api/me`
+  });
+});
+
 // User Profile APIs
 app.get('/api/me', (req, res) => {
   res.json({
@@ -503,9 +525,58 @@ app.get('/api/time-entries', (req, res) => {
   });
 });
 
-app.put('/api/me/time-entries/:id', (req, res) => {
+app.put('/api/me/time-entries/:id', authenticateToken, (req, res) => {
   const { id } = req.params;
-  const { start_time, end_time, description, break_duration } = req.body;
+  const { 
+    startTime, 
+    endTime, 
+    description, 
+    breakDuration,
+    // Also support legacy field names for backward compatibility
+    start_time, 
+    end_time, 
+    break_duration 
+  } = req.body;
+
+  // Input validation
+  if (!id || id === 'string') {
+    return res.status(400).json({
+      success: false,
+      message: 'Valid time entry ID is required',
+      error: 'Please provide a valid numeric ID instead of "string"'
+    });
+  }
+
+  // Use new field names or fall back to legacy ones
+  const finalStartTime = startTime || start_time;
+  const finalEndTime = endTime || end_time;
+  const finalBreakDuration = breakDuration || break_duration;
+
+  // Validate dates if provided
+  if (finalStartTime && !isValidDate(finalStartTime)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid startTime format',
+      error: 'Please provide startTime in ISO format (e.g., 2024-03-11T20:37:51.814Z)'
+    });
+  }
+
+  if (finalEndTime && !isValidDate(finalEndTime)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid endTime format',
+      error: 'Please provide endTime in ISO format (e.g., 2024-03-11T20:37:51.814Z)'
+    });
+  }
+
+  // Calculate duration if both times provided
+  let totalHours = null;
+  if (finalStartTime && finalEndTime) {
+    const start = new Date(finalStartTime);
+    const end = new Date(finalEndTime);
+    const diffMs = end - start;
+    totalHours = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100; // Round to 2 decimal places
+  }
   
   res.json({
     success: true,
@@ -513,16 +584,27 @@ app.put('/api/me/time-entries/:id', (req, res) => {
     data: {
       entry: {
         id: parseInt(id),
-        start_time,
-        end_time,
-        description,
-        break_duration,
-        total_hours: 8.5,
-        updated_at: new Date().toISOString()
+        startTime: finalStartTime,
+        endTime: finalEndTime,
+        description: description || 'Updated time entry',
+        breakDuration: finalBreakDuration || 0,
+        totalHours: totalHours || 8.5,
+        updatedAt: new Date().toISOString(),
+        status: 'updated'
       }
     }
   });
 });
+
+// Helper function to validate date
+function isValidDate(dateString) {
+  try {
+    const date = new Date(dateString);
+    return date instanceof Date && !isNaN(date);
+  } catch (error) {
+    return false;
+  }
+}
 
 app.delete('/api/me/time-entries/:id', (req, res) => {
   const { id } = req.params;
