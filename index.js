@@ -976,6 +976,106 @@ app.put('/api/me/profile/email', authenticateToken, (req, res) => {
   });
 });
 
+// ===== PROFILE PHONE UPDATE API =====
+app.put('/api/me/profile/phone', authenticateToken, (req, res) => {
+  const userId = req.user?.userId || 1;
+  const user = persistentUsers[userId];
+  
+  console.log(`📞 Profile phone update request from user: ${user.full_name} (ID: ${userId})`);
+  
+  const { phone } = req.body;
+  
+  // Validate input
+  if (!phone) {
+    return res.status(400).json({
+      success: false,
+      message: 'Phone number is required',
+      data: {
+        required_fields: ['phone'],
+        current_phone: user.phone || 'Not set'
+      }
+    });
+  }
+  
+  // Basic phone validation - remove spaces and special characters for validation
+  const cleanPhone = phone.replace(/[\s\-\(\)\+]/g, '');
+  
+  if (cleanPhone.length < 7 || cleanPhone.length > 15) {
+    return res.status(400).json({
+      success: false,
+      message: 'Phone number must be between 7 and 15 digits',
+      data: {
+        provided_phone: phone,
+        clean_digits: cleanPhone,
+        length: cleanPhone.length,
+        valid_length: '7-15 digits'
+      }
+    });
+  }
+  
+  // Check if phone contains only numbers (after cleaning)
+  if (!/^\d+$/.test(cleanPhone)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Phone number can only contain digits, spaces, hyphens, parentheses, and plus sign',
+      data: {
+        provided_phone: phone,
+        allowed_characters: '0-9, space, -, (, ), +'
+      }
+    });
+  }
+  
+  // Check if phone is already in use by another user
+  const existingUser = Object.values(persistentUsers).find(u => u.phone === phone && u.id !== userId);
+  if (existingUser) {
+    return res.status(409).json({
+      success: false,
+      message: 'This phone number is already registered with another account',
+      data: {
+        phone: phone,
+        error: 'phone_already_exists'
+      }
+    });
+  }
+  
+  // Store old phone
+  const oldPhone = user.phone || 'Not set';
+  
+  // Update phone
+  persistentUsers[userId].phone = phone;
+  persistentUsers[userId].phone_updated_at = new Date().toISOString();
+  
+  // Save changes
+  savePersistentData();
+  
+  console.log(`✅ Profile phone updated successfully: ${oldPhone} → ${phone}`);
+  
+  res.json({
+    success: true,
+    message: "Profile phone updated successfully",
+    data: {
+      user: {
+        id: user.id,
+        name: user.full_name,
+        email: user.email,
+        phone: phone,
+        profile_photo: user.profile_photo,
+        phone_updated_at: persistentUsers[userId].phone_updated_at
+      },
+      changes: {
+        old_phone: oldPhone,
+        new_phone: phone,
+        formatted_phone: phone
+      },
+      validation: {
+        digits_count: cleanPhone.length,
+        format_valid: true,
+        unique: true
+      }
+    }
+  });
+});
+
 // ===== TIMER OVERVIEW API - General timer information =====
 app.get('/api/me/timer', authenticateToken, (req, res) => {
   const userId = req.user?.userId || 1;
