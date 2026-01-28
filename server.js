@@ -3031,6 +3031,15 @@ app.post('/api/me/time-entries', authenticateToken, (req, res) => {
 app.put('/api/me/time-entries/:id', authenticateToken, (req, res) => {
   const userId = req.user.userId;
   const entryId = parseInt(req.params.id);
+  
+  // Validate ID
+  if (isNaN(entryId)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid time entry ID. Must be a number."
+    });
+  }
+  
   const { date, startTime, endTime, description, project, task } = req.body;
   
   // Check if entry exists and belongs to user
@@ -3049,16 +3058,35 @@ app.put('/api/me/time-entries/:id', authenticateToken, (req, res) => {
     });
   }
   
+  // Handle ISO timestamp format (convert to date and time)
+  let updatedDate = date;
+  let updatedStartTime = startTime;
+  let updatedEndTime = endTime;
+  
+  if (startTime && startTime.includes('T')) {
+    const startDate = new Date(startTime);
+    updatedDate = startDate.toISOString().split('T')[0];
+    updatedStartTime = startDate.toTimeString().split(' ')[0];
+  }
+  
+  if (endTime && endTime.includes('T')) {
+    const endDate = new Date(endTime);
+    if (!updatedDate) {
+      updatedDate = endDate.toISOString().split('T')[0];
+    }
+    updatedEndTime = endDate.toTimeString().split(' ')[0];
+  }
+  
   // Update fields if provided
-  if (date !== undefined) existingEntry.date = date;
-  if (startTime !== undefined) existingEntry.startTime = startTime;
-  if (endTime !== undefined) existingEntry.endTime = endTime;
+  if (updatedDate !== undefined) existingEntry.date = updatedDate;
+  if (updatedStartTime !== undefined) existingEntry.startTime = updatedStartTime;
+  if (updatedEndTime !== undefined) existingEntry.endTime = updatedEndTime;
   if (description !== undefined) existingEntry.description = description;
   if (project !== undefined) existingEntry.project = project;
   if (task !== undefined) existingEntry.task = task;
   
   // Recalculate duration if start or end time changed
-  if (startTime || endTime) {
+  if (updatedStartTime || updatedEndTime) {
     const start = new Date(`${existingEntry.date} ${existingEntry.startTime}`);
     const end = new Date(`${existingEntry.date} ${existingEntry.endTime}`);
     const durationMs = end - start;
