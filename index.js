@@ -20,10 +20,18 @@ const authenticateToken = (req, res, next) => {
     '/api/auth/register', 
     '/swagger.json', 
     '/api-docs',
-    '/api/test' // Making test endpoint public for now
+    '/api/test',
+    '/health',
+    '/get-token',
+    '/auth/login',
+    '/auth/register'
   ];
   
-  if (publicPaths.includes(req.path)) {
+  // Check both full path and relative path
+  const fullPath = req.originalUrl || req.url;
+  const path = req.path;
+  
+  if (publicPaths.includes(path) || publicPaths.includes(fullPath) || fullPath.startsWith('/api-docs')) {
     return next();
   }
 
@@ -2997,5 +3005,16 @@ app.use('*', (req, res) => {
     ]
   });
 });
+
+// For local development
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`🚀 Server is running on http://localhost:${PORT}`);
+    console.log(`📝 API Documentation: http://localhost:${PORT}/api-docs`);
+    console.log(`✅ Health Check: http://localhost:${PORT}/api/health`);
+    console.log(`🔑 Get Token: http://localhost:${PORT}/api/get-token`);
+  });
+}
 
 module.exports = app;
