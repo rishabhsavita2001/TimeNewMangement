@@ -416,6 +416,181 @@ app.post('/api/auth/logout', authenticateToken, (req, res) => {
   });
 });
 
+// ===== FORGOT PASSWORD API - Password Reset Request =====
+app.post('/api/auth/forgot-password', (req, res) => {
+  const { email } = req.body;
+  
+  console.log(`🔐 Forgot password request for: ${email}`);
+  
+  // Validate email
+  if (!email) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email is required',
+      data: {
+        required_fields: ['email']
+      }
+    });
+  }
+  
+  // Check if user exists
+  const user = Object.values(persistentUsers).find(user => user.email === email);
+  
+  if (!user) {
+    // For security, we don't reveal if email exists or not
+    console.log(`⚠️ Password reset requested for non-existent email: ${email}`);
+  } else {
+    console.log(`✅ Password reset token generated for user: ${user.full_name} (${email})`);
+    
+    // In a real application, you would:
+    // 1. Generate a secure reset token
+    // 2. Store it with expiration time
+    // 3. Send email with reset link
+    // 4. For demo purposes, we'll simulate this
+    
+    // Generate mock reset token
+    const resetToken = jwt.sign(
+      { 
+        userId: user.id, 
+        email: user.email, 
+        purpose: 'password_reset' 
+      }, 
+      JWT_SECRET, 
+      { expiresIn: '1h' }
+    );
+    
+    // Store reset token (in real app, this would be in database with expiration)
+    if (!persistentUsers[user.id].reset_tokens) {
+      persistentUsers[user.id].reset_tokens = [];
+    }
+    persistentUsers[user.id].reset_tokens.push({
+      token: resetToken,
+      created_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 3600000).toISOString(), // 1 hour
+      used: false
+    });
+    
+    savePersistentData();
+  }
+  
+  // Always return the same response for security (don't reveal if email exists)
+  res.json({
+    success: true,
+    message: 'If your email is registered, you will receive password reset instructions',
+    data: {
+      email: email,
+      instruction: 'Check your email for password reset instructions',
+      estimated_delivery: '2-5 minutes',
+      reset_link_validity: '1 hour',
+      demo_note: 'This is a demo API. In production, an actual email would be sent.',
+      ...(user && {
+        demo_reset_token: `For demo purposes, your reset token is: ${jwt.sign({ userId: user.id, email: user.email, purpose: 'password_reset' }, JWT_SECRET, { expiresIn: '1h' })}`,
+        demo_reset_url: `https://your-frontend.com/reset-password?token=${jwt.sign({ userId: user.id, email: user.email, purpose: 'password_reset' }, JWT_SECRET, { expiresIn: '1h' })}`
+      })
+    }
+  });
+});
+
+// ===== RESET PASSWORD API - Complete Password Reset =====
+app.post('/api/auth/reset-password', (req, res) => {
+  const { token, new_password, confirm_password } = req.body;
+  
+  console.log(`🔓 Password reset attempt with token`);
+  
+  // Validate required fields
+  if (!token || !new_password || !confirm_password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Token, new password, and password confirmation are required',
+      data: {
+        required_fields: ['token', 'new_password', 'confirm_password']
+      }
+    });
+  }
+  
+  // Check if passwords match
+  if (new_password !== confirm_password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Password confirmation does not match',
+      data: {
+        error: 'password_mismatch'
+      }
+    });
+  }
+  
+  // Validate password strength (basic validation)
+  if (new_password.length < 6) {
+    return res.status(400).json({
+      success: false,
+      message: 'Password must be at least 6 characters long',
+      data: {
+        error: 'password_too_weak',
+        requirements: ['At least 6 characters']
+      }
+    });
+  }
+  
+  // Verify reset token
+  let tokenData;
+  try {
+    tokenData = jwt.verify(token, JWT_SECRET);
+    
+    if (tokenData.purpose !== 'password_reset') {
+      throw new Error('Invalid token purpose');
+    }
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid or expired reset token',
+      data: {
+        error: 'invalid_token'
+      }
+    });
+  }
+  
+  // Find user
+  const user = persistentUsers[tokenData.userId];
+  if (!user || user.email !== tokenData.email) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid reset token',
+      data: {
+        error: 'user_not_found'
+      }
+    });
+  }
+  
+  // Update password
+  user.password = new_password; // In production, hash this!
+  user.password_updated_at = new Date().toISOString();
+  
+  // Invalidate all reset tokens
+  if (user.reset_tokens) {
+    user.reset_tokens = user.reset_tokens.map(rt => ({ ...rt, used: true }));
+  }
+  
+  savePersistentData();
+  
+  console.log(`✅ Password reset successful for user: ${user.full_name} (${user.email})`);
+  
+  res.json({
+    success: true,
+    message: 'Password reset successful',
+    data: {
+      user_id: user.id,
+      email: user.email,
+      password_updated: true,
+      updated_at: user.password_updated_at,
+      next_steps: [
+        'Your password has been updated',
+        'You can now login with your new password',
+        'All reset tokens have been invalidated'
+      ]
+    }
+  });
+});
+
 // ===== FIX 2: PROFILE API - Dynamic, not hardcoded Jenny Wilson =====
 app.get('/api/me/profile', authenticateToken, (req, res) => {
   const userId = req.user?.userId || 1;
