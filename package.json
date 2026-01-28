@@ -4,8 +4,8 @@
   "description": "Node.js API for Working Time & Absence Management System",
   "main": "index.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js",
+    "start": "node index.js",
+    "dev": "node index.js",
     "build": "echo 'Build complete for Vercel'",
     "vercel-build": "echo 'Vercel build complete'",
     "test": "jest",

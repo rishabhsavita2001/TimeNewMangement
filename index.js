@@ -1,47 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');
-const path = require('path');
-
-// Persistent timer storage
-const TIMER_STORAGE_FILE = path.join(__dirname, 'timer_data.json');
-
-// Load timers from persistent storage
-function loadTimers() {
-  try {
-    if (fs.existsSync(TIMER_STORAGE_FILE)) {
-      const data = JSON.parse(fs.readFileSync(TIMER_STORAGE_FILE, 'utf8'));
-      global.activeTimers = data.activeTimers || {};
-      global.stoppedTimersToday = data.stoppedTimersToday || {};
-      console.log('??  Loaded persisted timers:', Object.keys(global.activeTimers).length, 'active');
-    } else {
-      global.activeTimers = {};
-      global.stoppedTimersToday = {};
-    }
-  } catch (error) {
-    console.error('? Error loading timers:', error);
-    global.activeTimers = {};
-    global.stoppedTimersToday = {};
-  }
-}
-
-// Save timers to persistent storage
-function saveTimers() {
-  try {
-    const data = {
-      activeTimers: global.activeTimers || {},
-      stoppedTimersToday: global.stoppedTimersToday || {},
-      lastUpdated: new Date().toISOString()
-    };
-    fs.writeFileSync(TIMER_STORAGE_FILE, JSON.stringify(data, null, 2));
-    console.log('?? Timers saved to persistent storage');
-  } catch (error) {
-    console.error('? Error saving timers:', error);
-  }
-}
-
-// Initialize timer storage
-loadTimers();
 const jwt = require('jsonwebtoken');
 
 const app = express();
@@ -62,9 +20,7 @@ const authenticateToken = (req, res, next) => {
     '/api/auth/register', 
     '/swagger.json', 
     '/api-docs',
-    '/api-docs/',
-    '/api/test', // Making test endpoint public for now
-    '/' // Root path
+    '/api/test' // Making test endpoint public for now
   ];
   
   if (publicPaths.includes(req.path)) {
@@ -91,79 +47,15 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// Initialize global timer storage (now loaded from persistent storage)
-// global.activeTimers and global.stoppedTimersToday are loaded by loadTimers()
-
-// Clean up expired daily restrictions and save periodically (runs every 5 minutes)
-setInterval(() => {
-  const today = new Date().toISOString().split('T')[0];
-  
-  // Remove stopped timer records that are not from today
-  for (const [userId, date] of Object.entries(global.stoppedTimersToday)) {
-    if (date !== today) {
-      delete global.stoppedTimersToday[userId];
-    }
-  }
-  
-  // Clean up old inactive timers (older than 24 hours)
-  const yesterday = new Date(Date.now() - 24*60*60*1000);
-  for (const [timerId, timer] of Object.entries(global.activeTimers)) {
-    const startTime = new Date(timer.startTime);
-    if (startTime < yesterday) {
-      console.log('?? Cleaning up old timer:', timerId);
-      delete global.activeTimers[timerId];
-    }
-  }
-  
-  // Save to persistent storage
-  saveTimers();
-  console.log('?? Timer cleanup and save completed');
-}, 5 * 60 * 1000); // Check every 5 minutes
-
 // Middleware
 app.use(cors({
-  origin: ['https://api-layer.vercel.app', 'https://apilayer.vercel.app', 'http://localhost:3000', '*'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With']
+  origin: true,
+  credentials: true
 }));
+app.use(express.json());
 
-// Handle preflight requests
-app.options('*', cors());
-
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Add security headers
-app.use((req, res, next) => {
-  res.header('X-Content-Type-Options', 'nosniff');
-  res.header('X-Frame-Options', 'DENY');
-  res.header('X-XSS-Protection', '1; mode=block');
-  // Allow swagger UI resources
-  if (req.path.includes('swagger') || req.path.includes('api-docs')) {
-    res.header('Content-Security-Policy', "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com");
-  }
-  next();
-});
-
-// Root route - API welcome page
-app.get('/', (req, res) => {
-  res.json({
-    message: '?? Working Time Management API is Live!',
-    status: 'Active',
-    domain: 'api-layer.vercel.app',
-    documentation: '/api-docs',
-    health: '/api/health',
-    auth: {
-      getToken: '/api/get-token',
-      login: '/api/auth/login',
-      register: '/api/auth/register'
-    },
-    totalEndpoints: 117,
-    version: '3.0.0',
-    timestamp: new Date().toISOString()
-  });
-});
+// Apply authentication to all API routes
+app.use('/api', authenticateToken);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -181,28 +73,6 @@ app.get('/api/test', (req, res) => {
     success: true,
     message: 'Test endpoint working!',
     domain: 'api-layer.vercel.app'
-  });
-});
-
-// Get token for testing
-app.get('/api/get-token', (req, res) => {
-  const token = jwt.sign(
-    { 
-      userId: 1, 
-      email: 'test@example.com',
-      role: 'user',
-      employeeNumber: 'EMP001'
-    }, 
-    JWT_SECRET,
-    { expiresIn: '24h' }
-  );
-  
-  res.json({
-    success: true,
-    token: token,
-    expiresIn: '24 hours',
-    usage: 'Add this token to Authorization header as: Bearer <token>',
-    example: `curl -H "Authorization: Bearer ${token}" https://api-layer.vercel.app/api/me`
   });
 });
 
@@ -397,74 +267,19 @@ app.get('/api/get-token', (req, res) => {
   });
 });
 
-// Sign Out / Logout API
-app.post('/api/auth/logout', (req, res) => {
-  // Invalidate token (in real app, add to blacklist)
-  res.json({
-    success: true,
-    message: 'Your sign out success',
-    data: {
-      userId: req.user?.userId || 1,
-      loggedOutAt: new Date().toISOString(),
-      status: 'logged_out'
-    }
-  });
-});
-
 // Timer Pause/Resume API
 app.post('/api/me/timer/pause', (req, res) => {
-  const userId = req.user?.userId || 1;
-  
-  const activeTimer = Object.values(global.activeTimers).find(
-    timer => timer.userId === userId && timer.isRunning
-  );
-  
-  if (!activeTimer) {
-    return res.status(404).json({
-      success: false,
-      message: 'No running timer found'
-    });
-  }
-  
-  const now = new Date();
-  
-  if (activeTimer.isPaused) {
-    // Resume timer
-    if (activeTimer.pauseStartTime) {
-      const pauseDuration = now - new Date(activeTimer.pauseStartTime);
-      activeTimer.totalPausedTime += pauseDuration;
+  res.json({
+    success: true,
+    message: 'Timer paused/resumed successfully',
+    data: {
+      timerId: 'timer_123',
+      isPaused: true,
+      pausedAt: new Date().toISOString(),
+      elapsedTime: 7200000, // 2 hours in ms
+      status: 'paused'
     }
-    activeTimer.isPaused = false;
-    activeTimer.isBreak = false; // Resume means back to work
-    activeTimer.pauseStartTime = null;
-    
-    res.json({
-      success: true,
-      message: 'Timer resumed successfully',
-      data: {
-        isPaused: false,
-        isBreak: false,
-        timerId: activeTimer.timerId,
-        totalPausedTime: Math.round(activeTimer.totalPausedTime / 1000 / 60) // minutes
-      }
-    });
-  } else {
-    // Pause timer (break)
-    activeTimer.isPaused = true;
-    activeTimer.isBreak = true; // Pause means on break
-    activeTimer.pauseStartTime = now.toISOString();
-    
-    res.json({
-      success: true,
-      message: 'Timer paused successfully - on break',
-      data: {
-        isPaused: true,
-        isBreak: true,
-        timerId: activeTimer.timerId,
-        pausedAt: activeTimer.pauseStartTime
-      }
-    });
-  }
+  });
 });
 
 // Dashboard alias route
@@ -525,58 +340,9 @@ app.get('/api/time-entries', (req, res) => {
   });
 });
 
-app.put('/api/me/time-entries/:id', authenticateToken, (req, res) => {
+app.put('/api/me/time-entries/:id', (req, res) => {
   const { id } = req.params;
-  const { 
-    startTime, 
-    endTime, 
-    description, 
-    breakDuration,
-    // Also support legacy field names for backward compatibility
-    start_time, 
-    end_time, 
-    break_duration 
-  } = req.body;
-
-  // Input validation
-  if (!id || id === 'string') {
-    return res.status(400).json({
-      success: false,
-      message: 'Valid time entry ID is required',
-      error: 'Please provide a valid numeric ID instead of "string"'
-    });
-  }
-
-  // Use new field names or fall back to legacy ones
-  const finalStartTime = startTime || start_time;
-  const finalEndTime = endTime || end_time;
-  const finalBreakDuration = breakDuration || break_duration;
-
-  // Validate dates if provided
-  if (finalStartTime && !isValidDate(finalStartTime)) {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid startTime format',
-      error: 'Please provide startTime in ISO format (e.g., 2024-03-11T20:37:51.814Z)'
-    });
-  }
-
-  if (finalEndTime && !isValidDate(finalEndTime)) {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid endTime format',
-      error: 'Please provide endTime in ISO format (e.g., 2024-03-11T20:37:51.814Z)'
-    });
-  }
-
-  // Calculate duration if both times provided
-  let totalHours = null;
-  if (finalStartTime && finalEndTime) {
-    const start = new Date(finalStartTime);
-    const end = new Date(finalEndTime);
-    const diffMs = end - start;
-    totalHours = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100; // Round to 2 decimal places
-  }
+  const { start_time, end_time, description, break_duration } = req.body;
   
   res.json({
     success: true,
@@ -584,27 +350,16 @@ app.put('/api/me/time-entries/:id', authenticateToken, (req, res) => {
     data: {
       entry: {
         id: parseInt(id),
-        startTime: finalStartTime,
-        endTime: finalEndTime,
-        description: description || 'Updated time entry',
-        breakDuration: finalBreakDuration || 0,
-        totalHours: totalHours || 8.5,
-        updatedAt: new Date().toISOString(),
-        status: 'updated'
+        start_time,
+        end_time,
+        description,
+        break_duration,
+        total_hours: 8.5,
+        updated_at: new Date().toISOString()
       }
     }
   });
 });
-
-// Helper function to validate date
-function isValidDate(dateString) {
-  try {
-    const date = new Date(dateString);
-    return date instanceof Date && !isNaN(date);
-  } catch (error) {
-    return false;
-  }
-}
 
 app.delete('/api/me/time-entries/:id', (req, res) => {
   const { id } = req.params;
@@ -619,7 +374,7 @@ app.delete('/api/me/time-entries/:id', (req, res) => {
 });
 
 // Time Entries APIs
-app.get('/api/me/time-entries', authenticateToken, (req, res) => {
+app.get('/api/me/time-entries', (req, res) => {
   const { page = 1, limit = 20, startDate, endDate } = req.query;
   
   res.json({
@@ -742,7 +497,7 @@ app.get('/api/projects', (req, res) => {
 });
 
 // Vacation Balance APIs
-app.get('/api/me/vacation/balance', authenticateToken, (req, res) => {
+app.get('/api/me/vacation/balance', (req, res) => {
   res.json({
     success: true,
     data: {
@@ -914,7 +669,7 @@ app.get('/api/me/updates', (req, res) => {
       announcements: [
         {
           id: 1,
-          title: '=ƒÄä Holiday Schedule Update',
+          title: 'ðŸŽ„ Holiday Schedule Update',
           content: 'Office will be closed from December 25th to January 1st. Happy Holidays!',
           type: 'announcement',
           priority: 'high',
@@ -925,7 +680,7 @@ app.get('/api/me/updates', (req, res) => {
         },
         {
           id: 2,
-          title: '=ƒÜÇ New Feature Release',
+          title: 'ðŸš€ New Feature Release',
           content: 'We have released new time tracking features including timer pause/resume and better reporting.',
           type: 'product_update',
           priority: 'medium',
@@ -936,7 +691,7 @@ app.get('/api/me/updates', (req, res) => {
         },
         {
           id: 3,
-          title: '=ƒôè Monthly Performance Review',
+          title: 'ðŸ“Š Monthly Performance Review',
           content: 'Performance review cycle for December is now open. Please complete your self-assessment by Dec 30.',
           type: 'action_required',
           priority: 'high',
@@ -1106,29 +861,16 @@ app.post('/api/me/time-entries/manual', (req, res) => {
 
 // Weekly Summary API
 app.get('/api/me/work-summary/weekly', (req, res) => {
-  // Calculate weekly balance
-  const totalWorkedHours = 40.5;
-  const targetWeeklyHours = 40.0;
-  const balanceHours = totalWorkedHours - targetWeeklyHours;
-  
-  // Format balance as "+3h 20m" or "-2h 30m"
-  const absBalance = Math.abs(balanceHours);
-  const hours = Math.floor(absBalance);
-  const minutes = Math.round((absBalance - hours) * 60);
-  const balanceString = `${balanceHours >= 0 ? '+' : '-'}${hours}h ${minutes}m`;
-  
   res.json({
     success: true,
     data: {
       week_start: '2025-12-23',
       week_end: '2025-12-29',
-      total_hours: totalWorkedHours,
-      target_hours: targetWeeklyHours,
-      weeklyBalance: balanceString, // Main field for displaying balance
-      balance_hours: balanceHours, // Numeric value for calculations
+      total_hours: 40.5,
       days_worked: 5,
       average_daily_hours: 8.1,
-      overtime_hours: Math.max(0, balanceHours), // Only positive balance counts as overtime
+      target_hours: 40.0,
+      overtime_hours: 0.5,
       daily_breakdown: [
         { date: '2025-12-23', hours: 8.5, status: 'completed' },
         { date: '2025-12-24', hours: 8.0, status: 'completed' },
@@ -1142,101 +884,7 @@ app.get('/api/me/work-summary/weekly', (req, res) => {
         { project_name: 'API Development', hours: 25.5 },
         { project_name: 'Testing', hours: 10.0 },
         { project_name: 'Documentation', hours: 5.0 }
-      ],
-      summary: {
-        status: balanceHours >= 0 ? 'ahead_of_target' : 'behind_target',
-        message: balanceHours >= 0 
-          ? `You're ${balanceString} ahead of your weekly target` 
-          : `You're ${balanceString.replace('-', '')} behind your weekly target`
-      }
-    }
-  });
-});
-
-/**
- * @swagger
- * /api/me/weekly-balance:
- *   get:
- *     summary: Get weekly balance
- *     description: Get user's weekly work balance showing if they are ahead or behind target hours
- *     tags: [Work Summary]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Weekly balance retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: object
- *                   properties:
- *                     weeklyBalance:
- *                       type: string
- *                       example: "+0h 30m"
- *                       description: Formatted balance string showing hours ahead/behind
- *                     balance_hours:
- *                       type: number
- *                       example: 0.5
- *                       description: Numeric balance in hours
- *                     total_worked:
- *                       type: number
- *                       example: 40.5
- *                     target_hours:
- *                       type: number
- *                       example: 40
- *                     week_start:
- *                       type: string
- *                       example: "2025-12-23"
- *                     week_end:
- *                       type: string
- *                       example: "2025-12-29"
- *                     status:
- *                       type: string
- *                       enum: [ahead, behind]
- *                       example: "ahead"
- *                     message:
- *                       type: string
- *                       example: "You're +0h 30m ahead of your weekly target"
- *                     percentage:
- *                       type: integer
- *                       example: 101
- *                       description: Percentage of target hours completed
- *       401:
- *         description: Authentication required
- */
-// Dedicated Weekly Balance API
-app.get('/api/me/weekly-balance', (req, res) => {
-  // Calculate weekly balance
-  const totalWorkedHours = 40.5;
-  const targetWeeklyHours = 40.0;
-  const balanceHours = totalWorkedHours - targetWeeklyHours;
-  
-  // Format balance as "+3h 20m" or "-2h 30m"
-  const absBalance = Math.abs(balanceHours);
-  const hours = Math.floor(absBalance);
-  const minutes = Math.round((absBalance - hours) * 60);
-  const balanceString = `${balanceHours >= 0 ? '+' : '-'}${hours}h ${minutes}m`;
-  
-  res.json({
-    success: true,
-    data: {
-      weeklyBalance: balanceString,
-      balance_hours: balanceHours,
-      total_worked: totalWorkedHours,
-      target_hours: targetWeeklyHours,
-      week_start: '2025-12-23',
-      week_end: '2025-12-29',
-      status: balanceHours >= 0 ? 'ahead' : 'behind',
-      message: balanceHours >= 0 
-        ? `You're ${balanceString} ahead of your weekly target` 
-        : `You're ${balanceString.replace('-', '')} behind your weekly target`,
-      percentage: Math.round((totalWorkedHours / targetWeeklyHours) * 100)
+      ]
     }
   });
 });
@@ -1313,97 +961,34 @@ app.get('/api/reports/timesheet', (req, res) => {
   });
 });
 
-// Dashboard APIs
+// Missing Dashboard and other endpoints
 app.get('/api/dashboard', (req, res) => {
-  const userId = req.user?.userId || 1;
-  const activeTimer = Object.values(global.activeTimers).find(
-    timer => timer.userId === userId && timer.isRunning
-  );
-  
   res.json({
     success: true,
     data: {
       user: {
-        name: req.user ? `${req.user.firstName} ${req.user.lastName}` : 'John Doe',
-        email: req.user?.email || 'john.doe@company.com',
-        status: activeTimer ? (activeTimer.isPaused ? 'On Break' : 'Working') : 'Available'
+        name: 'John Doe',
+        status: 'Available',
+        avatar: null
       },
       timer: {
-        isActive: !!activeTimer,
-        isRunning: activeTimer?.isRunning || false,
-        isPaused: activeTimer?.isPaused || false,
-        isBreak: activeTimer?.isBreak || false,
-        startTime: activeTimer?.startTime || null,
-        currentTask: activeTimer?.notes || null
+        isRunning: false,
+        currentTask: null,
+        elapsedTime: 0
       },
       todaysSummary: {
-        totalHours: "4h 30m",
-        hoursTarget: "8h",
-        breakTime: "30m",
-        overtime: "4h"
+        totalHours: 0,
+        hoursTarget: 8,
+        breakTime: 0,
+        tasksCompleted: 0
       },
-      weeklyBalance: "+3h 20m",
-      vacationLeft: "Left 8d",
-      stats: {
-        totalEmployees: 42,
-        workingNow: 18,
-        pendingRequests: 7,
-        overtimeAlerts: 3
-      },
-      workforceActivity: {
-        clockedInToday: 38,
-        notClockedIn: 4,
-        onBreak: 7,
-        clockedOutToday: 34,
-        lateArrivals: 3
-      },
-      recentActivity: [
-        {
-          id: 1,
-          type: 'clock_in',
-          employee: 'Jenny Wilson',
-          message: 'clocked in',
-          details: 'Started their shift at 08:12',
-          time: '08:12',
-          timestamp: new Date().toISOString()
-        },
-        {
-          id: 2,
-          type: 'correction',
-          employee: 'Michael Kim',
-          message: 'requested a time correction',
-          details: 'for 9 Nov',
-          time: '08:04',
-          timestamp: new Date().toISOString()
-        },
-        {
-          id: 3,
-          type: 'vacation_approved',
-          employee: 'Admin',
-          message: 'approved Sarah Anderson\'s vacation request',
-          time: '08:04',
-          timestamp: new Date().toISOString()
-        },
-        {
-          id: 4,
-          type: 'break_started',
-          employee: 'Mark Evans',
-          message: 'went on break',
-          details: 'at 07:40',
-          time: '07:40',
-          timestamp: new Date().toISOString()
-        },
-        {
-          id: 5,
-          type: 'early_clock_out',
-          employee: 'Kevin Hart',
-          message: 'clocked out early',
-          details: 'earlier than scheduled',
-          time: '08:04',
-          timestamp: new Date().toISOString()
-        }
-      ],
-      monthTarget: 160
+      recentActivity: [],
+      quickStats: {
+        weekTotal: 32.5,
+        monthTotal: 140.25,
+        weekTarget: 40,
+        monthTarget: 160
+      }
     }
   });
 });
@@ -1452,7 +1037,7 @@ app.get('/api/updates', (req, res) => {
       updates: [
         {
           id: 1,
-          title: '=ƒÄë New Time Tracking Features',
+          title: 'ðŸŽ‰ New Time Tracking Features',
           message: 'We have added new timer controls and better reporting features.',
           type: 'feature',
           date: '2025-12-23',
@@ -1461,7 +1046,7 @@ app.get('/api/updates', (req, res) => {
         },
         {
           id: 2,
-          title: '=ƒÅó Office Holiday Schedule',
+          title: 'ðŸ¢ Office Holiday Schedule',
           message: 'Office will be closed from Dec 25-Jan 1 for holidays.',
           type: 'announcement',
           date: '2025-12-22', 
@@ -1470,7 +1055,7 @@ app.get('/api/updates', (req, res) => {
         },
         {
           id: 3,
-          title: '=ƒôè Monthly Reports Available',
+          title: 'ðŸ“Š Monthly Reports Available',
           message: 'December monthly reports are now available for download.',
           type: 'notification',
           date: '2025-12-21',
@@ -1644,7 +1229,7 @@ app.get('/api/quick-actions', (req, res) => {
 });
 
 // Vacation Balance APIs
-app.get('/api/me/vacation/balance', authenticateToken, (req, res) => {
+app.get('/api/me/vacation/balance', (req, res) => {
   res.json({
     success: true,
     data: {
@@ -1757,6 +1342,27 @@ app.get('/api/leave-types', (req, res) => {
   });
 });
 
+app.get('/api/me/timer/current', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      is_active: false,
+      current_task: null,
+      start_time: null,
+      elapsed_time: 0,
+      formatted_time: '00:00:00',
+      project_id: null,
+      project_name: null,
+      last_activity: null,
+      break_status: {
+        on_break: false,
+        break_start: null,
+        break_duration: 0
+      }
+    }
+  });
+});
+
 // Work Status API
 app.get('/api/me/work-status', (req, res) => {
   res.json({
@@ -1794,7 +1400,7 @@ app.get('/api/me/updates', (req, res) => {
       announcements: [
         {
           id: 1,
-          title: '=ƒÄä Holiday Schedule Update',
+          title: 'ðŸŽ„ Holiday Schedule Update',
           content: 'Office will be closed from December 25th to January 1st. Happy Holidays!',
           type: 'announcement',
           priority: 'high',
@@ -1805,7 +1411,7 @@ app.get('/api/me/updates', (req, res) => {
         },
         {
           id: 2,
-          title: '=ƒÜÇ New Feature Release',
+          title: 'ðŸš€ New Feature Release',
           content: 'We have released new time tracking features including timer pause/resume and better reporting.',
           type: 'product_update',
           priority: 'medium',
@@ -1816,7 +1422,7 @@ app.get('/api/me/updates', (req, res) => {
         },
         {
           id: 3,
-          title: '=ƒôè Monthly Performance Review',
+          title: 'ðŸ“Š Monthly Performance Review',
           content: 'Performance review cycle for December is now open. Please complete your self-assessment by Dec 30.',
           type: 'action_required',
           priority: 'high',
@@ -1865,6 +1471,17 @@ app.get('/api/me/work-summary/today', (req, res) => {
     }
   });
 });
+app.get('/api/dashboard', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      weekly_hours: "40.5h",
+      today_hours: "8.5h",
+      current_status: "Working",
+      last_check_in: "09:00 AM"
+    }
+  });
+});
 
 app.get('/api/dashboard/summary', (req, res) => {
   res.json({
@@ -1878,460 +1495,40 @@ app.get('/api/dashboard/summary', (req, res) => {
   });
 });
 
-// Dashboard Recent Requests API
-app.get('/api/dashboard/recent-requests', (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
-  const status = req.query.status || 'all';
-  const type = req.query.type || 'all';
-  
-  const allRequests = [
-    {
-      id: 1,
-      employeeName: 'Jenny Wilson',
-      type: 'Vacation',
-      date: '12 - 14 Nov 2025',
-      status: 'Pending',
-      submitted: 'Today, 08:04',
-      submittedDate: new Date().toISOString()
-    },
-    {
-      id: 2,
-      employeeName: 'Michael Kim',
-      type: 'Vacation',
-      date: '5 - 6 Nov 2025',
-      status: 'Approved',
-      submitted: 'Yesterday, 17:22',
-      submittedDate: new Date(Date.now() - 86400000).toISOString()
-    },
-    {
-      id: 3,
-      employeeName: 'Mark Evans',
-      type: 'Correction',
-      date: '9 Nov 2025',
-      status: 'Pending',
-      submitted: '2 days ago',
-      submittedDate: new Date(Date.now() - 172800000).toISOString()
-    },
-    {
-      id: 4,
-      employeeName: 'Sarah Anderson',
-      type: 'Correction',
-      date: '2 Nov 2025',
-      status: 'Reject',
-      submitted: '2 days ago',
-      submittedDate: new Date(Date.now() - 172800000).toISOString()
-    },
-    {
-      id: 5,
-      employeeName: 'Daniel Lee',
-      type: 'Correction',
-      date: '3 Nov 2025',
-      status: 'Reject',
-      submitted: 'Yesterday, 10:11',
-      submittedDate: new Date(Date.now() - 86400000).toISOString()
-    },
-    {
-      id: 6,
-      employeeName: 'Michael Chen',
-      type: 'Vacation',
-      date: '20 - 22 Dec 2025',
-      status: 'Pending',
-      submitted: 'Today, 09:45',
-      submittedDate: new Date().toISOString()
-    },
-    {
-      id: 7,
-      employeeName: 'Olivia Carter',
-      type: 'Vacation',
-      date: '10 Nov 2025',
-      status: 'Pending',
-      submitted: 'Today, 06:04',
-      submittedDate: new Date().toISOString()
-    },
-    {
-      id: 8,
-      employeeName: 'Joshua Kim',
-      type: 'Vacation',
-      date: '28 Nov 2025',
-      status: 'Approved',
-      submitted: '2 days ago',
-      submittedDate: new Date(Date.now() - 172800000).toISOString()
-    },
-    {
-      id: 9,
-      employeeName: 'Emily Davis',
-      type: 'Correction',
-      date: '1 Nov 2025',
-      status: 'Approved',
-      submitted: '3 days ago',
-      submittedDate: new Date(Date.now() - 259200000).toISOString()
-    },
-    {
-      id: 10,
-      employeeName: 'Michelle Hart',
-      type: 'Vacation',
-      date: '18 - 19 Nov 2025',
-      status: 'Pending',
-      submitted: 'Today, 11:12',
-      submittedDate: new Date().toISOString()
-    }
-  ];
-  
-  let filteredRequests = allRequests;
-  
-  if (status !== 'all') {
-    filteredRequests = filteredRequests.filter(req => req.status.toLowerCase() === status.toLowerCase());
-  }
-  
-  if (type !== 'all') {
-    filteredRequests = filteredRequests.filter(req => req.type.toLowerCase() === type.toLowerCase());
-  }
-  
-  const startIndex = (page - 1) * limit;
-  const endIndex = startIndex + limit;
-  const paginatedRequests = filteredRequests.slice(startIndex, endIndex);
-  
-  res.json({
-    success: true,
-    data: {
-      requests: paginatedRequests,
-      pagination: {
-        current_page: page,
-        total_pages: Math.ceil(filteredRequests.length / limit),
-        total_records: filteredRequests.length,
-        per_page: limit
-      },
-      filters: {
-        available_statuses: ['All Status', 'Pending', 'Approved', 'Reject'],
-        available_types: ['All Types', 'Vacation', 'Correction'],
-        current_status: status,
-        current_type: type
-      }
-    }
-  });
-});
-
-// Request Actions APIs
-app.post('/api/requests/:id/approve', (req, res) => {
-  const requestId = req.params.id;
-  res.json({
-    success: true,
-    message: 'Request approved successfully',
-    data: {
-      requestId: requestId,
-      status: 'approved',
-      approvedAt: new Date().toISOString(),
-      approvedBy: 'Admin'
-    }
-  });
-});
-
-app.post('/api/requests/:id/reject', (req, res) => {
-  const requestId = req.params.id;
-  const reason = req.body.reason || 'No reason provided';
-  res.json({
-    success: true,
-    message: 'Request rejected successfully',
-    data: {
-      requestId: requestId,
-      status: 'rejected',
-      rejectedAt: new Date().toISOString(),
-      rejectedBy: 'Admin',
-      reason: reason
-    }
-  });
-});
-
-// Workforce Activity API
-app.get('/api/dashboard/workforce-activity', (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      todayStats: {
-        clockedInToday: {
-          count: 38,
-          description: 'Employees who have started their shift',
-          employees: ['John Doe', 'Jane Smith', 'Mike Johnson']
-        },
-        notClockedIn: {
-          count: 4,
-          description: 'Employees who haven\'t started their day yet',
-          employees: ['Sarah Wilson', 'David Brown']
-        },
-        onBreak: {
-          count: 7,
-          description: 'Currently on break or paused',
-          employees: ['Mark Evans', 'Lisa Wang']
-        },
-        clockedOutToday: {
-          count: 34,
-          description: 'Employees who have finished their shift',
-          employees: ['Alex Chen', 'Maria Garcia']
-        },
-        lateArrivals: {
-          count: 3,
-          description: 'Clocked in after the scheduled start time',
-          employees: ['Robert Taylor', 'Emma Davis', 'Chris Wilson']
-        }
-      },
-      realTimeUpdates: {
-        lastUpdated: new Date().toISOString(),
-        refreshRate: '30 seconds'
-      }
-    }
-  });
-});
-
 // Timer APIs
 app.post('/api/me/timer/start', (req, res) => {
-  const { projectId, taskId, notes, force = false } = req.body || {};
-  const userId = req.user?.userId || 1;
-  const timerId = `timer_${userId}_${Date.now()}`;
-  const startTime = new Date().toISOString();
-  const today = new Date().toISOString().split('T')[0];
-
-  // Check if user already has a running timer
-  const existingTimer = Object.values(global.activeTimers).find(
-    timer => timer.userId === userId && timer.isRunning
-  );
-
-  if (existingTimer) {
-    return res.status(400).json({
-      success: false,
-      message: 'Timer already running. Stop current timer first.',
-      data: {
-        currentTimer: {
-          timerId: existingTimer.timerId,
-          startTime: existingTimer.startTime,
-          isRunning: existingTimer.isRunning,
-          isPaused: existingTimer.isPaused
-        }
-      }
-    });
-  }
-
-  // Check if user stopped a timer today - they cannot start again until tomorrow
-  if (global.stoppedTimersToday[userId] && global.stoppedTimersToday[userId] === today) {
-    return res.status(400).json({
-      success: false,
-      message: 'Work session already completed for today. You can start again tomorrow.',
-      data: {
-        stoppedToday: true,
-        canStartAgain: false,
-        nextAvailableStart: new Date(Date.now() + 24*60*60*1000).toISOString().split('T')[0], // Tomorrow
-        suggestion: 'Timer can only be started once per day. Please wait until tomorrow to start a new work session.'
-      }
-    });
-  }
-
-  // Create new timer
-  global.activeTimers[timerId] = {
-    timerId,
-    userId,
-    tenantId: req.user?.tenantId || 1,
-    startTime,
-    projectId,
-    taskId,
-    notes,
-    isRunning: true,
-    isPaused: false,
-    isBreak: false,
-    totalPausedTime: 0,
-    pauseStartTime: null,
-    createdAt: new Date().toISOString(),
-    lastActivity: new Date().toISOString()
-  };
-
-  // Save to persistent storage immediately
-  saveTimers();
-  
-  console.log('??  Timer started for user', userId, '- Timer ID:', timerId);
-
   res.json({
     success: true,
     message: 'Timer started successfully',
-    data: { 
-      timerId, 
-      startTime, 
-      isRunning: true,
-      isPaused: false,
-      isBreak: false, 
-      projectId, 
-      taskId, 
-      notes,
-      dailySession: true,
-      persistent: true // Indicate this timer is now persistent
+    data: {
+      timer_id: Math.floor(Math.random() * 1000) + 1,
+      start_time: new Date().toISOString(),
+      status: 'active'
     }
   });
 });
 
 app.post('/api/me/timer/stop', (req, res) => {
-  const { notes: stopNotes } = req.body || {};
-  const userId = req.user?.userId || 1;
-  
-  const activeTimer = Object.values(global.activeTimers).find(
-    timer => timer.userId === userId && timer.isRunning
-  );
-  
-  if (!activeTimer) {
-    return res.status(404).json({
-      success: false,
-      message: 'No running timer found'
-    });
-  }
-  
-  const stopTime = new Date();
-  const startTime = new Date(activeTimer.startTime);
-  const today = stopTime.toISOString().split('T')[0];
-  
-  // Calculate total duration excluding paused time
-  const totalTimeMs = (stopTime - startTime) - activeTimer.totalPausedTime;
-  const totalHours = Math.round((totalTimeMs / (1000 * 60 * 60)) * 100) / 100;
-  
-  // Format duration for display
-  const hours = Math.floor(totalHours);
-  const minutes = Math.round((totalHours - hours) * 60);
-  const durationString = `${hours}h ${minutes}m`;
-  
-  // Mark that user stopped timer today
-  global.stoppedTimersToday[userId] = today;
-  
-  // Remove timer from active timers (THIS FIXES THE ISSUE!)
-  delete global.activeTimers[activeTimer.timerId];
-
   res.json({
     success: true,
     message: 'Timer stopped successfully',
     data: {
-      duration: durationString,
-      totalHours,
-      startTime: activeTimer.startTime,
-      stopTime: stopTime.toISOString(),
-      timerId: activeTimer.timerId,
-      stoppedToday: true
+      timer_id: 1,
+      end_time: new Date().toISOString(),
+      total_duration: '8h 30m',
+      status: 'completed'
     }
   });
 });
 
 app.get('/api/me/timer/current', (req, res) => {
-  const userId = req.user?.userId || 1;
-  
-  // Find user's running timer
-  const activeTimer = Object.values(global.activeTimers).find(
-    timer => timer.userId === userId && timer.isRunning
-  );
-  
-  if (!activeTimer) {
-    const today = new Date().toISOString().split('T')[0];
-    const stoppedToday = global.stoppedTimersToday[userId] === today;
-    
-    return res.json({
-      success: true,
-      data: {
-        hasActiveTimer: false,
-        timer: null,
-        stoppedToday,
-        canStart: !stoppedToday, // Can only start if haven't stopped today
-        message: stoppedToday 
-          ? 'Work session completed for today. You can start again tomorrow.' 
-          : 'No active timer - ready to start work session',
-        nextAvailableStart: stoppedToday 
-          ? new Date(Date.now() + 24*60*60*1000).toISOString().split('T')[0] 
-          : null,
-        
-        // THREE DATA POINTS REQUESTED BY CLIENT
-        workSummary: {
-          totalWorked: "4h 30m",
-          weeklyBalance: "+0h 30m", // Updated to match weekly balance API
-          vacationLeft: "Left 8d",
-          overtime: "4h",
-          status: stoppedToday ? "Session Complete" : "Available"
-        },
-        dashboardData: {
-          user: {
-            name: req.user ? `${req.user.firstName} ${req.user.lastName}` : 'John Doe',
-            status: stoppedToday ? "Session Complete" : "Available"
-          },
-          todaysTarget: "8h",
-          breakTime: "30m"
-        },
-        timerStatus: {
-          isActive: false,
-          isRunning: false,
-          isPaused: false,
-          isBreak: false,
-          canStartToday: !stoppedToday
-        },
-        persistent: true // Indicate persistent storage is being used
-      }
-    });
-  }
-  
-  // Update last activity timestamp
-  activeTimer.lastActivity = new Date().toISOString();
-  
-  // Save updated activity (but don't log every time to avoid spam)
-  if (Math.random() < 0.1) { // Save randomly 10% of the time to reduce I/O
-    saveTimers();
-  }
-  
-  // Calculate current duration
-  const now = new Date();
-  const startTime = new Date(activeTimer.startTime);
-  let currentTimeMs = now - startTime - activeTimer.totalPausedTime;
-  
-  // If currently paused, don't include the time since pause started
-  if (activeTimer.isPaused && activeTimer.pauseStartTime) {
-    const pauseDuration = now - new Date(activeTimer.pauseStartTime);
-    currentTimeMs -= pauseDuration;
-  }
-  
-  const currentHours = Math.max(0, currentTimeMs / (1000 * 60 * 60));
-  const hours = Math.floor(currentHours);
-  const minutes = Math.round((currentHours - hours) * 60);
-  const currentDuration = `${hours}h ${minutes}m`;
-  
   res.json({
     success: true,
     data: {
-      hasActiveTimer: true,
-      timer: {
-        timerId: activeTimer.timerId,
-        startTime: activeTimer.startTime,
-        isRunning: activeTimer.isRunning,
-        isPaused: activeTimer.isPaused,
-        isBreak: activeTimer.isBreak, // THIS FIXES THE isBreak ISSUE!
-        currentDuration,
-        currentHours: Math.round(currentHours * 100) / 100,
-        projectId: activeTimer.projectId,
-        taskId: activeTimer.taskId,
-        notes: activeTimer.notes
-      },
-      
-      // THREE DATA POINTS REQUESTED BY CLIENT - All in one endpoint
-      workSummary: {
-        totalWorked: currentDuration,
-        weeklyBalance: "+0h 30m", // Updated to match weekly balance API
-        vacationLeft: "Left 8d",
-        overtime: "4h",
-        status: activeTimer.isPaused ? "On Break" : "Working"
-      },
-      dashboardData: {
-        user: {
-          name: req.user ? `${req.user.firstName} ${req.user.lastName}` : 'John Doe',
-          status: activeTimer.isPaused ? "On Break" : "Working"
-        },
-        todaysTarget: "8h",
-        breakTime: activeTimer.isPaused ? "Currently on break" : "30m total"
-      },
-      timerStatus: {
-        isActive: true,
-        isRunning: activeTimer.isRunning,
-        isPaused: activeTimer.isPaused,
-        isBreak: activeTimer.isBreak,
-        canForceStart: false
-      }
+      is_active: true,
+      timer_id: 1,
+      start_time: '2025-12-23T09:00:00Z',
+      current_duration: '8h 30m'
     }
   });
 });
@@ -2359,7 +1556,7 @@ app.get('/api/notifications', (req, res) => {
         {
           id: 1,
           type: 'corporate_update',
-          title: '=ƒôï Corporate Updates',
+          title: 'ðŸ“‹ Corporate Updates',
           message: 'New company policies updated',
           date: '2025-12-23',
           is_read: false
@@ -2367,7 +1564,7 @@ app.get('/api/notifications', (req, res) => {
         {
           id: 2,
           type: 'system',
-          title: '=ƒöö System Notification', 
+          title: 'ðŸ”” System Notification', 
           message: 'Your timesheet for this week is due',
           date: '2025-12-22',
           is_read: false
@@ -2416,21 +1613,21 @@ app.get('/api/quick-actions', (req, res) => {
           id: 'manual_time_entry',
           title: 'Manual Time Entry',
           description: 'Add time entry for missed clock-in/out',
-          icon: 'GÅ¦',
+          icon: 'â°',
           enabled: true
         },
         {
           id: 'time_correction',
           title: 'Time Correction',
           description: 'Request correction for time entries',
-          icon: '=ƒô¥',
+          icon: 'ðŸ“',
           enabled: true
         },
         {
           id: 'leave_request',
           title: 'Leave Request', 
           description: 'Apply for leave/vacation',
-          icon: '=ƒî¦',
+          icon: 'ðŸŒ´',
           enabled: true
         }
       ]
@@ -2448,7 +1645,7 @@ app.get('/api/leave-types', (req, res) => {
       is_paid: true,
       max_days_per_year: 21,
       color: '#4CAF50',
-      icon: '=ƒî¦'
+      icon: 'ðŸŒ´'
     },
     {
       type: 'sick_leave',
@@ -2457,7 +1654,7 @@ app.get('/api/leave-types', (req, res) => {
       is_paid: true,
       max_days_per_year: 10,
       color: '#FF9800',
-      icon: '=ƒÅÑ'
+      icon: 'ðŸ¥'
     },
     {
       type: 'half_day',
@@ -2466,7 +1663,7 @@ app.get('/api/leave-types', (req, res) => {
       is_paid: true,
       max_days_per_year: 12,
       color: '#2196F3',
-      icon: '=ƒòÉ'
+      icon: 'ðŸ•'
     }
   ];
 
@@ -2492,7 +1689,7 @@ app.get('/api/me/leave-requests', (req, res) => {
       start_date: '2025-11-12',
       end_date: '2025-11-14',
       duration: 3,
-      reason: 'Family trip =ƒî¦',
+      reason: 'Family trip ðŸŒ´',
       status: 'pending',
       status_display: 'Pending',
       status_color: '#FFA500',
@@ -2572,10 +1769,10 @@ app.post('/api/me/leave-requests', (req, res) => {
 
   res.status(201).json({
     success: true,
-    message: 'Vacation request sent G£à',
+    message: 'Vacation request sent âœ…',
     data: {
       request: newRequest,
-      success_message: 'Vacation request sent G£à',
+      success_message: 'Vacation request sent âœ…',
       success_title: 'Request Submitted'
     }
   });
@@ -2583,22 +1780,1116 @@ app.post('/api/me/leave-requests', (req, res) => {
 
 // Swagger Documentation
 app.get('/swagger.json', (req, res) => {
-  try {
-    const fs = require('fs');
-    const path = require('path');
-    const swaggerPath = path.join(__dirname, 'swagger-spec.json');
-    const swaggerSpec = JSON.parse(fs.readFileSync(swaggerPath, 'utf8'));
-    res.json(swaggerSpec);
-  } catch (error) {
-    console.error('Error loading swagger-spec.json:', error);
-    res.status(500).json({ error: 'Failed to load API documentation' });
-  }
+  const swaggerSpec = {
+    "openapi": "3.0.0",
+    "info": {
+      "title": "Time Tracking API - Complete Implementation with Bearer Token Auth",
+      "description": "Complete API for mobile time tracking app with all Figma screens implemented. Use /api/get-token to get a Bearer token for authentication.",
+      "version": "2.0.0",
+      "contact": {
+        "name": "API Support",
+        "url": "https://api-layer.vercel.app"
+      }
+    },
+    "servers": [
+      {
+        "url": "https://api-layer.vercel.app/api",
+        "description": "Production server"
+      }
+    ],
+    "security": [
+      {
+        "BearerAuth": []
+      }
+    ],
+    "components": {
+      "securitySchemes": {
+        "BearerAuth": {
+          "type": "http",
+          "scheme": "bearer",
+          "bearerFormat": "JWT",
+          "description": "Enter JWT token obtained from /get-token endpoint. Format: Bearer <token>"
+        }
+      },
+      "schemas": {
+        "Error": {
+          "type": "object",
+          "properties": {
+            "success": { "type": "boolean", "example": false },
+            "message": { "type": "string" },
+            "code": { "type": "string" }
+          }
+        },
+        "User": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "integer", "example": 1 },
+            "tenantId": { "type": "integer", "example": 1 },
+            "firstName": { "type": "string", "example": "John" },
+            "lastName": { "type": "string", "example": "Doe" },
+            "email": { "type": "string", "format": "email", "example": "john.doe@example.com" },
+            "employeeNumber": { "type": "string", "example": "EMP001" },
+            "tenantName": { "type": "string", "example": "Demo Company" }
+          }
+        }
+      }
+    },
+    "paths": {
+      "/health": {
+        "get": {
+          "summary": "Health Check",
+          "description": "Check API server health status",
+          "tags": ["System"],
+          "responses": {
+            "200": {
+              "description": "Server is healthy"
+            }
+          }
+        }
+      },
+      "/auth/register": {
+        "post": {
+          "summary": "User Registration",
+          "description": "Register a new user account",
+          "tags": ["Authentication"],
+          "security": [],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["firstName", "lastName", "email", "password"],
+                  "properties": {
+                    "firstName": { "type": "string", "example": "John" },
+                    "lastName": { "type": "string", "example": "Doe" },
+                    "email": { "type": "string", "format": "email", "example": "john.doe@example.com" },
+                    "password": { "type": "string", "minLength": 6, "example": "password123" },
+                    "tenantName": { "type": "string", "example": "Demo Company" },
+                    "employeeNumber": { "type": "string", "example": "EMP001" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "User registered successfully",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "success": { "type": "boolean", "example": true },
+                      "message": { "type": "string", "example": "User registered successfully" },
+                      "data": {
+                        "type": "object",
+                        "properties": {
+                          "user": { "$ref": "#/components/schemas/User" },
+                          "token": { "type": "string", "description": "JWT Bearer token" },
+                          "access_token": { "type": "string", "description": "Same as token" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/auth/login": {
+        "post": {
+          "summary": "User Login",
+          "description": "Authenticate user and get JWT Bearer token",
+          "tags": ["Authentication"],
+          "security": [],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["email", "password"],
+                  "properties": {
+                    "email": { "type": "string", "format": "email", "example": "john.doe@example.com" },
+                    "password": { "type": "string", "example": "password123" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Login successful",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "success": { "type": "boolean", "example": true },
+                      "message": { "type": "string", "example": "Login successful" },
+                      "data": {
+                        "type": "object",
+                        "properties": {
+                          "user": { "$ref": "#/components/schemas/User" },
+                          "token": { "type": "string", "description": "JWT Bearer token" },
+                          "access_token": { "type": "string", "description": "Same as token" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Missing email or password",
+              "content": {
+                "application/json": {
+                  "schema": { "$ref": "#/components/schemas/Error" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/me": {
+        "get": {
+          "summary": "Get Current User Profile",
+          "description": "Get detailed information about the current authenticated user",
+          "tags": ["User Profile"],
+          "security": [{ "BearerAuth": [] }],
+          "responses": {
+            "200": {
+              "description": "User profile retrieved successfully",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "success": { "type": "boolean", "example": true },
+                      "data": { "$ref": "#/components/schemas/User" }
+                    }
+                  }
+                }
+              }
+            },
+            "401": {
+              "description": "Unauthorized - Bearer token required",
+              "content": {
+                "application/json": {
+                  "schema": { "$ref": "#/components/schemas/Error" }
+                }
+              }
+            },
+            "403": {
+              "description": "Forbidden - Invalid or expired token",
+              "content": {
+                "application/json": {
+                  "schema": { "$ref": "#/components/schemas/Error" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/profile": {
+        "get": {
+          "summary": "Get User Profile",
+          "description": "Get basic user profile data",
+          "tags": ["User Profile"],
+          "responses": {
+            "200": {
+              "description": "Profile retrieved successfully"
+            }
+          }
+        }
+      },
+      "/get-token": {
+        "get": {
+          "summary": "Get Test JWT Token",
+          "description": "Get a test JWT Bearer token for API authentication. Copy the token and use it in the 'Authorize' button above.",
+          "tags": ["Authentication"],
+          "security": [],
+          "responses": {
+            "200": {
+              "description": "Token generated successfully",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "success": { "type": "boolean", "example": true },
+                      "message": { "type": "string", "example": "Test token generated successfully" },
+                      "data": {
+                        "type": "object",
+                        "properties": {
+                          "token": { "type": "string", "description": "JWT Bearer token" },
+                          "access_token": { "type": "string", "description": "Same as token" },
+                          "expires_in": { "type": "string", "example": "24h" },
+                          "token_type": { "type": "string", "example": "Bearer" },
+                          "usage": { "type": "string", "example": "Copy this token and use it in Swagger UI Authorization" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/dashboard": {
+        "get": {
+          "summary": "Get Dashboard Data",
+          "description": "Get complete dashboard data for Figma dashboard screen",
+          "tags": ["Dashboard"],
+          "responses": {
+            "200": {
+              "description": "Dashboard data retrieved successfully"
+            }
+          }
+        }
+      },
+      "/dashboard/summary": {
+        "get": {
+          "summary": "Get Dashboard Summary",
+          "description": "Get summarized dashboard data",
+          "tags": ["Dashboard"],
+          "responses": {
+            "200": {
+              "description": "Dashboard summary retrieved successfully"
+            }
+          }
+        }
+      },
+      "/me/dashboard": {
+        "get": {
+          "summary": "Get User Dashboard",
+          "description": "Get user-specific dashboard data",
+          "tags": ["Dashboard"],
+          "responses": {
+            "200": {
+              "description": "User dashboard data retrieved successfully"
+            }
+          }
+        }
+      },
+      "/me/timer/start": {
+        "post": {
+          "summary": "Start Timer",
+          "description": "Start a new work timer (Figma Timer Screen)",
+          "tags": ["Timer"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "task_name": { "type": "string" },
+                    "project_id": { "type": "integer" },
+                    "description": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Timer started successfully"
+            }
+          }
+        }
+      },
+      "/me/timer/stop": {
+        "post": {
+          "summary": "Stop Timer",
+          "description": "Stop the currently running timer",
+          "tags": ["Timer"],
+          "responses": {
+            "200": {
+              "description": "Timer stopped successfully"
+            }
+          }
+        }
+      },
+      "/timer/start": {
+        "post": {
+          "summary": "Start Timer (Alternative)",
+          "description": "Alternative endpoint to start timer",
+          "tags": ["Timer"],
+          "responses": {
+            "200": {
+              "description": "Timer started successfully"
+            }
+          }
+        }
+      },
+      "/timer/stop": {
+        "post": {
+          "summary": "Stop Timer (Alternative)",
+          "description": "Alternative endpoint to stop timer",
+          "tags": ["Timer"],
+          "responses": {
+            "200": {
+              "description": "Timer stopped successfully"
+            }
+          }
+        }
+      },
+      "/timer/status": {
+        "get": {
+          "summary": "Get Timer Status",
+          "description": "Get current timer status and active session",
+          "tags": ["Timer"],
+          "responses": {
+            "200": {
+              "description": "Timer status retrieved successfully"
+            }
+          }
+        }
+      },
+      "/me/time-entries": {
+        "get": {
+          "summary": "Get Time Entries",
+          "description": "Get user time entries with pagination",
+          "tags": ["Time Entries"],
+          "parameters": [
+            {
+              "name": "page",
+              "in": "query",
+              "schema": { "type": "integer", "default": 1 }
+            },
+            {
+              "name": "limit", 
+              "in": "query",
+              "schema": { "type": "integer", "default": 20 }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Time entries retrieved successfully"
+            }
+          }
+        },
+        "post": {
+          "summary": "Create Time Entry",
+          "description": "Create a new time entry",
+          "tags": ["Time Entries"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["date", "start_time", "end_time"],
+                  "properties": {
+                    "date": { "type": "string", "format": "date" },
+                    "start_time": { "type": "string", "format": "time" },
+                    "end_time": { "type": "string", "format": "time" },
+                    "task_name": { "type": "string" },
+                    "description": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Time entry created successfully"
+            }
+          }
+        }
+      },
+      "/projects": {
+        "get": {
+          "summary": "Get Projects",
+          "description": "Get list of all available projects",
+          "tags": ["Projects"],
+          "responses": {
+            "200": {
+              "description": "Projects retrieved successfully"
+            }
+          }
+        }
+      },
+      "/me/work-summary/weekly": {
+        "get": {
+          "summary": "Get Weekly Work Summary",
+          "description": "Get weekly work summary and breakdown",
+          "tags": ["Reports"],
+          "responses": {
+            "200": {
+              "description": "Weekly summary retrieved successfully"
+            }
+          }
+        }
+      },
+      "/leave-requests": {
+        "get": {
+          "summary": "Get Leave Requests",
+          "description": "Get list of leave requests",
+          "tags": ["Leave Management"],
+          "parameters": [
+            {
+              "name": "page",
+              "in": "query", 
+              "schema": { "type": "integer", "default": 1 }
+            },
+            {
+              "name": "limit",
+              "in": "query",
+              "schema": { "type": "integer", "default": 10 }
+            },
+            {
+              "name": "status",
+              "in": "query",
+              "schema": { "type": "string", "enum": ["pending", "approved", "rejected"] }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Leave requests retrieved successfully"
+            }
+          }
+        },
+        "post": {
+          "summary": "Create Leave Request", 
+          "description": "Submit a new leave request",
+          "tags": ["Leave Management"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["leave_type", "start_date", "end_date"],
+                  "properties": {
+                    "leave_type": { "type": "string", "enum": ["vacation", "sick", "personal"] },
+                    "start_date": { "type": "string", "format": "date" },
+                    "end_date": { "type": "string", "format": "date" },
+                    "reason": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Leave request created successfully"
+            }
+          }
+        }
+      },
+      "/me/leave-requests": {
+        "get": {
+          "summary": "Get My Leave Requests",
+          "description": "Get user's own leave requests",
+          "tags": ["Leave Management"],
+          "responses": {
+            "200": {
+              "description": "User leave requests retrieved successfully"
+            }
+          }
+        },
+        "post": {
+          "summary": "Create My Leave Request",
+          "description": "Create a new leave request for current user",
+          "tags": ["Leave Management"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["leave_type", "start_date", "end_date"],
+                  "properties": {
+                    "leave_type": { "type": "string" },
+                    "start_date": { "type": "string", "format": "date" },
+                    "end_date": { "type": "string", "format": "date" },
+                    "reason": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Leave request submitted successfully"
+            }
+          }
+        }
+      },
+      "/leave-balances": {
+        "get": {
+          "summary": "Get Leave Balances",
+          "description": "Get current leave balances",
+          "tags": ["Leave Management"],
+          "responses": {
+            "200": {
+              "description": "Leave balances retrieved successfully"
+            }
+          }
+        }
+      },
+      "/quick-actions/manual-time-entry": {
+        "post": {
+          "summary": "Manual Time Entry Request",
+          "description": "Submit manual time entry request",
+          "tags": ["Quick Actions"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["date", "start_time", "end_time", "reason"],
+                  "properties": {
+                    "date": { "type": "string", "format": "date" },
+                    "start_time": { "type": "string", "format": "time" },
+                    "end_time": { "type": "string", "format": "time" },
+                    "reason": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Manual time entry request submitted"
+            }
+          }
+        }
+      },
+      "/quick-actions/time-correction": {
+        "post": {
+          "summary": "Time Correction Request",
+          "description": "Submit time correction request",
+          "tags": ["Quick Actions"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["original_entry_id", "correction_type", "reason"],
+                  "properties": {
+                    "original_entry_id": { "type": "integer" },
+                    "correction_type": { "type": "string" },
+                    "reason": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Time correction request submitted"
+            }
+          }
+        }
+      },
+      "/reports/timesheet": {
+        "get": {
+          "summary": "Generate Timesheet Report",
+          "description": "Generate detailed timesheet report",
+          "tags": ["Reports"],
+          "parameters": [
+            {
+              "name": "startDate",
+              "in": "query",
+              "schema": { "type": "string", "format": "date" }
+            },
+            {
+              "name": "endDate", 
+              "in": "query",
+              "schema": { "type": "string", "format": "date" }
+            },
+            {
+              "name": "format",
+              "in": "query",
+              "schema": { "type": "string", "enum": ["json", "csv", "pdf"] }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Timesheet report generated successfully"
+            }
+          }
+        }
+      },
+      "/test": {
+        "get": {
+          "summary": "Test Endpoint",
+          "description": "Simple test endpoint to verify API connectivity",
+          "tags": ["Testing"],
+          "responses": {
+            "200": {
+              "description": "Test successful"
+            }
+          }
+        }
+      },
+      "/dashboard/summary": {
+        "get": {
+          "summary": "Get Dashboard Summary",
+          "description": "Get summarized dashboard data",
+          "tags": ["Dashboard"],
+          "responses": {
+            "200": {
+              "description": "Dashboard summary retrieved successfully"
+            }
+          }
+        }
+      },
+      "/me/timer/current": {
+        "get": {
+          "summary": "Get Current Timer Status",
+          "description": "Get current timer status and session details",
+          "tags": ["Timer"],
+          "responses": {
+            "200": {
+              "description": "Current timer status retrieved"
+            }
+          }
+        }
+      },
+      "/me/work-summary/today": {
+        "get": {
+          "summary": "Get Today's Work Summary",
+          "description": "Get work summary for today (Figma Work Status Screen)",
+          "tags": ["Reports"],
+          "responses": {
+            "200": {
+              "description": "Today's work summary retrieved"
+            }
+          }
+        }
+      },
+      "/notifications": {
+        "get": {
+          "summary": "Get Notifications",
+          "description": "Get user notifications (Figma Notifications Screen)",
+          "tags": ["Notifications"],
+          "responses": {
+            "200": {
+              "description": "Notifications retrieved successfully"
+            }
+          }
+        }
+      },
+      "/updates": {
+        "get": {
+          "summary": "Get Company Updates",
+          "description": "Get company updates and announcements",
+          "tags": ["Notifications"],
+          "responses": {
+            "200": {
+              "description": "Company updates retrieved successfully"
+            }
+          }
+        }
+      },
+      "/quick-actions": {
+        "get": {
+          "summary": "Get Quick Actions",
+          "description": "Get available quick actions for user",
+          "tags": ["Quick Actions"],
+          "responses": {
+            "200": {
+              "description": "Quick actions retrieved successfully"
+            }
+          }
+        }
+      },
+      "/leave-types": {
+        "get": {
+          "summary": "Get Leave Types",
+          "description": "Get available leave types",
+          "tags": ["Leave Management"],
+          "responses": {
+            "200": {
+              "description": "Leave types retrieved successfully"
+            }
+          }
+        }
+      },
+      "/user/profile": {
+        "get": {
+          "summary": "Get User Profile (Alias)",
+          "description": "Get user profile information (alternative route)",
+          "tags": ["User Profile"],
+          "responses": {
+            "200": {
+              "description": "User profile retrieved successfully"
+            }
+          }
+        }
+      },
+      "/profile/image": {
+        "get": {
+          "summary": "Get Profile Image",
+          "description": "Get user's profile image",
+          "tags": ["User Profile"],
+          "responses": {
+            "200": {
+              "description": "Profile image retrieved successfully"
+            }
+          }
+        },
+        "put": {
+          "summary": "Update Profile Image",
+          "description": "Upload or update user profile image",
+          "tags": ["User Profile"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "image": { "type": "string", "description": "Base64 encoded image" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Profile image updated successfully"
+            }
+          }
+        },
+        "delete": {
+          "summary": "Delete Profile Image",
+          "description": "Remove user's profile image",
+          "tags": ["User Profile"],
+          "responses": {
+            "200": {
+              "description": "Profile image deleted successfully"
+            }
+          }
+        }
+      },
+      "/user/dashboard": {
+        "get": {
+          "summary": "Get User Dashboard (Alias)",
+          "description": "Get dashboard data (alternative route)",
+          "tags": ["Dashboard"],
+          "responses": {
+            "200": {
+              "description": "Dashboard data retrieved successfully"
+            }
+          }
+        }
+      },
+      "/me/timer/pause": {
+        "post": {
+          "summary": "Pause/Resume Timer",
+          "description": "Pause or resume the current timer",
+          "tags": ["Timer"],
+          "responses": {
+            "200": {
+              "description": "Timer paused/resumed successfully"
+            }
+          }
+        }
+      },
+      "/time-entries": {
+        "get": {
+          "summary": "Get Time Entries (Alias)",
+          "description": "Get time entries (alternative route)",
+          "tags": ["Time Entries"],
+          "parameters": [
+            {
+              "name": "page",
+              "in": "query",
+              "schema": { "type": "integer", "default": 1 }
+            },
+            {
+              "name": "limit",
+              "in": "query",
+              "schema": { "type": "integer", "default": 20 }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Time entries retrieved successfully"
+            }
+          }
+        }
+      },
+      "/me/time-entries/{id}": {
+        "put": {
+          "summary": "Update Time Entry",
+          "description": "Update an existing time entry",
+          "tags": ["Time Entries"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "integer" }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "start_time": { "type": "string", "format": "time" },
+                    "end_time": { "type": "string", "format": "time" },
+                    "description": { "type": "string" },
+                    "break_duration": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Time entry updated successfully"
+            }
+          }
+        },
+        "delete": {
+          "summary": "Delete Time Entry",
+          "description": "Delete a time entry",
+          "tags": ["Time Entries"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "integer" }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Time entry deleted successfully"
+            }
+          }
+        }
+      },
+      "/me/vacation/balance": {
+        "get": {
+          "summary": "Get Vacation Balance",
+          "description": "Get detailed vacation balance information",
+          "tags": ["Leave Management"],
+          "responses": {
+            "200": {
+              "description": "Vacation balance retrieved successfully"
+            }
+          }
+        }
+      },
+      "/me/vacation-balance": {
+        "get": {
+          "summary": "Get Vacation Balance (Simple)",
+          "description": "Get simple vacation balance overview",
+          "tags": ["Leave Management"],
+          "responses": {
+            "200": {
+              "description": "Vacation balance retrieved successfully"
+            }
+          }
+        }
+      },
+      "/me/overtime/summary": {
+        "get": {
+          "summary": "Get Overtime Summary",
+          "description": "Get overtime hours summary and compensation details",
+          "tags": ["Reports"],
+          "responses": {
+            "200": {
+              "description": "Overtime summary retrieved successfully"
+            }
+          }
+        }
+      },
+      "/me/work-status": {
+        "get": {
+          "summary": "Get Work Status",
+          "description": "Get current work session status and productivity metrics",
+          "tags": ["Reports"],
+          "responses": {
+            "200": {
+              "description": "Work status retrieved successfully"
+            }
+          }
+        }
+      },
+      "/me/notifications": {
+        "get": {
+          "summary": "Get User Notifications",
+          "description": "Get detailed user notifications with priority and actions",
+          "tags": ["Notifications"],
+          "responses": {
+            "200": {
+              "description": "Notifications retrieved successfully"
+            }
+          }
+        }
+      },
+      "/me/notifications/{id}/read": {
+        "post": {
+          "summary": "Mark Notification as Read",
+          "description": "Mark a specific notification as read",
+          "tags": ["Notifications"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "integer" }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Notification marked as read"
+            }
+          }
+        }
+      },
+      "/me/notifications/mark-all-read": {
+        "post": {
+          "summary": "Mark All Notifications as Read",
+          "description": "Mark all user notifications as read",
+          "tags": ["Notifications"],
+          "responses": {
+            "200": {
+              "description": "All notifications marked as read"
+            }
+          }
+        }
+      },
+      "/me/updates": {
+        "get": {
+          "summary": "Get Company Updates",
+          "description": "Get detailed company announcements and updates",
+          "tags": ["Notifications"],
+          "responses": {
+            "200": {
+              "description": "Company updates retrieved successfully"
+            }
+          }
+        }
+      },
+      "/projects/{id}/tasks": {
+        "get": {
+          "summary": "Get Project Tasks",
+          "description": "Get tasks for a specific project",
+          "tags": ["Projects"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "integer" }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Project tasks retrieved successfully"
+            }
+          }
+        }
+      },
+      "/setup-sample-tasks": {
+        "post": {
+          "summary": "Setup Sample Tasks",
+          "description": "Create sample tasks for testing and demonstration",
+          "tags": ["Projects"],
+          "responses": {
+            "201": {
+              "description": "Sample tasks created successfully"
+            }
+          }
+        }
+      },
+      "/me/quick-actions": {
+        "get": {
+          "summary": "Get Quick Actions",
+          "description": "Get available quick actions for the user",
+          "tags": ["Quick Actions"],
+          "responses": {
+            "200": {
+              "description": "Quick actions retrieved successfully"
+            }
+          }
+        }
+      },
+      "/me/time-corrections": {
+        "post": {
+          "summary": "Submit Time Correction",
+          "description": "Submit a time correction request",
+          "tags": ["Quick Actions"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["original_entry_id", "correction_type", "reason"],
+                  "properties": {
+                    "original_entry_id": { "type": "integer" },
+                    "correction_type": { "type": "string" },
+                    "reason": { "type": "string" },
+                    "corrected_start_time": { "type": "string", "format": "time" },
+                    "corrected_end_time": { "type": "string", "format": "time" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Time correction request submitted successfully"
+            }
+          }
+        }
+      },
+      "/me/time-entries/manual": {
+        "post": {
+          "summary": "Add Manual Time Entry",
+          "description": "Submit a manual time entry request",
+          "tags": ["Quick Actions"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["date", "start_time", "end_time", "task_description", "reason"],
+                  "properties": {
+                    "date": { "type": "string", "format": "date" },
+                    "start_time": { "type": "string", "format": "time" },
+                    "end_time": { "type": "string", "format": "time" },
+                    "task_description": { "type": "string" },
+                    "reason": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Manual time entry submitted successfully"
+            }
+          }
+        }
+      }
+    }
+  };
+
+  res.json(swaggerSpec);
 });
 
-
-// Swagger UI with improved error handling
+// Swagger UI
 app.get('/api-docs', (req, res) => {
-  res.setHeader('Content-Type', 'text/html');
   res.send(`
     <!DOCTYPE html>
     <html>
@@ -2609,85 +2900,27 @@ app.get('/api-docs', (req, res) => {
           html { box-sizing: border-box; overflow: -moz-scrollbars-vertical; overflow-y: scroll; }
           *, *:before, *:after { box-sizing: inherit; }
           body { margin:0; background: #fafafa; }
-          .loading { 
-            text-align: center; 
-            padding: 50px; 
-            font-family: Arial, sans-serif;
-            color: #666;
-          }
-          .error { 
-            color: #e74c3c; 
-            background: #ffebee; 
-            padding: 20px; 
-            border-radius: 5px;
-            margin: 20px;
-            text-align: center;
-          }
         </style>
       </head>
       <body>
-        <div id="loading" class="loading">
-          <h2>?? Loading API Documentation...</h2>
-          <p>Initializing Swagger UI for api-layer.vercel.app</p>
-        </div>
         <div id="swagger-ui"></div>
-        <div id="error-container"></div>
-        
-        <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-bundle.js" charset="UTF-8"></script>
-        <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js" charset="UTF-8"></script>
+        <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"></script>
+        <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js"></script>
         <script>
           window.onload = function() {
-            try {
-              console.log('?? Initializing Swagger UI...');
-              
-              const ui = SwaggerUIBundle({
-                url: window.location.origin + '/swagger.json',
-                dom_id: '#swagger-ui',
-                deepLinking: true,
-                presets: [
-                  SwaggerUIBundle.presets.apis,
-                  SwaggerUIStandalonePreset
-                ],
-                plugins: [
-                  SwaggerUIBundle.plugins.DownloadUrl
-                ],
-                layout: "StandaloneLayout",
-                onComplete: function() {
-                  document.getElementById('loading').style.display = 'none';
-                  console.log('? Swagger UI loaded successfully');
-                },
-                onFailure: function(error) {
-                  console.error('? Swagger UI failed to load:', error);
-                  document.getElementById('loading').style.display = 'none';
-                  document.getElementById('error-container').innerHTML = 
-                    '<div class="error"><h3>?? Failed to load API documentation</h3><p>Error: ' + error + '</p><p>Please refresh the page or contact support.</p></div>';
-                }
-              });
-              
-              // Test swagger.json availability
-              fetch(window.location.origin + '/swagger.json')
-                .then(response => {
-                  if (!response.ok) {
-                    throw new Error('Swagger JSON not available');
-                  }
-                  return response.json();
-                })
-                .then(data => {
-                  console.log('? Swagger JSON loaded:', Object.keys(data.paths || {}).length, 'endpoints');
-                })
-                .catch(error => {
-                  console.error('? Swagger JSON error:', error);
-                  document.getElementById('loading').style.display = 'none';
-                  document.getElementById('error-container').innerHTML = 
-                    '<div class="error"><h3>?? API specification not found</h3><p>The swagger.json file could not be loaded.</p><p>Error: ' + error.message + '</p></div>';
-                });
-                
-            } catch (error) {
-              console.error('? Critical error:', error);
-              document.getElementById('loading').style.display = 'none';
-              document.getElementById('error-container').innerHTML = 
-                '<div class="error"><h3>?? Critical Error</h3><p>Failed to initialize API documentation.</p><p>Error: ' + error.message + '</p></div>';
-            }
+            const ui = SwaggerUIBundle({
+              url: '/swagger.json',
+              dom_id: '#swagger-ui',
+              deepLinking: true,
+              presets: [
+                SwaggerUIBundle.presets.apis,
+                SwaggerUIStandalonePreset
+              ],
+              plugins: [
+                SwaggerUIBundle.plugins.DownloadUrl
+              ],
+              layout: "StandaloneLayout"
+            });
           };
         </script>
       </body>
@@ -2701,715 +2934,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({
     error: 'Something went wrong!',
     message: err.message
-  });
-});
-
-// ========== Time Corrections API (Based on Figma Designs) ==========
-
-// Get all time correction requests for current user
-app.get('/api/me/time-corrections', authenticateToken, (req, res) => {
-  res.json({
-    success: true,
-    message: "Time correction requests retrieved successfully",
-    data: {
-      requests: [
-        {
-          id: 1,
-          type: 'missing_work_entry',
-          date: '2024-12-20',
-          status: 'pending',
-          requested_time_in: '09:00:00',
-          requested_time_out: '17:00:00',
-          reason: 'Forgot to clock in and out',
-          submitted_at: '2024-12-21T10:30:00Z',
-          issue_description: 'Missing work entry for full day'
-        },
-        {
-          id: 2,
-          type: 'wrong_clock_time',
-          date: '2024-12-19',
-          status: 'approved',
-          actual_time_in: '08:45:00',
-          requested_time_in: '09:00:00',
-          reason: 'Clock-in time was incorrect',
-          submitted_at: '2024-12-20T14:15:00Z'
-        }
-      ],
-      total_count: 2,
-      pending_count: 1,
-      approved_count: 1
-    }
-  });
-});
-
-// Get time correction issue types
-app.get('/api/time-correction-types', authenticateToken, (req, res) => {
-  res.json({
-    success: true,
-    message: "Time correction types retrieved successfully",
-    data: [
-      {
-        id: 'missing_work_entry',
-        name: 'Add missing work entry',
-        description: 'Request to add missing clock-in/out for a work day',
-        icon: 'clock-plus',
-        color: '#4CAF50'
-      },
-      {
-        id: 'wrong_clock_time',
-        name: 'Wrong clock-in/out time',
-        description: 'Correct incorrect clock-in or clock-out time',
-        icon: 'clock-edit',
-        color: '#FF9800'
-      },
-      {
-        id: 'missing_break',
-        name: 'Missing break entry',
-        description: 'Add missing break time entry',
-        icon: 'coffee',
-        color: '#2196F3'
-      },
-      {
-        id: 'overtime_request',
-        name: 'Overtime work request',
-        description: 'Request approval for overtime work',
-        icon: 'clock-plus-outline',
-        color: '#9C27B0'
-      }
-    ]
-  });
-});
-
-// Create new time correction request
-app.post('/api/me/time-corrections', authenticateToken, (req, res) => {
-  const {
-    type,
-    date,
-    requested_time_in,
-    requested_time_out,
-    actual_time_in,
-    actual_time_out,
-    reason,
-    issue_description,
-    additional_notes
-  } = req.body;
-
-  // Generate response based on issue type
-  const newRequest = {
-    id: Math.floor(Math.random() * 10000),
-    type,
-    date,
-    status: 'pending',
-    reason,
-    issue_description,
-    additional_notes,
-    submitted_at: new Date().toISOString(),
-    estimated_processing_time: '24-48 hours'
-  };
-
-  if (type === 'missing_work_entry') {
-    newRequest.requested_time_in = requested_time_in;
-    newRequest.requested_time_out = requested_time_out;
-  } else if (type === 'wrong_clock_time') {
-    newRequest.actual_time_in = actual_time_in;
-    newRequest.actual_time_out = actual_time_out;
-    newRequest.requested_time_in = requested_time_in;
-    newRequest.requested_time_out = requested_time_out;
-  }
-
-  res.json({
-    success: true,
-    message: "Time correction request submitted successfully",
-    data: newRequest
-  });
-});
-
-// Update time correction status (for admin/manager)
-app.put('/api/time-corrections/:id/status', authenticateToken, (req, res) => {
-  const { id } = req.params;
-  const { status, admin_comment } = req.body; // pending, approved, rejected
-  
-  res.json({
-    success: true,
-    message: `Time correction request ${status} successfully`,
-    data: {
-      id: parseInt(id),
-      status,
-      admin_comment,
-      updated_at: new Date().toISOString(),
-      processed_by: 'Manager Name'
-    }
-  });
-});
-
-// Get time correction history
-app.get('/api/me/time-corrections/history', authenticateToken, (req, res) => {
-  res.json({
-    success: true,
-    message: "Time correction history retrieved successfully",
-    data: {
-      history: [
-        {
-          id: 1,
-          type: 'missing_work_entry',
-          date: '2024-12-15',
-          status: 'approved',
-          reason: 'System was down',
-          processed_at: '2024-12-16T09:00:00Z',
-          processed_by: 'HR Manager'
-        },
-        {
-          id: 2,
-          type: 'wrong_clock_time',
-          date: '2024-12-10',
-          status: 'rejected',
-          reason: 'Incorrect request details',
-          processed_at: '2024-12-11T14:30:00Z',
-          processed_by: 'Team Lead'
-        }
-      ],
-      total_requests: 5,
-      approved_requests: 3,
-      rejected_requests: 1,
-      pending_requests: 1
-    }
-  });
-});
-
-// ========== Company Management APIs (Based on Figma Company Settings - Admin/Owner) ==========
-
-// Get company settings
-app.get('/api/company/settings', authenticateToken, (req, res) => {
-  res.json({
-    success: true,
-    message: "Company settings retrieved successfully",
-    data: {
-      company: {
-        id: 1,
-        name: "ACME Inc.",
-        logo_url: "https://api-layer.vercel.app/api/company/logo",
-        industry: "IT Company",
-        category: "Technology",
-        brand_color: "#6366F1",
-        brand_color_name: "Purple",
-        support_email: "acmeinc@gmail.com",
-        company_phone: "(+1) 740 - 8521",
-        address: "45 Cloudy Bay, Auckland, NZ",
-        founded_date: "2020-01-01",
-        employee_count: 150,
-        timezone: "Pacific/Auckland",
-        website: "https://acme.inc",
-        description: "Leading technology company providing innovative solutions"
-      },
-      branding: {
-        primary_color: "#6366F1",
-        secondary_color: "#8B5CF6", 
-        accent_color: "#F59E0B",
-        logo_variants: {
-          light: "https://api-layer.vercel.app/api/company/logo/light",
-          dark: "https://api-layer.vercel.app/api/company/logo/dark",
-          icon: "https://api-layer.vercel.app/api/company/logo/icon"
-        }
-      },
-      permissions: {
-        can_edit_company: true,
-        can_change_branding: true,
-        can_upload_logo: true,
-        role_required: "admin"
-      }
-    }
-  });
-});
-
-// Update company settings (general)
-app.put('/api/company/settings', authenticateToken, (req, res) => {
-  const { name, industry, brand_color, support_email, company_phone, address, description } = req.body;
-  
-  res.json({
-    success: true,
-    message: "Company settings updated successfully",
-    data: {
-      company: {
-        id: 1,
-        name: name || "ACME Inc.",
-        industry: industry || "IT Company",
-        brand_color: brand_color || "#6366F1",
-        support_email: support_email || "acmeinc@gmail.com",
-        company_phone: company_phone || "(+1) 740 - 8521", 
-        address: address || "45 Cloudy Bay, Auckland, NZ",
-        description: description,
-        updated_at: new Date().toISOString(),
-        updated_by: "Admin User"
-      }
-    }
-  });
-});
-
-// Upload company logo
-app.post('/api/company/logo', authenticateToken, (req, res) => {
-  const { logo_data, logo_type, variant } = req.body;
-  
-  res.json({
-    success: true,
-    message: "Company logo uploaded successfully",
-    data: {
-      logo_url: "https://api-layer.vercel.app/api/company/logo",
-      variant: variant || "primary",
-      logo_id: `LOGO_${Date.now()}`,
-      upload_time: new Date().toISOString(),
-      file_size: "3.2 MB",
-      file_type: logo_type || "image/png",
-      dimensions: "512x512",
-      variants_generated: {
-        light: "https://api-layer.vercel.app/api/company/logo/light",
-        dark: "https://api-layer.vercel.app/api/company/logo/dark", 
-        icon: "https://api-layer.vercel.app/api/company/logo/icon",
-        favicon: "https://api-layer.vercel.app/api/company/logo/favicon"
-      }
-    }
-  });
-});
-
-// Update company name
-app.put('/api/company/name', authenticateToken, (req, res) => {
-  const { company_name } = req.body;
-  
-  if (!company_name || company_name.trim().length === 0) {
-    return res.status(400).json({
-      success: false,
-      message: "Company name is required",
-      errors: {
-        company_name: "Please enter a valid company name"
-      }
-    });
-  }
-  
-  res.json({
-    success: true,
-    message: "Company name updated successfully",
-    data: {
-      company_name: company_name.trim(),
-      slug: company_name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-'),
-      updated_at: new Date().toISOString()
-    }
-  });
-});
-
-// Update industry/category
-app.put('/api/company/industry', authenticateToken, (req, res) => {
-  const { industry, category } = req.body;
-  
-  if (!industry) {
-    return res.status(400).json({
-      success: false,
-      message: "Industry/category is required",
-      errors: {
-        industry: "Please select an industry"
-      }
-    });
-  }
-  
-  res.json({
-    success: true,
-    message: "Industry updated successfully",
-    data: {
-      industry,
-      category: category || industry,
-      industry_code: industry.toLowerCase().replace(/[^a-z0-9]/g, '_'),
-      updated_at: new Date().toISOString()
-    }
-  });
-});
-
-// Update brand color
-app.put('/api/company/brand-color', authenticateToken, (req, res) => {
-  const { brand_color, color_name, custom_color } = req.body;
-  
-  // Predefined colors matching Figma design
-  const predefinedColors = {
-    'Blue': '#3B82F6',
-    'Purple': '#6366F1', 
-    'Burgundy': '#991B1B',
-    'Red': '#EF4444',
-    'Midnight Blue': '#1E3A8A'
-  };
-  
-  let finalColor = brand_color;
-  let finalColorName = color_name;
-  
-  // If custom color is provided
-  if (custom_color) {
-    finalColor = custom_color;
-    finalColorName = 'Custom Color';
-  } else if (color_name && predefinedColors[color_name]) {
-    finalColor = predefinedColors[color_name];
-  }
-  
-  // Color validation
-  const hexColorRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
-  if (!hexColorRegex.test(finalColor)) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid color format",
-      errors: {
-        brand_color: "Please provide a valid hex color code"
-      }
-    });
-  }
-  
-  res.json({
-    success: true,
-    message: "Brand color updated successfully",
-    data: {
-      brand_color: finalColor,
-      color_name: finalColorName,
-      rgb: hexToRgb(finalColor),
-      predefined_colors: predefinedColors,
-      updated_at: new Date().toISOString()
-    }
-  });
-});
-
-// Helper function to convert hex to RGB
-function hexToRgb(hex) {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result ? {
-    r: parseInt(result[1], 16),
-    g: parseInt(result[2], 16),
-    b: parseInt(result[3], 16)
-  } : null;
-}
-
-// Update support email
-app.put('/api/company/support-email', authenticateToken, (req, res) => {
-  const { support_email } = req.body;
-  
-  // Email validation
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!support_email || !emailRegex.test(support_email)) {
-    return res.status(400).json({
-      success: false,
-      message: "Valid support email is required",
-      errors: {
-        support_email: "Please enter a valid email address"
-      }
-    });
-  }
-  
-  res.json({
-    success: true,
-    message: "Support email updated successfully",
-    data: {
-      support_email,
-      email_verified: false,
-      verification_sent: true,
-      updated_at: new Date().toISOString()
-    }
-  });
-});
-
-// Update company phone
-app.put('/api/company/phone', authenticateToken, (req, res) => {
-  const { company_phone } = req.body;
-  
-  if (!company_phone) {
-    return res.status(400).json({
-      success: false,
-      message: "Company phone number is required",
-      errors: {
-        company_phone: "Please enter a valid phone number"
-      }
-    });
-  }
-  
-  res.json({
-    success: true,
-    message: "Company phone updated successfully",
-    data: {
-      company_phone,
-      formatted_phone: company_phone,
-      country_code: "+1",
-      phone_verified: false,
-      updated_at: new Date().toISOString()
-    }
-  });
-});
-
-// Update company address
-app.put('/api/company/address', authenticateToken, (req, res) => {
-  const { address, city, state, country, postal_code } = req.body;
-  
-  if (!address) {
-    return res.status(400).json({
-      success: false,
-      message: "Address is required",
-      errors: {
-        address: "Please enter a valid address"
-      }
-    });
-  }
-  
-  res.json({
-    success: true,
-    message: "Company address updated successfully",
-    data: {
-      address,
-      city: city || "Auckland",
-      state: state || "Auckland",
-      country: country || "New Zealand",
-      postal_code: postal_code || "1010",
-      full_address: `${address}, ${city || "Auckland"}, ${country || "New Zealand"}`,
-      coordinates: {
-        latitude: -36.8485,
-        longitude: 174.7633
-      },
-      updated_at: new Date().toISOString()
-    }
-  });
-});
-
-// ========== Profile Management APIs (Based on Figma Settings Screens) ==========
-
-// Get user profile information
-app.get('/api/me/profile', authenticateToken, (req, res) => {
-  res.json({
-    success: true,
-    message: "Profile information retrieved successfully",
-    data: {
-      user: {
-        id: 1,
-        first_name: "Jenny",
-        last_name: "Wilson", 
-        full_name: "Jenny Wilson",
-        email: "jenny.wilson@email.com",
-        phone: "(+1) 267 - 9041",
-        profile_photo: "https://api-layer.vercel.app/api/me/profile/photo",
-        role: "Employee",
-        company: "ACME Inc.",
-        joined_date: "August 17, 2025",
-        employee_id: "EMP001",
-        department: "Engineering",
-        status: "Active",
-        timezone: "UTC-5",
-        last_login: "2024-12-24T09:41:00Z"
-      },
-      permissions: {
-        can_edit_profile: true,
-        can_change_password: true,
-        can_delete_account: true,
-        can_upload_photo: true
-      }
-    }
-  });
-});
-
-// Update profile information  
-app.put('/api/me/profile', authenticateToken, (req, res) => {
-  const { first_name, last_name, email, phone, timezone } = req.body;
-  
-  res.json({
-    success: true,
-    message: "Profile updated successfully",
-    data: {
-      user: {
-        id: 1,
-        first_name: first_name || "Jenny",
-        last_name: last_name || "Wilson",
-        full_name: `${first_name || "Jenny"} ${last_name || "Wilson"}`,
-        email: email || "jenny.wilson@email.com", 
-        phone: phone || "(+1) 267 - 9041",
-        timezone: timezone || "UTC-5",
-        updated_at: new Date().toISOString()
-      }
-    }
-  });
-});
-
-// Upload profile photo
-app.post('/api/me/profile/photo', authenticateToken, (req, res) => {
-  const { photo_data, photo_type } = req.body;
-  
-  res.json({
-    success: true,
-    message: "Profile photo uploaded successfully",
-    data: {
-      photo_url: "https://api-layer.vercel.app/api/me/profile/photo",
-      photo_id: Math.floor(Math.random() * 10000),
-      upload_time: new Date().toISOString(),
-      file_size: "2.3 MB",
-      file_type: photo_type || "image/jpeg",
-      thumbnail_url: "https://api-layer.vercel.app/api/me/profile/photo/thumb"
-    }
-  });
-});
-
-// Update name specifically  
-app.put('/api/me/profile/name', authenticateToken, (req, res) => {
-  const { first_name, last_name } = req.body;
-  
-  // Validation
-  if (!first_name || !last_name) {
-    return res.status(400).json({
-      success: false,
-      message: "First name and last name are required",
-      errors: {
-        first_name: !first_name ? "First name is required" : null,
-        last_name: !last_name ? "Last name is required" : null
-      }
-    });
-  }
-  
-  res.json({
-    success: true,
-    message: "Name updated successfully",
-    data: {
-      first_name,
-      last_name,
-      full_name: `${first_name} ${last_name}`,
-      updated_at: new Date().toISOString()
-    }
-  });
-});
-
-// Update email specifically
-app.put('/api/me/profile/email', authenticateToken, (req, res) => {
-  const { email } = req.body;
-  
-  // Email validation
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!email || !emailRegex.test(email)) {
-    return res.status(400).json({
-      success: false,
-      message: "Valid email address is required",
-      errors: {
-        email: "Please enter a valid email address"
-      }
-    });
-  }
-  
-  res.json({
-    success: true,
-    message: "Email updated successfully",
-    data: {
-      email,
-      email_verified: false,
-      verification_sent: true,
-      updated_at: new Date().toISOString()
-    }
-  });
-});
-
-// Update phone number specifically
-app.put('/api/me/profile/phone', authenticateToken, (req, res) => {
-  const { phone } = req.body;
-  
-  // Phone validation
-  if (!phone) {
-    return res.status(400).json({
-      success: false,
-      message: "Phone number is required",
-      errors: {
-        phone: "Please enter a valid phone number"
-      }
-    });
-  }
-  
-  res.json({
-    success: true,
-    message: "Phone number updated successfully", 
-    data: {
-      phone,
-      phone_verified: false,
-      verification_sent: true,
-      updated_at: new Date().toISOString()
-    }
-  });
-});
-
-// Change password
-app.put('/api/me/profile/password', authenticateToken, (req, res) => {
-  const { current_password, new_password, confirm_password } = req.body;
-  
-  // Password validation
-  if (!current_password || !new_password || !confirm_password) {
-    return res.status(400).json({
-      success: false,
-      message: "All password fields are required",
-      errors: {
-        current_password: !current_password ? "Current password is required" : null,
-        new_password: !new_password ? "New password is required" : null,
-        confirm_password: !confirm_password ? "Please confirm your new password" : null
-      }
-    });
-  }
-  
-  if (new_password !== confirm_password) {
-    return res.status(400).json({
-      success: false,
-      message: "Passwords do not match",
-      errors: {
-        confirm_password: "Passwords do not match"
-      }
-    });
-  }
-  
-  if (new_password.length < 6) {
-    return res.status(400).json({
-      success: false,
-      message: "Password must be at least 6 characters long",
-      errors: {
-        new_password: "Password must be at least 6 characters long"
-      }
-    });
-  }
-  
-  res.json({
-    success: true,
-    message: "Password changed successfully",
-    data: {
-      password_changed: true,
-      changed_at: new Date().toISOString(),
-      logout_other_sessions: true
-    }
-  });
-});
-
-// Delete account
-app.delete('/api/me/profile', authenticateToken, (req, res) => {
-  const { confirmation_text, password } = req.body;
-  
-  // Validation for delete confirmation
-  if (!confirmation_text || confirmation_text.toLowerCase() !== 'delete') {
-    return res.status(400).json({
-      success: false,
-      message: "Please type 'DELETE' to confirm account deletion",
-      errors: {
-        confirmation: "Type 'DELETE' to confirm"
-      }
-    });
-  }
-  
-  if (!password) {
-    return res.status(400).json({
-      success: false,
-      message: "Password is required to delete account",
-      errors: {
-        password: "Please enter your password to confirm"
-      }
-    });
-  }
-  
-  res.json({
-    success: true,
-    message: "Account deletion initiated successfully",
-    data: {
-      deletion_initiated: true,
-      deletion_id: `DEL_${Date.now()}`,
-      initiated_at: new Date().toISOString(),
-      completion_time: "24-48 hours",
-      cancellation_deadline: new Date(Date.now() + 24*60*60*1000).toISOString(),
-      warning: "This action cannot be undone. Your profile and all related data will be permanently removed."
-    }
   });
 });
 
@@ -3432,932 +2956,10 @@ app.use('*', (req, res) => {
       '/api/quick-actions',
       '/api/leave-types',
       '/api/me/leave-requests',
-      '/api/me/time-corrections',
-      '/api/time-correction-types',
-      '/api/me/time-corrections/history',
-      '/api/company/settings',
-      '/api/company/logo',
-      '/api/company/name',
-      '/api/company/industry',
-      '/api/company/brand-color',
-      '/api/company/support-email',
-      '/api/company/phone',
-      '/api/company/address',
-      '/api/me/profile',
-      '/api/me/profile/photo',
-      '/api/me/profile/name',
-      '/api/me/profile/email',
-      '/api/me/profile/phone',
-      '/api/me/profile/password',
       '/api-docs',
       '/swagger.json'
     ]
   });
 });
-
-// Start server for local development
-const PORT = process.env.PORT || 3000;
-
-// Only start server if not in Vercel environment
-// Dashboard Recent Requests API
-app.get('/api/dashboard/recent-requests', (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
-  const status = req.query.status || 'all';
-  const type = req.query.type || 'all';
-  
-  const allRequests = [
-    {
-      id: 1,
-      employeeName: 'Jenny Wilson',
-      type: 'Vacation',
-      date: '12 - 14 Nov 2025',
-      status: 'Pending',
-      submitted: 'Today, 08:04',
-      submittedDate: new Date().toISOString()
-    },
-    {
-      id: 2,
-      employeeName: 'Michael Kim',
-      type: 'Vacation',
-      date: '5 - 6 Nov 2025',
-      status: 'Approved',
-      submitted: 'Yesterday, 17:22',
-      submittedDate: new Date(Date.now() - 86400000).toISOString()
-    },
-    {
-      id: 3,
-      employeeName: 'Mark Evans',
-      type: 'Correction',
-      date: '9 Nov 2025',
-      status: 'Pending',
-      submitted: '2 days ago',
-      submittedDate: new Date(Date.now() - 172800000).toISOString()
-    },
-    {
-      id: 4,
-      employeeName: 'Sarah Anderson',
-      type: 'Correction',
-      date: '2 Nov 2025',
-      status: 'Reject',
-      submitted: '2 days ago',
-      submittedDate: new Date(Date.now() - 172800000).toISOString()
-    },
-    {
-      id: 5,
-      employeeName: 'Daniel Lee',
-      type: 'Correction',
-      date: '3 Nov 2025',
-      status: 'Reject',
-      submitted: 'Yesterday, 10:11',
-      submittedDate: new Date(Date.now() - 86400000).toISOString()
-    },
-    {
-      id: 6,
-      employeeName: 'Michael Chen',
-      type: 'Vacation',
-      date: '20 - 22 Dec 2025',
-      status: 'Pending',
-      submitted: 'Today, 09:45',
-      submittedDate: new Date().toISOString()
-    },
-    {
-      id: 7,
-      employeeName: 'Olivia Carter',
-      type: 'Vacation',
-      date: '10 Nov 2025',
-      status: 'Pending',
-      submitted: 'Today, 06:04',
-      submittedDate: new Date().toISOString()
-    },
-    {
-      id: 8,
-      employeeName: 'Joshua Kim',
-      type: 'Vacation',
-      date: '28 Nov 2025',
-      status: 'Approved',
-      submitted: '2 days ago',
-      submittedDate: new Date(Date.now() - 172800000).toISOString()
-    },
-    {
-      id: 9,
-      employeeName: 'Emily Davis',
-      type: 'Correction',
-      date: '1 Nov 2025',
-      status: 'Approved',
-      submitted: '3 days ago',
-      submittedDate: new Date(Date.now() - 259200000).toISOString()
-    },
-    {
-      id: 10,
-      employeeName: 'Michelle Hart',
-      type: 'Vacation',
-      date: '18 - 19 Nov 2025',
-      status: 'Pending',
-      submitted: 'Today, 11:12',
-      submittedDate: new Date().toISOString()
-    }
-  ];
-  
-  let filteredRequests = allRequests;
-  
-  if (status !== 'all') {
-    filteredRequests = filteredRequests.filter(req => req.status.toLowerCase() === status.toLowerCase());
-  }
-  
-  if (type !== 'all') {
-    filteredRequests = filteredRequests.filter(req => req.type.toLowerCase() === type.toLowerCase());
-  }
-  
-  const startIndex = (page - 1) * limit;
-  const endIndex = startIndex + limit;
-  const paginatedRequests = filteredRequests.slice(startIndex, endIndex);
-  
-  res.json({
-    success: true,
-    data: {
-      requests: paginatedRequests,
-      pagination: {
-        current_page: page,
-        total_pages: Math.ceil(filteredRequests.length / limit),
-        total_records: filteredRequests.length,
-        per_page: limit
-      },
-      filters: {
-        available_statuses: ['All Status', 'Pending', 'Approved', 'Reject'],
-        available_types: ['All Types', 'Vacation', 'Correction'],
-        current_status: status,
-        current_type: type
-      }
-    }
-  });
-});
-
-// Request Actions APIs
-app.post('/api/requests/:id/approve', (req, res) => {
-  const requestId = req.params.id;
-  res.json({
-    success: true,
-    message: 'Request approved successfully',
-    data: {
-      requestId: requestId,
-      status: 'approved',
-      approvedAt: new Date().toISOString(),
-      approvedBy: 'Admin'
-    }
-  });
-});
-
-app.post('/api/requests/:id/reject', (req, res) => {
-  const requestId = req.params.id;
-  const reason = req.body.reason || 'No reason provided';
-  res.json({
-    success: true,
-    message: 'Request rejected successfully',
-    data: {
-      requestId: requestId,
-      status: 'rejected',
-      rejectedAt: new Date().toISOString(),
-      rejectedBy: 'Admin',
-      reason: reason
-    }
-  });
-});
-
-// Workforce Activity API
-app.get('/api/dashboard/workforce-activity', (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      todayStats: {
-        clockedInToday: {
-          count: 38,
-          description: 'Employees who have started their shift',
-          employees: ['John Doe', 'Jane Smith', 'Mike Johnson']
-        },
-        notClockedIn: {
-          count: 4,
-          description: 'Employees who haven\'t started their day yet',
-          employees: ['Sarah Wilson', 'David Brown']
-        },
-        onBreak: {
-          count: 7,
-          description: 'Currently on break or paused',
-          employees: ['Mark Evans', 'Lisa Wang']
-        },
-        clockedOutToday: {
-          count: 34,
-          description: 'Employees who have finished their shift',
-          employees: ['Alex Chen', 'Maria Garcia']
-        },
-        lateArrivals: {
-          count: 3,
-          description: 'Clocked in after the scheduled start time',
-          employees: ['Robert Taylor', 'Emma Davis', 'Chris Wilson']
-        }
-      },
-      realTimeUpdates: {
-        lastUpdated: new Date().toISOString(),
-        refreshRate: '30 seconds'
-      }
-    }
-  });
-});
-
-// Employee Stats API
-app.get('/api/dashboard/employees', (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      totalEmployees: 42,
-      activeEmployees: 39,
-      onLeave: 3,
-      categories: {
-        fullTime: 35,
-        partTime: 7,
-        contractors: 0
-      },
-      departments: {
-        engineering: 18,
-        marketing: 8,
-        sales: 10,
-        hr: 4,
-        finance: 2
-      }
-    }
-  });
-});
-
-// Get All Employees API
-app.get('/api/employees', authenticateToken, (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
-  const status = req.query.status || 'all';
-  const role = req.query.role || 'all';
-  const department = req.query.department || 'all';
-  const search = req.query.search || '';
-  const dateJoined = req.query.dateJoined || 'all';
-
-  const allEmployees = [
-    {
-      id: 1,
-      name: "Jenny Wilson",
-      firstName: "Jenny",
-      lastName: "Wilson",
-      email: "jenny.wilson@email.com",
-      phone: "+1 234 567 890",
-      address: "42 Sunset Road, Westfield, NY",
-      role: "Employee",
-      department: "Design",
-      status: "Active",
-      dateJoined: "2024-08-17",
-      workingHours: "09:00 - 17:00",
-      workModel: "Hybrid",
-      manager: "Mark Evans",
-      employeeId: "EMP - 0232",
-      profileImage: "https://images.unsplash.com/photo-1494790108755-2616b612c937?w=150"
-    },
-    {
-      id: 2,
-      name: "Michael Kim",
-      firstName: "Michael",
-      lastName: "Kim",
-      email: "michael.kim@email.com",
-      phone: "+1 234 567 891",
-      address: "123 Oak Street, Boston, MA",
-      role: "Employee",
-      department: "Engineering",
-      status: "Active",
-      dateJoined: "2025-01-02",
-      workingHours: "09:00 - 18:00",
-      workModel: "Remote",
-      manager: "Sarah Tech",
-      employeeId: "EMP - 0233"
-    },
-    {
-      id: 3,
-      name: "Mark Evans",
-      firstName: "Mark",
-      lastName: "Evans",
-      email: "mark.evans@email.com",
-      phone: "+1 234 567 892",
-      address: "456 Pine Avenue, Seattle, WA",
-      role: "Manager",
-      department: "Operations",
-      status: "Active",
-      dateJoined: "2023-10-10",
-      workingHours: "08:00 - 17:00",
-      workModel: "Onsite",
-      manager: "CEO",
-      employeeId: "EMP - 0234"
-    },
-    {
-      id: 4,
-      name: "Sarah Anderson",
-      firstName: "Sarah",
-      lastName: "Anderson",
-      email: "sarah.anderson@email.com",
-      phone: "+1 234 567 893",
-      address: "789 Elm Street, Portland, OR",
-      role: "Employee",
-      department: "HR",
-      status: "Inactive",
-      dateJoined: "2023-03-03",
-      workingHours: "09:00 - 17:00",
-      workModel: "Hybrid",
-      manager: "HR Director",
-      employeeId: "EMP - 0235"
-    },
-    {
-      id: 5,
-      name: "Daniel Lee",
-      firstName: "Daniel",
-      lastName: "Lee",
-      email: "daniel.lee@email.com",
-      phone: "+1 234 567 894",
-      address: "321 Maple Drive, Austin, TX",
-      role: "Employee",
-      department: "Finance",
-      status: "Active",
-      dateJoined: "2024-05-12",
-      workingHours: "08:30 - 17:30",
-      workModel: "Onsite",
-      manager: "Finance Head",
-      employeeId: "EMP - 0236"
-    },
-    {
-      id: 6,
-      name: "Michael Chen",
-      firstName: "Michael",
-      lastName: "Chen",
-      email: "michael.chen@email.com",
-      phone: "+1 234 567 895",
-      address: "654 Broadway, New York, NY",
-      role: "Admin",
-      department: "IT",
-      status: "Active",
-      dateJoined: "2022-01-01",
-      workingHours: "07:00 - 16:00",
-      workModel: "Hybrid",
-      manager: "IT Director",
-      employeeId: "EMP - 0237"
-    },
-    {
-      id: 7,
-      name: "Olivia Carter",
-      firstName: "Olivia",
-      lastName: "Carter",
-      email: "olivia.carter@email.com",
-      phone: "+1 234 567 896",
-      address: "987 Fifth Avenue, Miami, FL",
-      role: "Employee",
-      department: "Marketing",
-      status: "Active",
-      dateJoined: "2024-09-09",
-      workingHours: "10:00 - 18:00",
-      workModel: "Remote",
-      manager: "Marketing Lead",
-      employeeId: "EMP - 0238"
-    },
-    {
-      id: 8,
-      name: "Joshua Kim",
-      firstName: "Joshua",
-      lastName: "Kim",
-      email: "joshua.kim@email.com",
-      phone: "+1 234 567 897",
-      address: "159 Wall Street, Chicago, IL",
-      role: "Employee",
-      department: "Logistics",
-      status: "Active",
-      dateJoined: "2025-02-28",
-      workingHours: "06:00 - 14:00",
-      workModel: "Onsite",
-      manager: "Operations Manager",
-      employeeId: "EMP - 0239"
-    },
-    {
-      id: 9,
-      name: "Emily Davis",
-      firstName: "Emily",
-      lastName: "Davis",
-      email: "emily.davis@email.com",
-      phone: "+1 234 567 898",
-      address: "753 Ocean Drive, San Diego, CA",
-      role: "Employee",
-      department: "Sales",
-      status: "Active",
-      dateJoined: "2024-11-11",
-      workingHours: "09:00 - 17:00",
-      workModel: "Hybrid",
-      manager: "Sales Director",
-      employeeId: "EMP - 0240"
-    },
-    {
-      id: 10,
-      name: "Michelle Hart",
-      firstName: "Michelle",
-      lastName: "Hart",
-      email: "michelle.hart@email.com",
-      phone: "+1 234 567 899",
-      address: "852 Lake Shore, Denver, CO",
-      role: "Employee",
-      department: "HR",
-      status: "Active",
-      dateJoined: "2024-04-14",
-      workingHours: "08:00 - 16:00",
-      workModel: "Onsite",
-      manager: "HR Manager",
-      employeeId: "EMP - 0241"
-    }
-  ];
-
-  let filteredEmployees = allEmployees;
-
-  // Apply search filter
-  if (search) {
-    filteredEmployees = filteredEmployees.filter(emp => 
-      emp.name.toLowerCase().includes(search.toLowerCase()) ||
-      emp.email.toLowerCase().includes(search.toLowerCase()) ||
-      emp.department.toLowerCase().includes(search.toLowerCase())
-    );
-  }
-
-  // Apply status filter
-  if (status !== 'all') {
-    filteredEmployees = filteredEmployees.filter(emp => 
-      emp.status.toLowerCase() === status.toLowerCase()
-    );
-  }
-
-  // Apply role filter
-  if (role !== 'all') {
-    filteredEmployees = filteredEmployees.filter(emp => 
-      emp.role.toLowerCase() === role.toLowerCase()
-    );
-  }
-
-  // Apply department filter
-  if (department !== 'all') {
-    filteredEmployees = filteredEmployees.filter(emp => 
-      emp.department.toLowerCase() === department.toLowerCase()
-    );
-  }
-
-  // Pagination
-  const startIndex = (page - 1) * limit;
-  const endIndex = startIndex + limit;
-  const paginatedEmployees = filteredEmployees.slice(startIndex, endIndex);
-
-  res.json({
-    success: true,
-    data: {
-      employees: paginatedEmployees,
-      pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(filteredEmployees.length / limit),
-        totalEmployees: filteredEmployees.length,
-        hasNextPage: endIndex < filteredEmployees.length,
-        hasPrevPage: page > 1
-      }
-    }
-  });
-});
-
-// Get Single Employee API
-app.get('/api/employees/:id', authenticateToken, (req, res) => {
-  const employeeId = parseInt(req.params.id);
-  
-  const employee = {
-    id: employeeId,
-    name: "Jenny Wilson",
-    firstName: "Jenny",
-    lastName: "Wilson",
-    email: "jenny.wilson@email.com",
-    phone: "+1 234 567 890",
-    address: "42 Sunset Road, Westfield, NY",
-    dateOfBirth: "1995-10-14",
-    role: "Employee",
-    department: "Design",
-    status: "Active",
-    dateJoined: "2024-08-17",
-    workingHours: "09:00 - 17:00",
-    workModel: "Hybrid",
-    manager: "Mark Evans",
-    employeeId: "EMP - 0232",
-    profileImage: "https://images.unsplash.com/photo-1494790108755-2616b612c937?w=150",
-    timesheetSummary: {
-      hoursWorkedThisWeek: "38h 20m",
-      averageDailyHours: "7h 40m",
-      overtimeThisMonth: "4h 20m",
-      lastClockIn: "Today, 08:12",
-      lastClockOut: "Yesterday, 17:04"
-    },
-    recentRequests: [
-      {
-        id: 1,
-        type: "Vacation Request",
-        description: "Paid Leave 5-6 Nov 2025",
-        status: "Pending",
-        requestedDate: "2025-11-05",
-        submittedAt: "2025-10-28"
-      },
-      {
-        id: 2,
-        type: "Correction Request", 
-        description: "Incorrect clock-in time",
-        status: "Approved",
-        requestedDate: "2025-10-25",
-        submittedAt: "2025-10-26"
-      }
-    ],
-    recentActivity: [
-      {
-        id: 1,
-        type: "Clock In",
-        description: "Clocked in",
-        time: "Today, 08:12"
-      },
-      {
-        id: 2,
-        type: "Vacation request submitted",
-        description: "Requested 2 days off (5-6 Nov)",
-        time: "Today, 08:04"
-      }
-    ]
-  };
-
-  res.json({
-    success: true,
-    data: employee
-  });
-});
-
-// Invite Employee API - Comprehensive endpoint matching Figma UI
-app.post('/api/employees/invite', authenticateToken, (req, res) => {
-  const { 
-    firstName, 
-    lastName, 
-    email, 
-    phone, 
-    dateOfBirth, 
-    address, 
-    role, 
-    department, 
-    manager, 
-    workingHours, 
-    workingModel, 
-    startDate,
-    profilePhoto 
-  } = req.body;
-
-  // Validation
-  if (!firstName || !lastName || !email || !role || !department || !workingHours || !workingModel || !startDate) {
-    return res.status(400).json({
-      success: false,
-      message: "Required fields missing: firstName, lastName, email, role, department, workingHours, workingModel, startDate",
-      data: null
-    });
-  }
-
-  // Email validation
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid email format",
-      data: null
-    });
-  }
-
-  const employeeNumber = `EMP-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`;
-  const invitationToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-
-  const newEmployee = {
-    id: Math.floor(Math.random() * 1000) + 100,
-    employeeNumber,
-    firstName,
-    lastName,
-    email,
-    phone: phone || null,
-    dateOfBirth: dateOfBirth || null,
-    address: address || null,
-    role,
-    department,
-    manager: manager || null,
-    workingHours,
-    workingModel,
-    startDate,
-    profilePhoto: profilePhoto || null,
-    status: "Invited", // Status will change to "Active" when they accept invitation
-    invitationToken,
-    invitationSent: new Date().toISOString(),
-    dateJoined: null, // Will be set when they accept invitation
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-
-  // Simulate sending invitation email
-  const invitationLink = `https://api-layer.vercel.app/accept-invitation?token=${invitationToken}`;
-
-  res.status(201).json({
-    success: true,
-    message: "Employee invitation sent successfully",
-    data: {
-      employee: newEmployee,
-      invitationLink: invitationLink,
-      message: `Invitation email sent to ${email}. Employee will receive setup instructions.`
-    }
-  });
-});
-
-// Create Employee API (Enhanced)
-app.post('/api/employees', authenticateToken, (req, res) => {
-  const { 
-    firstName, 
-    lastName, 
-    email, 
-    phone, 
-    dateOfBirth, 
-    address, 
-    role, 
-    department, 
-    manager, 
-    workingHours, 
-    workingModel, 
-    startDate 
-  } = req.body;
-
-  const newEmployee = {
-    id: Math.floor(Math.random() * 1000) + 100,
-    employeeNumber: `EMP-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`,
-    firstName,
-    lastName,
-    email,
-    phone: phone || null,
-    dateOfBirth: dateOfBirth || null,
-    address: address || null,
-    role,
-    department,
-    manager: manager || null,
-    workingHours: workingHours || '09:00 - 05:00 PM',
-    workingModel: workingModel || 'office',
-    startDate: startDate || new Date().toISOString().split('T')[0],
-    status: "Active",
-    dateJoined: new Date().toISOString().split('T')[0],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-
-  res.status(201).json({
-    success: true,
-    message: "Employee created successfully",
-    data: newEmployee
-  });
-});
-
-// Accept Invitation API
-app.post('/api/employees/accept-invitation', (req, res) => {
-  const { token, password } = req.body;
-
-  if (!token || !password) {
-    return res.status(400).json({
-      success: false,
-      message: "Invitation token and password are required",
-      data: null
-    });
-  }
-
-  // Simulate finding employee by token and activating account
-  const employee = {
-    id: 123,
-    firstName: "John",
-    lastName: "Doe",
-    email: "john.doe@company.com",
-    status: "Active",
-    dateJoined: new Date().toISOString().split('T')[0]
-  };
-
-  res.json({
-    success: true,
-    message: "Invitation accepted successfully. Employee account is now active.",
-    data: {
-      employee,
-      message: "You can now log in with your email and password."
-    }
-  });
-});
-
-// Get Available Roles API
-app.get('/api/employees/roles', authenticateToken, (req, res) => {
-  const roles = [
-    { id: 1, name: "Employee", description: "Standard employee role" },
-    { id: 2, name: "Team Lead", description: "Team leadership role" },
-    { id: 3, name: "Manager", description: "Department manager" },
-    { id: 4, name: "Senior Manager", description: "Senior management role" },
-    { id: 5, name: "Director", description: "Director level" },
-    { id: 6, name: "Admin", description: "System administrator" },
-    { id: 7, name: "HR", description: "Human Resources" },
-    { id: 8, name: "Developer", description: "Software developer" },
-    { id: 9, name: "Designer", description: "UI/UX Designer" },
-    { id: 10, name: "Analyst", description: "Business analyst" }
-  ];
-
-  res.json({
-    success: true,
-    message: "Available roles retrieved successfully",
-    data: roles
-  });
-});
-
-// Get Available Departments API
-app.get('/api/employees/departments', authenticateToken, (req, res) => {
-  const departments = [
-    { id: 1, name: "Engineering", employeeCount: 15, description: "Software development and engineering" },
-    { id: 2, name: "Human Resources", employeeCount: 5, description: "HR operations and talent management" },
-    { id: 3, name: "Marketing", employeeCount: 8, description: "Marketing and brand management" },
-    { id: 4, name: "Sales", employeeCount: 12, description: "Sales and business development" },
-    { id: 5, name: "Finance", employeeCount: 6, description: "Financial operations and accounting" },
-    { id: 6, name: "Operations", employeeCount: 10, description: "Business operations and logistics" },
-    { id: 7, name: "Design", employeeCount: 4, description: "UI/UX and graphic design" },
-    { id: 8, name: "Product", employeeCount: 7, description: "Product management and strategy" },
-    { id: 9, name: "Customer Support", employeeCount: 9, description: "Customer service and support" },
-    { id: 10, name: "Legal", employeeCount: 3, description: "Legal affairs and compliance" }
-  ];
-
-  res.json({
-    success: true,
-    message: "Departments retrieved successfully",
-    data: departments
-  });
-});
-
-// Get Available Working Models API
-app.get('/api/employees/working-models', authenticateToken, (req, res) => {
-  const workingModels = [
-    { id: 1, name: "Office", description: "Full-time office work" },
-    { id: 2, name: "Remote", description: "Full-time remote work" },
-    { id: 3, name: "Hybrid", description: "Mix of office and remote work" },
-    { id: 4, name: "Flexible", description: "Flexible working arrangements" },
-    { id: 5, name: "Contract", description: "Contract-based work" },
-    { id: 6, name: "Part-time", description: "Part-time employment" }
-  ];
-
-  res.json({
-    success: true,
-    message: "Working models retrieved successfully",
-    data: workingModels
-  });
-});
-
-// Update Employee API
-app.put('/api/employees/:id', authenticateToken, (req, res) => {
-  const employeeId = req.params.id;
-  const updatedData = req.body;
-
-  res.json({
-    success: true,
-    message: "Profile updated successfully",
-    data: {
-      id: employeeId,
-      ...updatedData,
-      updatedAt: new Date().toISOString()
-    }
-  });
-});
-
-// Deactivate Employee API
-app.patch('/api/employees/:id/deactivate', authenticateToken, (req, res) => {
-  const employeeId = req.params.id;
-
-  res.json({
-    success: true,
-    message: "Employee deactivated",
-    data: {
-      employeeId: employeeId,
-      status: "Inactive",
-      deactivatedAt: new Date().toISOString(),
-      note: "Deactivated employees cannot log in, but their timesheets, requests, and history will be kept."
-    }
-  });
-});
-
-// Activate Employee API
-app.patch('/api/employees/:id/activate', authenticateToken, (req, res) => {
-  const employeeId = req.params.id;
-
-  res.json({
-    success: true,
-    message: "Employee activated",
-    data: {
-      employeeId: employeeId,
-      status: "Active",
-      activatedAt: new Date().toISOString(),
-      note: "This employee can now log in and access the system based on their assigned role."
-    }
-  });
-});
-
-// Delete Employee API
-app.delete('/api/employees/:id', authenticateToken, (req, res) => {
-  const employeeId = req.params.id;
-
-  res.json({
-    success: true,
-    message: "Employee deleted",
-    data: {
-      employeeId: employeeId,
-      deletedAt: new Date().toISOString(),
-      note: "The employee account has been permanently removed from the system."
-    }
-  });
-});
-
-// Get Employee Timesheet API
-app.get('/api/employees/:id/timesheet', authenticateToken, (req, res) => {
-  const employeeId = req.params.id;
-  const period = req.query.period || 'weekly';
-
-  res.json({
-    success: true,
-    data: {
-      employeeId: employeeId,
-      period: period,
-      summary: {
-        hoursWorkedThisWeek: "38h 20m",
-        averageDailyHours: "7h 40m",
-        overtimeThisMonth: "4h 20m",
-        lastClockIn: "Today, 08:12",
-        lastClockOut: "Yesterday, 17:04"
-      },
-      entries: [
-        {
-          date: "2025-12-30",
-          clockIn: "08:12",
-          clockOut: "17:04",
-          totalHours: "8h 52m",
-          status: "Regular"
-        },
-        {
-          date: "2025-12-29", 
-          clockIn: "08:05",
-          clockOut: "17:10",
-          totalHours: "9h 5m",
-          status: "Overtime"
-        }
-      ]
-    }
-  });
-});
-
-// Get Employee Activity API (for Figma employee detail page)
-app.get('/api/employees/:id/activity', authenticateToken, (req, res) => {
-  const employeeId = parseInt(req.params.id);
-  
-  res.json({
-    success: true,
-    data: {
-      recentActivity: [
-        {
-          id: 1,
-          type: "check-in",
-          action: "Checked in",
-          time: "Today, 08:12",
-          details: "Started work session"
-        },
-        {
-          id: 2,
-          type: "vacation-request",
-          action: "Vacation request submitted",
-          time: "Today, 08:04",
-          details: "Requested 5 days off (5-8 Nov)"
-        },
-        {
-          id: 3,
-          type: "correction-request",
-          action: "Correction request approved",
-          time: "Yesterday, 16:40",
-          details: "Time correction for 3 Nov was approved"
-        },
-        {
-          id: 4,
-          type: "vacation-request",
-          action: "Vacation request submitted",
-          time: "Yesterday, 09:37",
-          details: "Requested 3 days off (5-6 Nov)"
-        }
-      ]
-    }
-  });
-});
-
-if (require.main === module && process.env.VERCEL !== '1') {
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    console.log(`? Server running on http://localhost:${PORT}`);
-    console.log(`?? API Docs: http://localhost:${PORT}/api-docs`);
-    console.log(`?? Swagger JSON: http://localhost:${PORT}/swagger.json`);
-  });
-}
 
 module.exports = app;
