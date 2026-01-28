@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
@@ -13,13 +13,13 @@ function loadTimers() {
       const data = JSON.parse(fs.readFileSync(TIMER_STORAGE_FILE, 'utf8'));
       global.activeTimers = data.activeTimers || {};
       global.stoppedTimersToday = data.stoppedTimersToday || {};
-      console.log('⏱️  Loaded persisted timers:', Object.keys(global.activeTimers).length, 'active');
+      console.log('??  Loaded persisted timers:', Object.keys(global.activeTimers).length, 'active');
     } else {
       global.activeTimers = {};
       global.stoppedTimersToday = {};
     }
   } catch (error) {
-    console.error('❌ Error loading timers:', error);
+    console.error('? Error loading timers:', error);
     global.activeTimers = {};
     global.stoppedTimersToday = {};
   }
@@ -34,9 +34,9 @@ function saveTimers() {
       lastUpdated: new Date().toISOString()
     };
     fs.writeFileSync(TIMER_STORAGE_FILE, JSON.stringify(data, null, 2));
-    console.log('💾 Timers saved to persistent storage');
+    console.log('?? Timers saved to persistent storage');
   } catch (error) {
-    console.error('❌ Error saving timers:', error);
+    console.error('? Error saving timers:', error);
   }
 }
 
@@ -110,14 +110,14 @@ setInterval(() => {
   for (const [timerId, timer] of Object.entries(global.activeTimers)) {
     const startTime = new Date(timer.startTime);
     if (startTime < yesterday) {
-      console.log('🧹 Cleaning up old timer:', timerId);
+      console.log('?? Cleaning up old timer:', timerId);
       delete global.activeTimers[timerId];
     }
   }
   
   // Save to persistent storage
   saveTimers();
-  console.log('🔄 Timer cleanup and save completed');
+  console.log('?? Timer cleanup and save completed');
 }, 5 * 60 * 1000); // Check every 5 minutes
 
 // Middleware
@@ -149,7 +149,7 @@ app.use((req, res, next) => {
 // Root route - API welcome page
 app.get('/', (req, res) => {
   res.json({
-    message: '🚀 Working Time Management API is Live!',
+    message: '?? Working Time Management API is Live!',
     status: 'Active',
     domain: 'api-layer.vercel.app',
     documentation: '/api-docs',
@@ -619,7 +619,7 @@ app.delete('/api/me/time-entries/:id', (req, res) => {
 });
 
 // Time Entries APIs
-app.get('/api/me/time-entries', (req, res) => {
+app.get('/api/me/time-entries', authenticateToken, (req, res) => {
   const { page = 1, limit = 20, startDate, endDate } = req.query;
   
   res.json({
@@ -742,7 +742,7 @@ app.get('/api/projects', (req, res) => {
 });
 
 // Vacation Balance APIs
-app.get('/api/me/vacation/balance', (req, res) => {
+app.get('/api/me/vacation/balance', authenticateToken, (req, res) => {
   res.json({
     success: true,
     data: {
@@ -914,7 +914,7 @@ app.get('/api/me/updates', (req, res) => {
       announcements: [
         {
           id: 1,
-          title: '≡ƒÄä Holiday Schedule Update',
+          title: '=��� Holiday Schedule Update',
           content: 'Office will be closed from December 25th to January 1st. Happy Holidays!',
           type: 'announcement',
           priority: 'high',
@@ -925,7 +925,7 @@ app.get('/api/me/updates', (req, res) => {
         },
         {
           id: 2,
-          title: '≡ƒÜÇ New Feature Release',
+          title: '=��� New Feature Release',
           content: 'We have released new time tracking features including timer pause/resume and better reporting.',
           type: 'product_update',
           priority: 'medium',
@@ -936,7 +936,7 @@ app.get('/api/me/updates', (req, res) => {
         },
         {
           id: 3,
-          title: '≡ƒôè Monthly Performance Review',
+          title: '=��� Monthly Performance Review',
           content: 'Performance review cycle for December is now open. Please complete your self-assessment by Dec 30.',
           type: 'action_required',
           priority: 'high',
@@ -1452,7 +1452,7 @@ app.get('/api/updates', (req, res) => {
       updates: [
         {
           id: 1,
-          title: '≡ƒÄë New Time Tracking Features',
+          title: '=��� New Time Tracking Features',
           message: 'We have added new timer controls and better reporting features.',
           type: 'feature',
           date: '2025-12-23',
@@ -1461,7 +1461,7 @@ app.get('/api/updates', (req, res) => {
         },
         {
           id: 2,
-          title: '≡ƒÅó Office Holiday Schedule',
+          title: '=��� Office Holiday Schedule',
           message: 'Office will be closed from Dec 25-Jan 1 for holidays.',
           type: 'announcement',
           date: '2025-12-22', 
@@ -1470,7 +1470,7 @@ app.get('/api/updates', (req, res) => {
         },
         {
           id: 3,
-          title: '≡ƒôè Monthly Reports Available',
+          title: '=��� Monthly Reports Available',
           message: 'December monthly reports are now available for download.',
           type: 'notification',
           date: '2025-12-21',
@@ -1644,7 +1644,7 @@ app.get('/api/quick-actions', (req, res) => {
 });
 
 // Vacation Balance APIs
-app.get('/api/me/vacation/balance', (req, res) => {
+app.get('/api/me/vacation/balance', authenticateToken, (req, res) => {
   res.json({
     success: true,
     data: {
@@ -1794,7 +1794,7 @@ app.get('/api/me/updates', (req, res) => {
       announcements: [
         {
           id: 1,
-          title: '≡ƒÄä Holiday Schedule Update',
+          title: '=��� Holiday Schedule Update',
           content: 'Office will be closed from December 25th to January 1st. Happy Holidays!',
           type: 'announcement',
           priority: 'high',
@@ -1805,7 +1805,7 @@ app.get('/api/me/updates', (req, res) => {
         },
         {
           id: 2,
-          title: '≡ƒÜÇ New Feature Release',
+          title: '=��� New Feature Release',
           content: 'We have released new time tracking features including timer pause/resume and better reporting.',
           type: 'product_update',
           priority: 'medium',
@@ -1816,7 +1816,7 @@ app.get('/api/me/updates', (req, res) => {
         },
         {
           id: 3,
-          title: '≡ƒôè Monthly Performance Review',
+          title: '=��� Monthly Performance Review',
           content: 'Performance review cycle for December is now open. Please complete your self-assessment by Dec 30.',
           type: 'action_required',
           priority: 'high',
@@ -2146,7 +2146,7 @@ app.post('/api/me/timer/start', (req, res) => {
   // Save to persistent storage immediately
   saveTimers();
   
-  console.log('⏱️  Timer started for user', userId, '- Timer ID:', timerId);
+  console.log('??  Timer started for user', userId, '- Timer ID:', timerId);
 
   res.json({
     success: true,
@@ -2359,7 +2359,7 @@ app.get('/api/notifications', (req, res) => {
         {
           id: 1,
           type: 'corporate_update',
-          title: '≡ƒôï Corporate Updates',
+          title: '=��� Corporate Updates',
           message: 'New company policies updated',
           date: '2025-12-23',
           is_read: false
@@ -2367,7 +2367,7 @@ app.get('/api/notifications', (req, res) => {
         {
           id: 2,
           type: 'system',
-          title: '≡ƒöö System Notification', 
+          title: '=��� System Notification', 
           message: 'Your timesheet for this week is due',
           date: '2025-12-22',
           is_read: false
@@ -2416,21 +2416,21 @@ app.get('/api/quick-actions', (req, res) => {
           id: 'manual_time_entry',
           title: 'Manual Time Entry',
           description: 'Add time entry for missed clock-in/out',
-          icon: 'ΓÅ░',
+          icon: 'GŦ',
           enabled: true
         },
         {
           id: 'time_correction',
           title: 'Time Correction',
           description: 'Request correction for time entries',
-          icon: '≡ƒô¥',
+          icon: '=���',
           enabled: true
         },
         {
           id: 'leave_request',
           title: 'Leave Request', 
           description: 'Apply for leave/vacation',
-          icon: '≡ƒî┤',
+          icon: '=��',
           enabled: true
         }
       ]
@@ -2448,7 +2448,7 @@ app.get('/api/leave-types', (req, res) => {
       is_paid: true,
       max_days_per_year: 21,
       color: '#4CAF50',
-      icon: '≡ƒî┤'
+      icon: '=��'
     },
     {
       type: 'sick_leave',
@@ -2457,7 +2457,7 @@ app.get('/api/leave-types', (req, res) => {
       is_paid: true,
       max_days_per_year: 10,
       color: '#FF9800',
-      icon: '≡ƒÅÑ'
+      icon: '=���'
     },
     {
       type: 'half_day',
@@ -2466,7 +2466,7 @@ app.get('/api/leave-types', (req, res) => {
       is_paid: true,
       max_days_per_year: 12,
       color: '#2196F3',
-      icon: '≡ƒòÉ'
+      icon: '=���'
     }
   ];
 
@@ -2492,7 +2492,7 @@ app.get('/api/me/leave-requests', (req, res) => {
       start_date: '2025-11-12',
       end_date: '2025-11-14',
       duration: 3,
-      reason: 'Family trip ≡ƒî┤',
+      reason: 'Family trip =��',
       status: 'pending',
       status_display: 'Pending',
       status_color: '#FFA500',
@@ -2572,10 +2572,10 @@ app.post('/api/me/leave-requests', (req, res) => {
 
   res.status(201).json({
     success: true,
-    message: 'Vacation request sent Γ£à',
+    message: 'Vacation request sent G��',
     data: {
       request: newRequest,
-      success_message: 'Vacation request sent Γ£à',
+      success_message: 'Vacation request sent G��',
       success_title: 'Request Submitted'
     }
   });
@@ -2627,7 +2627,7 @@ app.get('/api-docs', (req, res) => {
       </head>
       <body>
         <div id="loading" class="loading">
-          <h2>🚀 Loading API Documentation...</h2>
+          <h2>?? Loading API Documentation...</h2>
           <p>Initializing Swagger UI for api-layer.vercel.app</p>
         </div>
         <div id="swagger-ui"></div>
@@ -2638,7 +2638,7 @@ app.get('/api-docs', (req, res) => {
         <script>
           window.onload = function() {
             try {
-              console.log('🔧 Initializing Swagger UI...');
+              console.log('?? Initializing Swagger UI...');
               
               const ui = SwaggerUIBundle({
                 url: window.location.origin + '/swagger.json',
@@ -2654,13 +2654,13 @@ app.get('/api-docs', (req, res) => {
                 layout: "StandaloneLayout",
                 onComplete: function() {
                   document.getElementById('loading').style.display = 'none';
-                  console.log('✅ Swagger UI loaded successfully');
+                  console.log('? Swagger UI loaded successfully');
                 },
                 onFailure: function(error) {
-                  console.error('❌ Swagger UI failed to load:', error);
+                  console.error('? Swagger UI failed to load:', error);
                   document.getElementById('loading').style.display = 'none';
                   document.getElementById('error-container').innerHTML = 
-                    '<div class="error"><h3>⚠️ Failed to load API documentation</h3><p>Error: ' + error + '</p><p>Please refresh the page or contact support.</p></div>';
+                    '<div class="error"><h3>?? Failed to load API documentation</h3><p>Error: ' + error + '</p><p>Please refresh the page or contact support.</p></div>';
                 }
               });
               
@@ -2673,20 +2673,20 @@ app.get('/api-docs', (req, res) => {
                   return response.json();
                 })
                 .then(data => {
-                  console.log('✅ Swagger JSON loaded:', Object.keys(data.paths || {}).length, 'endpoints');
+                  console.log('? Swagger JSON loaded:', Object.keys(data.paths || {}).length, 'endpoints');
                 })
                 .catch(error => {
-                  console.error('❌ Swagger JSON error:', error);
+                  console.error('? Swagger JSON error:', error);
                   document.getElementById('loading').style.display = 'none';
                   document.getElementById('error-container').innerHTML = 
-                    '<div class="error"><h3>⚠️ API specification not found</h3><p>The swagger.json file could not be loaded.</p><p>Error: ' + error.message + '</p></div>';
+                    '<div class="error"><h3>?? API specification not found</h3><p>The swagger.json file could not be loaded.</p><p>Error: ' + error.message + '</p></div>';
                 });
                 
             } catch (error) {
-              console.error('❌ Critical error:', error);
+              console.error('? Critical error:', error);
               document.getElementById('loading').style.display = 'none';
               document.getElementById('error-container').innerHTML = 
-                '<div class="error"><h3>⚠️ Critical Error</h3><p>Failed to initialize API documentation.</p><p>Error: ' + error.message + '</p></div>';
+                '<div class="error"><h3>?? Critical Error</h3><p>Failed to initialize API documentation.</p><p>Error: ' + error.message + '</p></div>';
             }
           };
         </script>
@@ -4354,9 +4354,9 @@ app.get('/api/employees/:id/activity', authenticateToken, (req, res) => {
 if (require.main === module && process.env.VERCEL !== '1') {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
-    console.log(`✅ Server running on http://localhost:${PORT}`);
-    console.log(`📚 API Docs: http://localhost:${PORT}/api-docs`);
-    console.log(`🔗 Swagger JSON: http://localhost:${PORT}/swagger.json`);
+    console.log(`? Server running on http://localhost:${PORT}`);
+    console.log(`?? API Docs: http://localhost:${PORT}/api-docs`);
+    console.log(`?? Swagger JSON: http://localhost:${PORT}/swagger.json`);
   });
 }
 
