@@ -3206,7 +3206,7 @@ app.get('/api/test-users', (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
-    message: 'CLIENT ISSUES FIXED - Server running perfectly! EMERGENCY PATCH v2.1',
+    message: 'CLIENT ISSUES FIXED - Server running perfectly! EMERGENCY PATCH v2.2 - TIME ENTRIES ADDED',
     status: 'All fixes implemented',
     fixes: [
       'Profile persistence - no more Jenny Wilson revert',
