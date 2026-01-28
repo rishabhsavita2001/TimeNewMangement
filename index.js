@@ -2109,6 +2109,146 @@ app.get('/api/me/time-corrections/history', (req, res) => {
   });
 });
 
+// GET /api/employees - Get all employees with filtering and pagination
+app.get('/api/employees', (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const status = req.query.status || 'all';
+  const role = req.query.role || 'all';
+  const department = req.query.department || 'all';
+  const search = req.query.search || '';
+
+  const allEmployees = [
+    {
+      id: 1,
+      name: "Jenny Wilson",
+      email: "jenny.wilson@email.com",
+      phone: "+1 234 567 890",
+      role: "Employee",
+      department: "Design",
+      status: "Active",
+      dateJoined: "2024-08-17",
+      employeeId: "EMP-0232"
+    },
+    {
+      id: 2,
+      name: "Michael Kim",
+      email: "michael.kim@email.com",
+      phone: "+1 234 567 891",
+      role: "Employee",
+      department: "Engineering",
+      status: "Active",
+      dateJoined: "2025-01-02",
+      employeeId: "EMP-0233"
+    },
+    {
+      id: 3,
+      name: "Mark Evans",
+      email: "mark.evans@email.com",
+      phone: "+1 234 567 892",
+      role: "Manager",
+      department: "Operations",
+      status: "Active",
+      dateJoined: "2023-10-10",
+      employeeId: "EMP-0234"
+    }
+  ];
+
+  let filteredEmployees = allEmployees;
+
+  if (search) {
+    filteredEmployees = filteredEmployees.filter(emp => 
+      emp.name.toLowerCase().includes(search.toLowerCase()) ||
+      emp.email.toLowerCase().includes(search.toLowerCase())
+    );
+  }
+
+  if (status !== 'all') {
+    filteredEmployees = filteredEmployees.filter(emp => 
+      emp.status.toLowerCase() === status.toLowerCase()
+    );
+  }
+
+  if (role !== 'all') {
+    filteredEmployees = filteredEmployees.filter(emp => 
+      emp.role.toLowerCase() === role.toLowerCase()
+    );
+  }
+
+  if (department !== 'all') {
+    filteredEmployees = filteredEmployees.filter(emp => 
+      emp.department.toLowerCase() === department.toLowerCase()
+    );
+  }
+
+  const startIndex = (page - 1) * limit;
+  const endIndex = startIndex + limit;
+  const paginatedEmployees = filteredEmployees.slice(startIndex, endIndex);
+
+  res.json({
+    success: true,
+    data: {
+      employees: paginatedEmployees,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(filteredEmployees.length / limit),
+        totalEmployees: filteredEmployees.length,
+        hasNextPage: endIndex < filteredEmployees.length,
+        hasPrevPage: page > 1
+      }
+    }
+  });
+});
+
+// POST /api/employees - Create new employee
+app.post('/api/employees', (req, res) => {
+  const { name, email, role, department } = req.body;
+
+  const newEmployee = {
+    id: Math.floor(Math.random() * 1000) + 100,
+    employeeNumber: `EMP-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`,
+    name,
+    email,
+    role,
+    department,
+    status: "Active",
+    dateJoined: new Date().toISOString().split('T')[0],
+    createdAt: new Date().toISOString()
+  };
+
+  res.status(201).json({
+    success: true,
+    message: "Employee created successfully",
+    data: newEmployee
+  });
+});
+
+// GET /api/employees/:id - Get single employee details
+app.get('/api/employees/:id', (req, res) => {
+  const employeeId = parseInt(req.params.id);
+  
+  const employee = {
+    id: employeeId,
+    name: "Jenny Wilson",
+    email: "jenny.wilson@email.com",
+    phone: "+1 234 567 890",
+    role: "Employee",
+    department: "Design",
+    status: "Active",
+    dateJoined: "2024-08-17",
+    employeeId: "EMP-0232",
+    timesheetSummary: {
+      hoursWorkedThisWeek: "38h 20m",
+      averageDailyHours: "7h 40m"
+    }
+  };
+
+  res.json({
+    success: true,
+    data: employee
+  });
+});
+
 // Swagger Documentation
 app.get('/swagger.json', (req, res) => {
   const swaggerSpec = {
