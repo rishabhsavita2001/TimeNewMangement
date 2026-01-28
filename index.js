@@ -2041,6 +2041,10 @@ let persistentLeaveRequests = {
   }
 };
 
+// Time Entries storage
+let persistentTimeEntries = {};
+let timeEntryIdCounter = 1;
+
 // GET Leave Types (Dropdown)
 app.get('/api/leave-types', authenticateToken, (req, res) => {
   const leaveTypes = [
@@ -2910,6 +2914,275 @@ app.get('/api/me/work-summary/month', authenticateToken, (req, res) => {
     success: true,
     message: "Monthly work summary retrieved successfully", 
     data: monthlyData
+  });
+});
+
+// =====================================
+// TIME ENTRIES APIs
+// =====================================
+
+// GET /api/me/time-entries - Get user's time entries with pagination and filtering
+app.get('/api/me/time-entries', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  const { page = 1, limit = 20, startDate, endDate } = req.query;
+  
+  // Filter time entries for current user
+  const userEntries = Object.values(persistentTimeEntries).filter(entry => entry.userId === userId);
+  
+  // Apply date filtering if provided
+  let filteredEntries = userEntries;
+  if (startDate || endDate) {
+    filteredEntries = userEntries.filter(entry => {
+      const entryDate = entry.date;
+      if (startDate && endDate) {
+        return entryDate >= startDate && entryDate <= endDate;
+      } else if (startDate) {
+        return entryDate >= startDate;
+      } else if (endDate) {
+        return entryDate <= endDate;
+      }
+      return true;
+    });
+  }
+  
+  // Sort by date (most recent first)
+  filteredEntries.sort((a, b) => new Date(b.date) - new Date(a.date));
+  
+  // Pagination
+  const startIndex = (page - 1) * limit;
+  const endIndex = startIndex + parseInt(limit);
+  const paginatedEntries = filteredEntries.slice(startIndex, endIndex);
+  
+  res.json({
+    success: true,
+    message: "Time entries retrieved successfully",
+    data: {
+      entries: paginatedEntries,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: filteredEntries.length,
+        totalPages: Math.ceil(filteredEntries.length / limit)
+      }
+    }
+  });
+});
+
+// POST /api/me/time-entries - Create a new time entry
+app.post('/api/me/time-entries', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  const { date, startTime, endTime, description, project, task, isManual } = req.body;
+  
+  // Validation
+  if (!date) {
+    return res.status(400).json({
+      success: false,
+      message: "Date is required"
+    });
+  }
+  
+  if (!startTime || !endTime) {
+    return res.status(400).json({
+      success: false,
+      message: "Start time and end time are required"
+    });
+  }
+  
+  // Calculate duration in hours
+  const start = new Date(`${date} ${startTime}`);
+  const end = new Date(`${date} ${endTime}`);
+  const durationMs = end - start;
+  const durationHours = Math.round((durationMs / (1000 * 60 * 60)) * 100) / 100;
+  
+  if (durationHours <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "End time must be after start time"
+    });
+  }
+  
+  // Create new time entry
+  const newEntry = {
+    id: timeEntryIdCounter++,
+    userId: userId,
+    date: date,
+    startTime: startTime,
+    endTime: endTime,
+    duration: durationHours,
+    description: description || '',
+    project: project || 'Default Project',
+    task: task || '',
+    isManual: isManual || false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  
+  persistentTimeEntries[newEntry.id] = newEntry;
+  savePersistentData();
+  
+  res.json({
+    success: true,
+    message: "Time entry created successfully",
+    data: newEntry
+  });
+});
+
+// PUT /api/me/time-entries/:id - Update a time entry
+app.put('/api/me/time-entries/:id', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  const entryId = parseInt(req.params.id);
+  const { date, startTime, endTime, description, project, task } = req.body;
+  
+  // Check if entry exists and belongs to user
+  const existingEntry = persistentTimeEntries[entryId];
+  if (!existingEntry) {
+    return res.status(404).json({
+      success: false,
+      message: "Time entry not found"
+    });
+  }
+  
+  if (existingEntry.userId !== userId) {
+    return res.status(403).json({
+      success: false,
+      message: "You can only update your own time entries"
+    });
+  }
+  
+  // Update fields if provided
+  if (date !== undefined) existingEntry.date = date;
+  if (startTime !== undefined) existingEntry.startTime = startTime;
+  if (endTime !== undefined) existingEntry.endTime = endTime;
+  if (description !== undefined) existingEntry.description = description;
+  if (project !== undefined) existingEntry.project = project;
+  if (task !== undefined) existingEntry.task = task;
+  
+  // Recalculate duration if start or end time changed
+  if (startTime || endTime) {
+    const start = new Date(`${existingEntry.date} ${existingEntry.startTime}`);
+    const end = new Date(`${existingEntry.date} ${existingEntry.endTime}`);
+    const durationMs = end - start;
+    const durationHours = Math.round((durationMs / (1000 * 60 * 60)) * 100) / 100;
+    
+    if (durationHours <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "End time must be after start time"
+      });
+    }
+    
+    existingEntry.duration = durationHours;
+  }
+  
+  existingEntry.updatedAt = new Date().toISOString();
+  savePersistentData();
+  
+  res.json({
+    success: true,
+    message: "Time entry updated successfully",
+    data: existingEntry
+  });
+});
+
+// DELETE /api/me/time-entries/:id - Delete a time entry
+app.delete('/api/me/time-entries/:id', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  const entryId = parseInt(req.params.id);
+  
+  // Check if entry exists and belongs to user
+  const existingEntry = persistentTimeEntries[entryId];
+  if (!existingEntry) {
+    return res.status(404).json({
+      success: false,
+      message: "Time entry not found"
+    });
+  }
+  
+  if (existingEntry.userId !== userId) {
+    return res.status(403).json({
+      success: false,
+      message: "You can only delete your own time entries"
+    });
+  }
+  
+  delete persistentTimeEntries[entryId];
+  savePersistentData();
+  
+  res.json({
+    success: true,
+    message: "Time entry deleted successfully",
+    data: { id: entryId }
+  });
+});
+
+// GET /api/me/time-entries/:id - Get specific time entry
+app.get('/api/me/time-entries/:id', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  const entryId = parseInt(req.params.id);
+  
+  const entry = persistentTimeEntries[entryId];
+  if (!entry) {
+    return res.status(404).json({
+      success: false,
+      message: "Time entry not found"
+    });
+  }
+  
+  if (entry.userId !== userId) {
+    return res.status(403).json({
+      success: false,
+      message: "You can only view your own time entries"
+    });
+  }
+  
+  res.json({
+    success: true,
+    message: "Time entry retrieved successfully",
+    data: entry
+  });
+});
+
+// GET /api/time-entries - Get all time entries (admin view)
+app.get('/api/time-entries', authenticateToken, (req, res) => {
+  const { page = 1, limit = 20, userId: filterUserId } = req.query;
+  
+  let allEntries = Object.values(persistentTimeEntries);
+  
+  // Filter by user if specified
+  if (filterUserId) {
+    allEntries = allEntries.filter(entry => entry.userId === parseInt(filterUserId));
+  }
+  
+  // Add user information to each entry
+  const entriesWithUserInfo = allEntries.map(entry => ({
+    ...entry,
+    user: {
+      id: persistentUsers[entry.userId]?.id,
+      name: persistentUsers[entry.userId]?.full_name,
+      email: persistentUsers[entry.userId]?.email
+    }
+  }));
+  
+  // Sort by date (most recent first)
+  entriesWithUserInfo.sort((a, b) => new Date(b.date) - new Date(a.date));
+  
+  // Pagination
+  const startIndex = (page - 1) * limit;
+  const endIndex = startIndex + parseInt(limit);
+  const paginatedEntries = entriesWithUserInfo.slice(startIndex, endIndex);
+  
+  res.json({
+    success: true,
+    message: "Time entries retrieved successfully",
+    data: {
+      entries: paginatedEntries,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: entriesWithUserInfo.length,
+        totalPages: Math.ceil(entriesWithUserInfo.length / limit)
+      }
+    }
   });
 });
 
