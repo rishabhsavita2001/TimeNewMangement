@@ -1499,6 +1499,206 @@ app.post('/api/me/timer/stop', authenticateToken, (req, res) => {
   });
 });
 
+// ===== TIMER BREAK API - Start break during active timer =====
+app.post('/api/me/timer/break', authenticateToken, (req, res) => {
+  const userId = req.user?.userId || 1;
+  const { breakType, description, duration_minutes } = req.body;
+  
+  console.log(`⏸️ Timer break request from user ${userId}: ${breakType}`);
+  
+  // Validate break type
+  if (!breakType) {
+    return res.status(400).json({
+      success: false,
+      message: 'Break type is required',
+      data: {
+        required_fields: ['breakType'],
+        available_types: ['lunch', 'coffee', 'personal', 'meeting', 'short', 'custom']
+      }
+    });
+  }
+  
+  // Check if user has an active timer
+  const activeTimer = persistentTimers[userId];
+  if (!activeTimer || !activeTimer.isActive) {
+    return res.status(400).json({
+      success: false,
+      message: 'No active timer found. Please start a timer before taking a break.',
+      data: {
+        has_timer: false,
+        action_required: 'Start timer first'
+      }
+    });
+  }
+  
+  // Check if timer is already paused/on break
+  if (activeTimer.isPaused) {
+    return res.status(400).json({
+      success: false,
+      message: 'Timer is already paused. You cannot start a break during a paused timer.',
+      data: {
+        timer_status: 'paused',
+        suggestion: 'Resume timer first or end current break'
+      }
+    });
+  }
+  
+  // Check if user already has an active break
+  if (persistentBreaks[userId] && persistentBreaks[userId].status === 'active') {
+    return res.status(400).json({
+      success: false,
+      message: 'You already have an active break running',
+      data: {
+        current_break: persistentBreaks[userId],
+        action_required: 'End current break first'
+      }
+    });
+  }
+  
+  // Define break types with default durations
+  const breakTypes = {
+    lunch: { name: 'Lunch Break', default_duration: 60 },
+    coffee: { name: 'Coffee Break', default_duration: 15 },
+    personal: { name: 'Personal Break', default_duration: 30 },
+    meeting: { name: 'Meeting Break', default_duration: 45 },
+    short: { name: 'Short Break', default_duration: 10 },
+    custom: { name: 'Custom Break', default_duration: 15 }
+  };
+  
+  const selectedBreakType = breakTypes[breakType] || breakTypes.custom;
+  const breakDuration = duration_minutes || selectedBreakType.default_duration;
+  
+  // Pause the timer
+  const now = new Date();
+  const currentSessionTime = Math.floor((now - new Date(activeTimer.startTime)) / 1000);
+  
+  persistentTimers[userId] = {
+    ...activeTimer,
+    isPaused: true,
+    pausedAt: now.toISOString(),
+    totalTime: (activeTimer.totalTime || 0) + currentSessionTime,
+    pauseReason: 'break'
+  };
+  
+  // Create break record
+  const breakId = `break_${userId}_${Date.now()}`;
+  persistentBreaks[userId] = {
+    id: breakId,
+    user_id: userId,
+    break_type: breakType,
+    display_name: selectedBreakType.name,
+    description: description || `Taking a ${selectedBreakType.name.toLowerCase()}`,
+    start_time: now.toISOString(),
+    duration_minutes: breakDuration,
+    expected_end_time: new Date(now.getTime() + (breakDuration * 60000)).toISOString(),
+    status: 'active',
+    timer_id: activeTimer.timerId
+  };
+  
+  savePersistentData();
+  
+  console.log(`✅ Timer break started: ${selectedBreakType.name} for ${breakDuration} minutes`);
+  
+  res.json({
+    success: true,
+    message: `${selectedBreakType.name} started successfully`,
+    data: {
+      break: persistentBreaks[userId],
+      timer_status: {
+        paused: true,
+        pause_reason: 'break',
+        timer_id: activeTimer.timerId,
+        accumulated_time: persistentTimers[userId].totalTime
+      },
+      instructions: [
+        'Your timer has been paused automatically',
+        `Break will last ${breakDuration} minutes`,
+        'Use PUT /api/me/timer/break to end break and resume timer',
+        'Timer will resume automatically when break ends'
+      ]
+    }
+  });
+});
+
+// ===== END TIMER BREAK API - End break and resume timer =====
+app.put('/api/me/timer/break', authenticateToken, (req, res) => {
+  const userId = req.user?.userId || 1;
+  
+  console.log(`▶️ End timer break request from user ${userId}`);
+  
+  // Check if user has an active break
+  const activeBreak = persistentBreaks[userId];
+  if (!activeBreak || activeBreak.status !== 'active') {
+    return res.status(400).json({
+      success: false,
+      message: 'No active break found',
+      data: {
+        has_break: false,
+        break_status: activeBreak ? activeBreak.status : 'none'
+      }
+    });
+  }
+  
+  // Check if timer exists and is paused
+  const pausedTimer = persistentTimers[userId];
+  if (!pausedTimer || !pausedTimer.isPaused) {
+    return res.status(400).json({
+      success: false,
+      message: 'Timer is not paused or does not exist',
+      data: {
+        timer_status: pausedTimer ? 'running' : 'not_found'
+      }
+    });
+  }
+  
+  // End the break
+  const now = new Date();
+  const breakStartTime = new Date(activeBreak.start_time);
+  const breakDuration = Math.floor((now - breakStartTime) / 1000);
+  
+  persistentBreaks[userId] = {
+    ...activeBreak,
+    status: 'completed',
+    end_time: now.toISOString(),
+    actual_duration_seconds: breakDuration,
+    actual_duration_minutes: Math.round(breakDuration / 60)
+  };
+  
+  // Resume the timer
+  persistentTimers[userId] = {
+    ...pausedTimer,
+    isPaused: false,
+    startTime: now, // Reset start time for new session
+    pausedAt: null,
+    pauseReason: null,
+    resumedAt: now.toISOString()
+  };
+  
+  savePersistentData();
+  
+  console.log(`✅ Timer break ended and timer resumed after ${Math.round(breakDuration / 60)} minutes`);
+  
+  res.json({
+    success: true,
+    message: 'Break ended successfully and timer resumed',
+    data: {
+      break_summary: {
+        type: activeBreak.break_type,
+        display_name: activeBreak.display_name,
+        planned_duration: `${activeBreak.duration_minutes} minutes`,
+        actual_duration: `${Math.round(breakDuration / 60)} minutes`,
+        efficiency: breakDuration <= (activeBreak.duration_minutes * 60) ? 'on_time' : 'extended'
+      },
+      timer_status: {
+        resumed: true,
+        timer_id: pausedTimer.timerId,
+        accumulated_time: pausedTimer.totalTime,
+        new_session_start: now.toISOString()
+      }
+    }
+  });
+});
+
 // ===== BREAK MANAGEMENT APIs =====
 let persistentBreaks = {};
 
