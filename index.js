@@ -1822,6 +1822,293 @@ app.post('/api/me/leave-requests', (req, res) => {
   });
 });
 
+// GET /api/correction-requests - Get all correction requests (Admin/Manager view)
+app.get('/api/correction-requests', (req, res) => {
+  const { status, issue, employee, date_range } = req.query;
+  
+  const mockCorrectionRequests = [
+    {
+      request_id: 'CR-001',
+      employee_name: 'Jenny Wilson',
+      employee_id: 'EMP001',
+      department: 'Product Design',
+      issue: 'Add missing work entry',
+      issue_type: 'missing_work_entry',
+      date: '2024-01-28',
+      original: '09:00 - 18:00',
+      corrected: '-',
+      submitted: 'Today',
+      submitted_at: new Date().toISOString(),
+      status: 'pending',
+      reason: 'Forgot to clock in and clock out',
+      time_impact: 'Before: - After: 8h 00m'
+    },
+    {
+      request_id: 'CR-002',
+      employee_name: 'Michael Kim',
+      employee_id: 'EMP002',
+      department: 'Engineering',
+      issue: 'Wrong clock-in time',
+      issue_type: 'wrong_clock_in',
+      date: '2024-01-27',
+      original: '09:30',
+      corrected: '08:30',
+      submitted: 'Yesterday',
+      submitted_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+      status: 'approved',
+      reason: 'Internet connection issue',
+      time_impact: 'Before: 7h 30m After: 8h 00m'
+    },
+    {
+      request_id: 'CR-003',
+      employee_name: 'Sarah Anderson',
+      employee_id: 'EMP003',
+      department: 'HR',
+      issue: 'Missing clock-out',
+      issue_type: 'missing_clock_out',
+      date: '2024-01-26',
+      original: '-',
+      corrected: '17:40',
+      submitted: '2 days ago',
+      submitted_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'reject',
+      reason: 'Forgot to clock out',
+      time_impact: 'Before: - After: 8h 00m'
+    }
+  ];
+
+  // Apply filters
+  let filteredRequests = mockCorrectionRequests;
+  
+  if (status && status !== 'all') {
+    filteredRequests = filteredRequests.filter(req => req.status === status);
+  }
+  
+  if (issue && issue !== 'all') {
+    filteredRequests = filteredRequests.filter(req => req.issue_type === issue);
+  }
+  
+  if (employee) {
+    filteredRequests = filteredRequests.filter(req => 
+      req.employee_name.toLowerCase().includes(employee.toLowerCase())
+    );
+  }
+
+  const statusCounts = {
+    all: mockCorrectionRequests.length,
+    pending: mockCorrectionRequests.filter(r => r.status === 'pending').length,
+    approved: mockCorrectionRequests.filter(r => r.status === 'approved').length,
+    reject: mockCorrectionRequests.filter(r => r.status === 'reject').length
+  };
+
+  res.json({
+    success: true,
+    data: {
+      correction_requests: filteredRequests,
+      total_count: filteredRequests.length,
+      status_counts: statusCounts
+    }
+  });
+});
+
+// POST /api/correction-requests/:id/approve - Approve correction request
+app.post('/api/correction-requests/:id/approve', (req, res) => {
+  const requestId = req.params.id;
+  const { comment = '' } = req.body;
+  
+  res.json({
+    success: true,
+    message: 'Correction request approved successfully',
+    data: {
+      request_id: requestId,
+      status: 'approved',
+      approved_at: new Date().toISOString(),
+      admin_comment: comment
+    }
+  });
+});
+
+// POST /api/correction-requests/:id/reject - Reject correction request
+app.post('/api/correction-requests/:id/reject', (req, res) => {
+  const requestId = req.params.id;
+  const { reason = '' } = req.body;
+  
+  res.json({
+    success: true,
+    message: 'Correction request rejected',
+    data: {
+      request_id: requestId,
+      status: 'reject',
+      rejected_at: new Date().toISOString(),
+      rejection_reason: reason
+    }
+  });
+});
+
+// GET /api/time-correction-types - Get time correction issue types
+app.get('/api/time-correction-types', (req, res) => {
+  res.json({
+    success: true,
+    message: "Time correction types retrieved successfully",
+    data: [
+      {
+        id: 'missing_work_entry',
+        name: 'Add missing work entry',
+        description: 'Request to add missing clock-in/out for a work day',
+        icon: 'clock-plus',
+        color: '#4CAF50'
+      },
+      {
+        id: 'wrong_clock_time',
+        name: 'Wrong clock-in/out time',
+        description: 'Correct incorrect clock-in or clock-out time',
+        icon: 'clock-edit',
+        color: '#FF9800'
+      },
+      {
+        id: 'missing_break',
+        name: 'Missing break entry',
+        description: 'Add missing break time entry',
+        icon: 'coffee',
+        color: '#2196F3'
+      },
+      {
+        id: 'overtime_request',
+        name: 'Overtime work request',
+        description: 'Request approval for overtime work',
+        icon: 'clock-plus-outline',
+        color: '#9C27B0'
+      },
+      {
+        id: 'wrong_clock_in',
+        name: 'Wrong clock-in time',
+        description: 'Correct incorrect clock-in time',
+        icon: 'clock-in',
+        color: '#00BCD4'
+      },
+      {
+        id: 'wrong_clock_out',
+        name: 'Wrong clock-out time',
+        description: 'Correct incorrect clock-out time',
+        icon: 'clock-out',
+        color: '#FF5722'
+      },
+      {
+        id: 'missing_clock_in',
+        name: 'Missing clock-in',
+        description: 'Add missing clock-in entry',
+        icon: 'login',
+        color: '#8BC34A'
+      },
+      {
+        id: 'missing_clock_out',
+        name: 'Missing clock-out',
+        description: 'Add missing clock-out entry',
+        icon: 'logout',
+        color: '#FFC107'
+      }
+    ]
+  });
+});
+
+// GET /api/me/time-corrections - Get user's time correction requests
+app.get('/api/me/time-corrections', (req, res) => {
+  res.json({
+    success: true,
+    message: "Time correction requests retrieved successfully",
+    data: {
+      requests: [
+        {
+          id: 1,
+          type: 'missing_work_entry',
+          date: '2024-01-25',
+          status: 'pending',
+          requested_time_in: '09:00:00',
+          requested_time_out: '17:00:00',
+          reason: 'Forgot to clock in and out',
+          submitted_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+          issue_description: 'Missing work entry for full day'
+        },
+        {
+          id: 2,
+          type: 'wrong_clock_time',
+          date: '2024-01-24',
+          status: 'approved',
+          actual_time_in: '08:45:00',
+          requested_time_in: '09:00:00',
+          reason: 'Clock-in time was incorrect',
+          submitted_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+          approved_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
+        }
+      ],
+      total_count: 2,
+      pending_count: 1,
+      approved_count: 1
+    }
+  });
+});
+
+// POST /api/me/time-corrections - Create new time correction request
+app.post('/api/me/time-corrections', (req, res) => {
+  const {
+    type,
+    date,
+    requested_time_in,
+    requested_time_out,
+    actual_time_in,
+    actual_time_out,
+    reason,
+    issue_description,
+    additional_notes
+  } = req.body;
+
+  const newRequest = {
+    id: Math.floor(Math.random() * 10000),
+    type,
+    date,
+    status: 'pending',
+    reason,
+    issue_description,
+    additional_notes,
+    requested_time_in,
+    requested_time_out,
+    actual_time_in,
+    actual_time_out,
+    submitted_at: new Date().toISOString(),
+    estimated_processing_time: '24-48 hours'
+  };
+
+  res.json({
+    success: true,
+    message: "Time correction request submitted successfully",
+    data: newRequest
+  });
+});
+
+// GET /api/me/time-corrections/history - Get time correction history
+app.get('/api/me/time-corrections/history', (req, res) => {
+  res.json({
+    success: true,
+    message: "Time correction history retrieved successfully",
+    data: {
+      history: [
+        {
+          id: 1,
+          type: 'missing_work_entry',
+          date: '2024-01-20',
+          status: 'approved',
+          requested_time_in: '09:00:00',
+          requested_time_out: '17:00:00',
+          submitted_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          approved_at: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+          approved_by: 'Manager Name'
+        }
+      ],
+      total_count: 1
+    }
+  });
+});
+
 // Swagger Documentation
 app.get('/swagger.json', (req, res) => {
   const swaggerSpec = {
