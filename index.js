@@ -679,6 +679,125 @@ app.put('/api/me/profile', authenticateToken, (req, res) => {
   });
 });
 
+// ===== PROFILE PHOTO UPLOAD API =====
+app.post('/api/me/profile/photo', authenticateToken, (req, res) => {
+  const userId = req.user?.userId || 1;
+  const user = persistentUsers[userId];
+  
+  console.log(`📸 Profile photo upload request from user: ${user.full_name} (ID: ${userId})`);
+  
+  // For demo purposes, we'll simulate photo upload without actual file handling
+  // In a real application, you would use multer or similar for file uploads
+  
+  const { photo_url } = req.body;
+  
+  if (!photo_url) {
+    // Simulate successful upload with a default photo URL
+    const mockPhotoUrls = [
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
+      "https://images.unsplash.com/photo-1494790108755-2616b612c937?w=150&h=150&fit=crop&crop=face",
+      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
+      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop&crop=face",
+      "https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=150&h=150&fit=crop&crop=face"
+    ];
+    
+    const randomPhoto = mockPhotoUrls[Math.floor(Math.random() * mockPhotoUrls.length)];
+    
+    // Update user's profile photo
+    persistentUsers[userId].profile_photo = randomPhoto;
+    persistentUsers[userId].photo_updated_at = new Date().toISOString();
+    
+    savePersistentData();
+    
+    console.log(`✅ Profile photo updated for user: ${user.full_name} - New photo: ${randomPhoto}`);
+    
+    return res.json({
+      success: true,
+      message: "Profile photo uploaded successfully",
+      data: {
+        user: {
+          id: user.id,
+          name: user.full_name,
+          email: user.email,
+          profile_photo: randomPhoto,
+          photo_updated_at: persistentUsers[userId].photo_updated_at
+        },
+        upload: {
+          status: "success",
+          photo_url: randomPhoto,
+          demo_note: "This is a demo upload. In production, actual file would be processed.",
+          file_size: "~150KB (simulated)",
+          dimensions: "150x150 (optimized)"
+        }
+      }
+    });
+  }
+  
+  // If photo_url is provided, use it
+  persistentUsers[userId].profile_photo = photo_url;
+  persistentUsers[userId].photo_updated_at = new Date().toISOString();
+  
+  savePersistentData();
+  
+  console.log(`✅ Profile photo updated with provided URL for user: ${user.full_name}`);
+  
+  res.json({
+    success: true,
+    message: "Profile photo updated successfully",
+    data: {
+      user: {
+        id: user.id,
+        name: user.full_name,
+        email: user.email,
+        profile_photo: photo_url,
+        photo_updated_at: persistentUsers[userId].photo_updated_at
+      },
+      upload: {
+        status: "success",
+        photo_url: photo_url,
+        method: "url_provided"
+      }
+    }
+  });
+});
+
+// ===== PROFILE PHOTO DELETE API =====
+app.delete('/api/me/profile/photo', authenticateToken, (req, res) => {
+  const userId = req.user?.userId || 1;
+  const user = persistentUsers[userId];
+  
+  console.log(`🗑️ Profile photo delete request from user: ${user.full_name} (ID: ${userId})`);
+  
+  // Set default avatar
+  const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&size=150&background=6366F1&color=ffffff`;
+  
+  persistentUsers[userId].profile_photo = defaultAvatar;
+  persistentUsers[userId].photo_updated_at = new Date().toISOString();
+  
+  savePersistentData();
+  
+  console.log(`✅ Profile photo deleted for user: ${user.full_name} - Reset to default avatar`);
+  
+  res.json({
+    success: true,
+    message: "Profile photo deleted successfully",
+    data: {
+      user: {
+        id: user.id,
+        name: user.full_name,
+        email: user.email,
+        profile_photo: defaultAvatar,
+        photo_updated_at: persistentUsers[userId].photo_updated_at
+      },
+      delete: {
+        status: "success",
+        default_avatar: defaultAvatar,
+        note: "Profile photo reset to generated avatar"
+      }
+    }
+  });
+});
+
 // ===== TIMER OVERVIEW API - General timer information =====
 app.get('/api/me/timer', authenticateToken, (req, res) => {
   const userId = req.user?.userId || 1;
