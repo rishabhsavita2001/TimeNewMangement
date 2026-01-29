@@ -2441,6 +2441,50 @@ app.patch('/api/employees/:id/activate', (req, res) => {
   });
 });
 
+// GET /api/employees/:id/timesheet - Get employee timesheet
+app.get('/api/employees/:id/timesheet', (req, res) => {
+  const employeeId = req.params.id;
+  const period = req.query.period || 'weekly';
+
+  res.json({
+    success: true,
+    data: {
+      employeeId: parseInt(employeeId),
+      period: period,
+      summary: {
+        hoursWorkedThisWeek: "38h 20m",
+        averageDailyHours: "7h 40m",
+        overtimeThisMonth: "4h 20m",
+        lastClockIn: "Today, 08:12",
+        lastClockOut: "Yesterday, 17:04"
+      },
+      timeEntries: [
+        {
+          date: "2026-01-28",
+          clockIn: "08:12",
+          clockOut: "17:04",
+          totalHours: "8h 52m",
+          status: "completed"
+        },
+        {
+          date: "2026-01-27",
+          clockIn: "09:00",
+          clockOut: "17:30",
+          totalHours: "8h 30m",
+          status: "completed"
+        },
+        {
+          date: "2026-01-26",
+          clockIn: "08:45",
+          clockOut: "17:15",
+          totalHours: "8h 30m",
+          status: "completed"
+        }
+      ]
+    }
+  });
+});
+
 // Swagger Documentation
 app.get('/swagger.json', (req, res) => {
   const swaggerSpec = {
