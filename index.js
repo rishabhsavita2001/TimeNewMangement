@@ -4526,6 +4526,354 @@ app.get('/swagger.json', (req, res) => {
             }
           }
         }
+      },
+      "/me/break/start": {
+        "post": {
+          "summary": "Start Break",
+          "description": "Start a break session",
+          "tags": ["Timer"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["break_type"],
+                  "properties": {
+                    "break_type": { "type": "string", "example": "lunch" },
+                    "description": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Break started successfully"
+            }
+          }
+        }
+      },
+      "/me/break/end": {
+        "post": {
+          "summary": "End Break",
+          "description": "End current break session",
+          "tags": ["Timer"],
+          "responses": {
+            "200": {
+              "description": "Break ended successfully"
+            }
+          }
+        }
+      },
+      "/me/timer/resume": {
+        "post": {
+          "summary": "Resume Timer",
+          "description": "Resume timer after break",
+          "tags": ["Timer"],
+          "responses": {
+            "200": {
+              "description": "Timer resumed successfully"
+            }
+          }
+        }
+      },
+      "/me/activity": {
+        "get": {
+          "summary": "Get User Activity Feed",
+          "description": "Get user activity history and timeline",
+          "tags": ["Reports"],
+          "parameters": [
+            {
+              "name": "limit",
+              "in": "query",
+              "schema": { "type": "integer", "default": 20 }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Activity feed retrieved successfully"
+            }
+          }
+        }
+      },
+      "/break-types": {
+        "get": {
+          "summary": "Get Break Types",
+          "description": "Get available break types",
+          "tags": ["System"],
+          "responses": {
+            "200": {
+              "description": "Break types retrieved successfully"
+            }
+          }
+        }
+      },
+      "/locations": {
+        "get": {
+          "summary": "Get Locations",
+          "description": "Get work locations",
+          "tags": ["System"],
+          "responses": {
+            "200": {
+              "description": "Locations retrieved successfully"
+            }
+          }
+        }
+      },
+      "/employees": {
+        "get": {
+          "summary": "Get Employees",
+          "description": "Get list of all employees",
+          "tags": ["Employee Management"],
+          "parameters": [
+            {
+              "name": "page",
+              "in": "query",
+              "schema": { "type": "integer", "default": 1 }
+            },
+            {
+              "name": "limit",
+              "in": "query",
+              "schema": { "type": "integer", "default": 10 }
+            },
+            {
+              "name": "search",
+              "in": "query",
+              "schema": { "type": "string" }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Employees retrieved successfully"
+            }
+          }
+        },
+        "post": {
+          "summary": "Create Employee",
+          "description": "Create new employee account",
+          "tags": ["Employee Management"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["firstName", "lastName", "email"],
+                  "properties": {
+                    "firstName": { "type": "string" },
+                    "lastName": { "type": "string" },
+                    "email": { "type": "string", "format": "email" },
+                    "employeeNumber": { "type": "string" },
+                    "department": { "type": "string" },
+                    "role": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Employee created successfully"
+            }
+          }
+        }
+      },
+      "/employees/{id}": {
+        "get": {
+          "summary": "Get Employee Details",
+          "description": "Get detailed employee information",
+          "tags": ["Employee Management"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "integer" }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Employee details retrieved successfully"
+            }
+          }
+        },
+        "put": {
+          "summary": "Update Employee",
+          "description": "Update employee information",
+          "tags": ["Employee Management"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "integer" }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "firstName": { "type": "string" },
+                    "lastName": { "type": "string" },
+                    "email": { "type": "string", "format": "email" },
+                    "department": { "type": "string" },
+                    "role": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Employee updated successfully"
+            }
+          }
+        }
+      },
+      "/employees/invite": {
+        "post": {
+          "summary": "Invite Employee",
+          "description": "Send invitation to new employee",
+          "tags": ["Employee Management"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["email", "firstName", "lastName"],
+                  "properties": {
+                    "email": { "type": "string", "format": "email" },
+                    "firstName": { "type": "string" },
+                    "lastName": { "type": "string" },
+                    "role": { "type": "string" },
+                    "department": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Employee invitation sent successfully"
+            }
+          }
+        }
+      },
+      "/employees/accept-invitation": {
+        "post": {
+          "summary": "Accept Employee Invitation",
+          "description": "Accept employee invitation and complete registration",
+          "tags": ["Employee Management"],
+          "security": [],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["invitation_token", "password"],
+                  "properties": {
+                    "invitation_token": { "type": "string" },
+                    "password": { "type": "string", "minLength": 6 },
+                    "firstName": { "type": "string" },
+                    "lastName": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Invitation accepted successfully"
+            }
+          }
+        }
+      },
+      "/employees/roles": {
+        "get": {
+          "summary": "Get Employee Roles",
+          "description": "Get available employee roles",
+          "tags": ["Employee Management"],
+          "responses": {
+            "200": {
+              "description": "Employee roles retrieved successfully"
+            }
+          }
+        }
+      },
+      "/employees/departments": {
+        "get": {
+          "summary": "Get Departments",
+          "description": "Get company departments",
+          "tags": ["Employee Management"],
+          "responses": {
+            "200": {
+              "description": "Departments retrieved successfully"
+            }
+          }
+        }
+      },
+      "/correction-requests": {
+        "get": {
+          "summary": "Get All Correction Requests",
+          "description": "Get all correction requests for admin/manager review",
+          "tags": ["Admin"],
+          "parameters": [
+            {
+              "name": "status",
+              "in": "query",
+              "schema": { "type": "string", "enum": ["pending", "approved", "reject", "all"] }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Correction requests retrieved successfully"
+            }
+          }
+        }
+      },
+      "/company/settings": {
+        "get": {
+          "summary": "Get Company Settings",
+          "description": "Get company configuration settings",
+          "tags": ["Company Settings"],
+          "responses": {
+            "200": {
+              "description": "Company settings retrieved successfully"
+            }
+          }
+        },
+        "put": {
+          "summary": "Update Company Settings", 
+          "description": "Update company configuration",
+          "tags": ["Company Settings"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "company_name": { "type": "string" },
+                    "industry": { "type": "string" },
+                    "timezone": { "type": "string" },
+                    "currency": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Company settings updated successfully"
+            }
+          }
+        }
       }
     }
   };
