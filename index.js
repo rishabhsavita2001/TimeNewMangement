@@ -64,6 +64,29 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Working Time & Absence Management API',
+    version: '1.0.0',
+    domain: 'api-layer.vercel.app',
+    status: 'All systems operational',
+    timestamp: new Date().toISOString(),
+    available_endpoints: [
+      "/api/health",
+      "/api/test", 
+      "/api/dashboard",
+      "/api/me/timer/start",
+      "/api/me/timer/stop",
+      "/api/me/timer/current",
+      "/api/notifications",
+      "/api/updates",
+      "/api-docs"
+    ]
+  });
+});
+
 // Apply authentication to all API routes
 app.use('/api', authenticateToken);
 
