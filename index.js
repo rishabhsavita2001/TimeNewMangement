@@ -1076,45 +1076,6 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-app.get('/api/updates', (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      updates: [
-        {
-          id: 1,
-          title: '🎉 New Time Tracking Features',
-          message: 'We have added new timer controls and better reporting features.',
-          type: 'feature',
-          date: '2025-12-23',
-          priority: 'medium',
-          read: false
-        },
-        {
-          id: 2,
-          title: '🏢 Office Holiday Schedule',
-          message: 'Office will be closed from Dec 25-Jan 1 for holidays.',
-          type: 'announcement',
-          date: '2025-12-22', 
-          priority: 'high',
-          read: false
-        },
-        {
-          id: 3,
-          title: '📊 Monthly Reports Available',
-          message: 'December monthly reports are now available for download.',
-          type: 'notification',
-          date: '2025-12-21',
-          priority: 'low',
-          read: true
-        }
-      ],
-      unreadCount: 2,
-      totalCount: 3
-    }
-  });
-});
-
 // Detailed Notifications API
 app.get('/api/me/notifications', (req, res) => {
   res.json({
@@ -1824,6 +1785,40 @@ app.post('/api/me/leave-requests', (req, res) => {
   });
 });
 
+// POST /api/requests/:id/approve - Approve any request (vacation/correction)
+app.post('/api/requests/:id/approve', (req, res) => {
+  const requestId = req.params.id;
+  
+  res.json({
+    success: true,
+    message: 'Request approved successfully',
+    data: {
+      requestId: parseInt(requestId),
+      status: 'approved',
+      approvedAt: new Date().toISOString(),
+      approvedBy: 'Admin'
+    }
+  });
+});
+
+// POST /api/requests/:id/reject - Reject any request (vacation/correction)
+app.post('/api/requests/:id/reject', (req, res) => {
+  const requestId = req.params.id;
+  const { reason = 'No reason provided' } = req.body;
+  
+  res.json({
+    success: true,
+    message: 'Request rejected successfully',
+    data: {
+      requestId: parseInt(requestId),
+      status: 'rejected',
+      rejectedAt: new Date().toISOString(),
+      rejectedBy: 'Admin',
+      reason: reason
+    }
+  });
+});
+
 // GET /api/correction-requests - Get all correction requests (Admin/Manager view)
 app.get('/api/correction-requests', (req, res) => {
   const { status, issue, employee, date_range } = req.query;
@@ -2087,6 +2082,24 @@ app.post('/api/me/time-corrections', (req, res) => {
   });
 });
 
+// PUT /api/time-corrections/:id/status - Update time correction status (Admin/Manager)
+app.put('/api/time-corrections/:id/status', (req, res) => {
+  const { id } = req.params;
+  const { status, admin_comment = '' } = req.body; // pending, approved, rejected
+  
+  res.json({
+    success: true,
+    message: `Time correction request ${status} successfully`,
+    data: {
+      id: parseInt(id),
+      status,
+      admin_comment,
+      updated_at: new Date().toISOString(),
+      processed_by: 'Manager'
+    }
+  });
+});
+
 // GET /api/me/time-corrections/history - Get time correction history
 app.get('/api/me/time-corrections/history', (req, res) => {
   res.json({
@@ -2108,6 +2121,173 @@ app.get('/api/me/time-corrections/history', (req, res) => {
       ],
       total_count: 1
     }
+  });
+});
+
+// ========== Company Settings APIs ==========
+
+// GET /api/company/settings - Get company settings
+app.get('/api/company/settings', (req, res) => {
+  res.json({
+    success: true,
+    message: "Company settings retrieved successfully",
+    data: {
+      company: {
+        id: 1,
+        name: "ACME Inc.",
+        logo_url: "https://api-layer.vercel.app/api/company/logo",
+        industry: "IT Company",
+        brand_color: "#6366F1",
+        support_email: "acmeinc@gmail.com",
+        company_phone: "(+1) 740 - 8521",
+        address: "45 Cloudy Bay, Auckland, NZ",
+        employee_count: 150
+      }
+    }
+  });
+});
+
+// PUT /api/company/settings - Update company settings
+app.put('/api/company/settings', (req, res) => {
+  const { name, industry, brand_color, support_email, company_phone, address } = req.body;
+  
+  res.json({
+    success: true,
+    message: "Company settings updated successfully",
+    data: {
+      name, industry, brand_color, support_email, company_phone, address,
+      updated_at: new Date().toISOString()
+    }
+  });
+});
+
+// PUT /api/company/address - Update company address
+app.put('/api/company/address', (req, res) => {
+  const { address, city, state, zipCode, country } = req.body;
+  
+  if (!address) {
+    return res.status(400).json({
+      success: false,
+      message: "Address is required"
+    });
+  }
+  
+  res.json({
+    success: true,
+    message: "Company address updated successfully",
+    data: {
+      address,
+      city: city || "Auckland",
+      state: state || "",
+      zipCode: zipCode || "",
+      country: country || "New Zealand",
+      full_address: `${address}, ${city || "Auckland"}`,
+      updated_at: new Date().toISOString()
+    }
+  });
+});
+
+// PUT /api/company/name - Update company name
+app.put('/api/company/name', (req, res) => {
+  const { company_name } = req.body;
+  
+  if (!company_name) {
+    return res.status(400).json({
+      success: false,
+      message: "Company name is required"
+    });
+  }
+  
+  res.json({
+    success: true,
+    message: "Company name updated successfully",
+    data: {
+      company_name,
+      updated_at: new Date().toISOString()
+    }
+  });
+});
+
+// PUT /api/company/brand-color - Update brand color
+app.put('/api/company/brand-color', (req, res) => {
+  const { brand_color, color_name } = req.body;
+  
+  res.json({
+    success: true,
+    message: "Brand color updated successfully",
+    data: {
+      brand_color: brand_color || "#6366F1",
+      color_name: color_name || "Purple",
+      updated_at: new Date().toISOString()
+    }
+  });
+});
+
+// PUT /api/company/support-email - Update support email
+app.put('/api/company/support-email', (req, res) => {
+  const { support_email } = req.body;
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!support_email || !emailRegex.test(support_email)) {
+    return res.status(400).json({
+      success: false,
+      message: "Valid support email is required"
+    });
+  }
+  
+  res.json({
+    success: true,
+    message: "Support email updated successfully",
+    data: {
+      support_email,
+      updated_at: new Date().toISOString()
+    }
+  });
+});
+
+// PUT /api/company/phone - Update company phone
+app.put('/api/company/phone', (req, res) => {
+  const { company_phone } = req.body;
+  
+  res.json({
+    success: true,
+    message: "Company phone updated successfully",
+    data: {
+      company_phone,
+      updated_at: new Date().toISOString()
+    }
+  });
+});
+
+// POST /api/company/logo - Upload company logo
+app.post('/api/company/logo', (req, res) => {
+  res.json({
+    success: true,
+    message: "Company logo uploaded successfully",
+    data: {
+      logo_url: "https://api-layer.vercel.app/api/company/logo",
+      uploaded_at: new Date().toISOString()
+    }
+  });
+});
+
+// GET /api/company/brand-colors - Get available brand colors
+app.get('/api/company/brand-colors', (req, res) => {
+  const brandColors = [
+    { id: 1, name: "Blue", hex: "#3B82F6", icon: "🔵" },
+    { id: 2, name: "Purple", hex: "#6366F1", icon: "🟣" },
+    { id: 3, name: "Burgundy", hex: "#991B1B", icon: "🟤" },
+    { id: 4, name: "Red", hex: "#EF4444", icon: "🔴" },
+    { id: 5, name: "Midnight Blue", hex: "#1E3A8A", icon: "🔵" },
+    { id: 6, name: "Orange", hex: "#F97316", icon: "🟠" },
+    { id: 7, name: "Lavender Purple", hex: "#A78BFA", icon: "🟣" },
+    { id: 8, name: "Customize Color", hex: null, icon: "🎨" }
+  ];
+  
+  res.json({
+    success: true,
+    message: "Brand colors retrieved successfully",
+    data: { colors: brandColors }
   });
 });
 
