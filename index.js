@@ -4874,6 +4874,974 @@ app.get('/swagger.json', (req, res) => {
             }
           }
         }
+      },
+      "/company/address": {
+        "put": {
+          "summary": "Update Company Address",
+          "description": "Update company address information",
+          "tags": ["Company Settings"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "address_line_1": { "type": "string" },
+                    "city": { "type": "string" },
+                    "state": { "type": "string" },
+                    "country": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Company address updated successfully"
+            }
+          }
+        }
+      },
+      "/company/name": {
+        "put": {
+          "summary": "Update Company Name",
+          "description": "Update company name",
+          "tags": ["Company Settings"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["company_name"],
+                  "properties": {
+                    "company_name": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Company name updated successfully"
+            }
+          }
+        }
+      },
+      "/company/brand-color": {
+        "put": {
+          "summary": "Update Brand Color",
+          "description": "Update company brand color",
+          "tags": ["Company Settings"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["brand_color"],
+                  "properties": {
+                    "brand_color": { "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Brand color updated successfully"
+            }
+          }
+        }
+      },
+      "/company/support-email": {
+        "put": {
+          "summary": "Update Support Email",
+          "description": "Update company support email",
+          "tags": ["Company Settings"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["support_email"],
+                  "properties": {
+                    "support_email": { "type": "string", "format": "email" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Support email updated successfully"
+            }
+          }
+        }
+      },
+      "/company/phone": {
+        "put": {
+          "summary": "Update Company Phone",
+          "description": "Update company phone number",
+          "tags": ["Company Settings"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["phone"],
+                  "properties": {
+                    "phone": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Company phone updated successfully"
+            }
+          }
+        }
+      },
+      "/company/logo": {
+        "post": {
+          "summary": "Upload Company Logo",
+          "description": "Upload company logo image",
+          "tags": ["Company Settings"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["logo"],
+                  "properties": {
+                    "logo": { "type": "string", "description": "Base64 encoded image" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Company logo uploaded successfully"
+            }
+          }
+        }
+      },
+      "/company/brand-colors": {
+        "get": {
+          "summary": "Get Brand Colors",
+          "description": "Get available brand color options",
+          "tags": ["Company Settings"],
+          "responses": {
+            "200": {
+              "description": "Brand colors retrieved successfully"
+            }
+          }
+        }
+      },
+      "/company/industry": {
+        "put": {
+          "summary": "Update Company Industry",
+          "description": "Update company industry type",
+          "tags": ["Company Settings"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["industry"],
+                  "properties": {
+                    "industry": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Company industry updated successfully"
+            }
+          }
+        }
+      },
+      "/dashboard/workforce-activity": {
+        "get": {
+          "summary": "Get Workforce Activity",
+          "description": "Get workforce activity analytics",
+          "tags": ["Dashboard"],
+          "responses": {
+            "200": {
+              "description": "Workforce activity retrieved successfully"
+            }
+          }
+        }
+      },
+      "/dashboard/recent-requests": {
+        "get": {
+          "summary": "Get Recent Requests",
+          "description": "Get recent leave/correction requests for dashboard",
+          "tags": ["Dashboard"],
+          "responses": {
+            "200": {
+              "description": "Recent requests retrieved successfully"
+            }
+          }
+        }
+      },
+      "/time-correction-types": {
+        "get": {
+          "summary": "Get Time Correction Types",
+          "description": "Get available time correction issue types",
+          "tags": ["Quick Actions"],
+          "responses": {
+            "200": {
+              "description": "Time correction types retrieved successfully"
+            }
+          }
+        }
+      },
+      "/me/time-corrections": {
+        "get": {
+          "summary": "Get My Time Corrections",
+          "description": "Get user's time correction requests",
+          "tags": ["Quick Actions"],
+          "responses": {
+            "200": {
+              "description": "Time corrections retrieved successfully"
+            }
+          }
+        },
+        "post": {
+          "summary": "Submit Time Correction",
+          "description": "Submit a time correction request",
+          "tags": ["Quick Actions"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["correction_type", "reason"],
+                  "properties": {
+                    "correction_type": { "type": "string" },
+                    "reason": { "type": "string" },
+                    "original_entry_id": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Time correction request submitted successfully"
+            }
+          }
+        }
+      },
+      "/me/time-corrections/history": {
+        "get": {
+          "summary": "Get Time Correction History",
+          "description": "Get time correction history",
+          "tags": ["Quick Actions"],
+          "responses": {
+            "200": {
+              "description": "Time correction history retrieved successfully"
+            }
+          }
+        }
+      },
+      "/time-corrections/{id}/status": {
+        "put": {
+          "summary": "Update Time Correction Status",
+          "description": "Update time correction status (Admin/Manager)",
+          "tags": ["Admin"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "string" }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "enum": ["approved", "rejected"] },
+                    "comment": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Time correction status updated"
+            }
+          }
+        }
+      },
+      "/correction-requests/{id}/approve": {
+        "post": {
+          "summary": "Approve Correction Request",
+          "description": "Approve a time correction request",
+          "tags": ["Admin"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "string" }
+            }
+          ],
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "comment": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Correction request approved"
+            }
+          }
+        }
+      },
+      "/correction-requests/{id}/reject": {
+        "post": {
+          "summary": "Reject Correction Request", 
+          "description": "Reject a time correction request",
+          "tags": ["Admin"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "string" }
+            }
+          ],
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "reason": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Correction request rejected"
+            }
+          }
+        }
+      },
+      "/employees/{id}": {
+        "delete": {
+          "summary": "Delete Employee",
+          "description": "Delete employee account",
+          "tags": ["Employee Management"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "integer" }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Employee deleted successfully"
+            }
+          }
+        }
+      },
+      "/employees/{id}/deactivate": {
+        "patch": {
+          "summary": "Deactivate Employee",
+          "description": "Deactivate employee account",
+          "tags": ["Employee Management"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "integer" }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Employee deactivated successfully"
+            }
+          }
+        }
+      },
+      "/employees/{id}/activate": {
+        "patch": {
+          "summary": "Activate Employee",
+          "description": "Activate employee account",
+          "tags": ["Employee Management"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "integer" }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Employee activated successfully"
+            }
+          }
+        }
+      },
+      "/employees/{id}/timesheet": {
+        "get": {
+          "summary": "Get Employee Timesheet",
+          "description": "Get timesheet data for specific employee",
+          "tags": ["Employee Management"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "integer" }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Employee timesheet retrieved successfully"
+            }
+          }
+        }
+      },
+      "/vacation-balances": {
+        "get": {
+          "summary": "Get Vacation Balances",
+          "description": "Get vacation balances for all employees",
+          "tags": ["Admin"],
+          "responses": {
+            "200": {
+              "description": "Vacation balances retrieved successfully"
+            }
+          }
+        }
+      },
+      "/vacation-balances/{id}/update": {
+        "put": {
+          "summary": "Update Vacation Balance",
+          "description": "Update vacation balance for specific employee",
+          "tags": ["Admin"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "integer" }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "vacation_days": { "type": "number" },
+                    "sick_days": { "type": "number" },
+                    "personal_days": { "type": "number" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Vacation balance updated successfully"
+            }
+          }
+        }
+      },
+      "/admin/timer-settings": {
+        "get": {
+          "summary": "Get Timer Settings",
+          "description": "Get timer configuration settings",
+          "tags": ["Admin"],
+          "responses": {
+            "200": {
+              "description": "Timer settings retrieved successfully"
+            }
+          }
+        },
+        "put": {
+          "summary": "Update Timer Settings",
+          "description": "Update timer configuration settings",
+          "tags": ["Admin"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "auto_break": { "type": "boolean" },
+                    "break_duration": { "type": "integer" },
+                    "daily_hour_limit": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Timer settings updated successfully"
+            }
+          }
+        }
+      },
+      "/admin/all-timers": {
+        "get": {
+          "summary": "Get All Timers",
+          "description": "Get timer status for all employees",
+          "tags": ["Admin"],
+          "responses": {
+            "200": {
+              "description": "All timers retrieved successfully"
+            }
+          }
+        }
+      },
+      "/admin/time-entries": {
+        "get": {
+          "summary": "Get All Time Entries",
+          "description": "Get time entries for all employees",
+          "tags": ["Admin"],
+          "responses": {
+            "200": {
+              "description": "Time entries retrieved successfully"
+            }
+          }
+        }
+      },
+      "/admin/leave-requests": {
+        "get": {
+          "summary": "Get All Leave Requests",
+          "description": "Get all pending and processed leave requests",
+          "tags": ["Admin"],
+          "responses": {
+            "200": {
+              "description": "Leave requests retrieved successfully"
+            }
+          }
+        }
+      },
+      "/admin/correction-requests": {
+        "get": {
+          "summary": "Get All Correction Requests",
+          "description": "Get all time correction requests",
+          "tags": ["Admin"],
+          "responses": {
+            "200": {
+              "description": "Correction requests retrieved successfully"
+            }
+          }
+        }
+      },
+      "/admin/reports/daily": {
+        "get": {
+          "summary": "Get Daily Reports",
+          "description": "Get daily time tracking reports",
+          "tags": ["Reports"],
+          "responses": {
+            "200": {
+              "description": "Daily reports retrieved successfully"
+            }
+          }
+        }
+      },
+      "/admin/reports/weekly": {
+        "get": {
+          "summary": "Get Weekly Reports",
+          "description": "Get weekly time tracking reports",
+          "tags": ["Reports"],
+          "responses": {
+            "200": {
+              "description": "Weekly reports retrieved successfully"
+            }
+          }
+        }
+      },
+      "/admin/reports/monthly": {
+        "get": {
+          "summary": "Get Monthly Reports",
+          "description": "Get monthly time tracking reports",
+          "tags": ["Reports"],
+          "responses": {
+            "200": {
+              "description": "Monthly reports retrieved successfully"
+            }
+          }
+        }
+      },
+      "/admin/reports/employee/{id}": {
+        "get": {
+          "summary": "Get Employee Report",
+          "description": "Get time tracking report for specific employee",
+          "tags": ["Reports"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "integer" }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Employee report retrieved successfully"
+            }
+          }
+        }
+      },
+      "/teams": {
+        "get": {
+          "summary": "Get Teams",
+          "description": "Get all teams in the company",
+          "tags": ["Team Management"],
+          "responses": {
+            "200": {
+              "description": "Teams retrieved successfully"
+            }
+          }
+        },
+        "post": {
+          "summary": "Create Team",
+          "description": "Create a new team",
+          "tags": ["Team Management"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["name"],
+                  "properties": {
+                    "name": { "type": "string" },
+                    "description": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Team created successfully"
+            }
+          }
+        }
+      },
+      "/teams/{id}": {
+        "get": {
+          "summary": "Get Team Details",
+          "description": "Get details of a specific team",
+          "tags": ["Team Management"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "integer" }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Team details retrieved successfully"
+            }
+          }
+        },
+        "put": {
+          "summary": "Update Team",
+          "description": "Update team information",
+          "tags": ["Team Management"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "integer" }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "name": { "type": "string" },
+                    "description": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Team updated successfully"
+            }
+          }
+        },
+        "delete": {
+          "summary": "Delete Team",
+          "description": "Delete a team",
+          "tags": ["Team Management"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "integer" }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Team deleted successfully"
+            }
+          }
+        }
+      },
+      "/teams/{id}/members": {
+        "get": {
+          "summary": "Get Team Members",
+          "description": "Get all members of a team",
+          "tags": ["Team Management"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "integer" }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Team members retrieved successfully"
+            }
+          }
+        },
+        "post": {
+          "summary": "Add Team Member",
+          "description": "Add employee to team",
+          "tags": ["Team Management"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "integer" }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["employee_id"],
+                  "properties": {
+                    "employee_id": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Employee added to team successfully"
+            }
+          }
+        }
+      },
+      "/teams/{id}/members/{employee_id}": {
+        "delete": {
+          "summary": "Remove Team Member",
+          "description": "Remove employee from team",
+          "tags": ["Team Management"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "integer" }
+            },
+            {
+              "name": "employee_id",
+              "in": "path", 
+              "required": true,
+              "schema": { "type": "integer" }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Employee removed from team successfully"
+            }
+          }
+        }
+      },
+      "/analytics/productivity": {
+        "get": {
+          "summary": "Get Productivity Analytics",
+          "description": "Get productivity analytics and metrics",
+          "tags": ["Analytics"],
+          "responses": {
+            "200": {
+              "description": "Productivity analytics retrieved successfully"
+            }
+          }
+        }
+      },
+      "/analytics/attendance": {
+        "get": {
+          "summary": "Get Attendance Analytics",
+          "description": "Get attendance analytics and metrics",
+          "tags": ["Analytics"],
+          "responses": {
+            "200": {
+              "description": "Attendance analytics retrieved successfully"
+            }
+          }
+        }
+      },
+      "/notifications": {
+        "get": {
+          "summary": "Get Notifications",
+          "description": "Get user notifications",
+          "tags": ["Notifications"],
+          "responses": {
+            "200": {
+              "description": "Notifications retrieved successfully"
+            }
+          }
+        }
+      },
+      "/notifications/{id}/read": {
+        "patch": {
+          "summary": "Mark Notification Read",
+          "description": "Mark notification as read",
+          "tags": ["Notifications"],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": { "type": "integer" }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Notification marked as read"
+            }
+          }
+        }
+      },
+      "/settings/password": {
+        "put": {
+          "summary": "Change Password",
+          "description": "Change user password",
+          "tags": ["Settings"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["current_password", "new_password"],
+                  "properties": {
+                    "current_password": { "type": "string" },
+                    "new_password": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Password changed successfully"
+            }
+          }
+        }
+      },
+      "/settings/timezone": {
+        "put": {
+          "summary": "Update Timezone",
+          "description": "Update user timezone settings",
+          "tags": ["Settings"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["timezone"],
+                  "properties": {
+                    "timezone": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Timezone updated successfully"
+            }
+          }
+        }
+      },
+      "/settings/theme": {
+        "put": {
+          "summary": "Update Theme",
+          "description": "Update user theme preference",
+          "tags": ["Settings"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["theme"],
+                  "properties": {
+                    "theme": { "type": "string", "enum": ["light", "dark", "auto"] }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Theme updated successfully"
+            }
+          }
+        }
       }
     }
   };
