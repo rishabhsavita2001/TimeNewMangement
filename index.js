@@ -95,8 +95,9 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
     timestamp: new Date().toISOString(),
-    message: 'All APIs working on api-layer.vercel.app',
-    domain: 'api-layer.vercel.app'
+    message: 'All APIs working on api-layer.vercel.app - Updated Jan 31',
+    domain: 'api-layer.vercel.app',
+    version: '2.0.1'
   });
 });
 
