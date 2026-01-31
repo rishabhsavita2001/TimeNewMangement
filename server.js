@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const swaggerUi = require('swagger-ui-express');
 const fs = require('fs');
 const path = require('path');
+const nodemailer = require('nodemailer');
 
 const app = express();
 
@@ -28,6 +29,24 @@ try {
 
 // JWT Secret
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-for-development-only';
+
+// Email Configuration (SMTP)
+const emailTransporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'managementtime04@gmail.com',
+    pass: 'sarx oodf rrxb bfuk' // App password
+  }
+});
+
+// Test email configuration
+emailTransporter.verify((error, success) => {
+  if (error) {
+    console.log('❌ Email configuration error:', error.message);
+  } else {
+    console.log('✅ Email server is ready to send messages');
+  }
+});
 
 // Middleware
 app.use(cors({ origin: true, credentials: true }));
@@ -76,6 +95,12 @@ let persistentUsers = {
 // PERSISTENT TIMER STORAGE - This fixes the auto-stop issue
 let persistentTimers = {};
 let dailyLimits = {};
+
+// TEMPORARY COMPANY REGISTRATION STORAGE (Multi-step registration)
+let tempCompanyRegistrations = {};
+
+// FORGOT PASSWORD OTP STORAGE
+let forgotPasswordOTPs = {};
 
 // PERSISTENT COMPANY SETTINGS STORAGE
 let companySettings = {
@@ -352,6 +377,1951 @@ app.post('/api/auth/register', (req, res) => {
       auto_login: true
     }
   });
+});
+
+// ===== MULTI-STEP COMPANY REGISTRATION APIs =====
+
+// PHASE 1: Company Information
+app.post('/api/auth/company-registration/step-1', (req, res) => {
+  const {
+    company_name,
+    company_email,
+    country,
+    timezone
+  } = req.body;
+
+  console.log(`🏢 Step 1: Company Information - ${company_name}`);
+
+  // Validate required fields
+  if (!company_name || !company_email || !country || !timezone) {
+    return res.status(400).json({
+      success: false,
+      message: 'All fields are required',
+      data: {
+        required_fields: ['company_name', 'company_email', 'country', 'timezone'],
+        missing_fields: [
+          !company_name && 'company_name',
+          !company_email && 'company_email',
+          !country && 'country',
+          !timezone && 'timezone'
+        ].filter(Boolean)
+      }
+    });
+  }
+
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(company_email)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid email format',
+      data: {
+        email: company_email
+      }
+    });
+  }
+
+  // Generate unique registration session ID
+  const sessionId = `REG_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  // Store step 1 data temporarily
+  tempCompanyRegistrations[sessionId] = {
+    session_id: sessionId,
+    step: 1,
+    company_info: {
+      company_name,
+      company_email,
+      country,
+      timezone
+    },
+    created_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30 minutes expiry
+  };
+
+  console.log(`✅ Step 1 completed - Session: ${sessionId}`);
+
+  res.status(200).json({
+    success: true,
+    message: 'Company information saved successfully',
+    data: {
+      session_id: sessionId,
+      current_step: 1,
+      next_step: 2,
+      completed_data: {
+        company_name,
+        company_email,
+        country,
+        timezone
+      },
+      expires_at: tempCompanyRegistrations[sessionId].expires_at
+    }
+  });
+});
+
+// PHASE 2: Work Model Configuration
+app.post('/api/auth/company-registration/step-2', (req, res) => {
+  const {
+    session_id,
+    default_work_model,
+    working_hours_per_day,
+    working_days_per_week,
+    default_break_duration,
+    overtime_calculation
+  } = req.body;
+
+  console.log(`⚙️ Step 2: Work Model Configuration - Session: ${session_id}`);
+
+  // Validate session
+  if (!session_id || !tempCompanyRegistrations[session_id]) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid or expired registration session',
+      data: {
+        session_id: session_id || null,
+        error: 'Please start registration from step 1'
+      }
+    });
+  }
+
+  const registration = tempCompanyRegistrations[session_id];
+
+  // Check if session expired
+  if (new Date() > new Date(registration.expires_at)) {
+    delete tempCompanyRegistrations[session_id];
+    return res.status(400).json({
+      success: false,
+      message: 'Registration session expired',
+      data: {
+        error: 'Please start registration again from step 1'
+      }
+    });
+  }
+
+  // Validate required fields
+  if (!default_work_model || !working_hours_per_day || !working_days_per_week || !default_break_duration || !overtime_calculation) {
+    return res.status(400).json({
+      success: false,
+      message: 'All fields are required',
+      data: {
+        required_fields: ['default_work_model', 'working_hours_per_day', 'working_days_per_week', 'default_break_duration', 'overtime_calculation']
+      }
+    });
+  }
+
+  // Validate work model values
+  const validWorkModels = ['office', 'remote', 'hybrid'];
+  if (!validWorkModels.includes(default_work_model)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid work model',
+      data: {
+        valid_options: validWorkModels,
+        received: default_work_model
+      }
+    });
+  }
+
+  // Validate numeric values
+  if (working_hours_per_day < 1 || working_hours_per_day > 24) {
+    return res.status(400).json({
+      success: false,
+      message: 'Working hours per day must be between 1 and 24',
+      data: { working_hours_per_day }
+    });
+  }
+
+  if (working_days_per_week < 1 || working_days_per_week > 7) {
+    return res.status(400).json({
+      success: false,
+      message: 'Working days per week must be between 1 and 7',
+      data: { working_days_per_week }
+    });
+  }
+
+  // Update registration with step 2 data
+  registration.step = 2;
+  registration.work_model = {
+    default_work_model,
+    working_hours_per_day: parseFloat(working_hours_per_day),
+    working_days_per_week: parseInt(working_days_per_week),
+    default_break_duration: parseInt(default_break_duration),
+    overtime_calculation
+  };
+  registration.updated_at = new Date().toISOString();
+
+  console.log(`✅ Step 2 completed - Session: ${session_id}`);
+
+  res.status(200).json({
+    success: true,
+    message: 'Work model configuration saved successfully',
+    data: {
+      session_id: session_id,
+      current_step: 2,
+      next_step: 3,
+      completed_data: {
+        company_info: registration.company_info,
+        work_model: registration.work_model
+      },
+      expires_at: registration.expires_at
+    }
+  });
+});
+
+// PHASE 3: Admin Account Setup
+app.post('/api/auth/company-registration/step-3', (req, res) => {
+  const {
+    session_id,
+    full_name,
+    email_address,
+    password,
+    confirm_password
+  } = req.body;
+
+  console.log(`👤 Step 3: Admin Account Setup - Session: ${session_id}`);
+
+  // Validate session
+  if (!session_id || !tempCompanyRegistrations[session_id]) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid or expired registration session',
+      data: {
+        error: 'Please start registration from step 1'
+      }
+    });
+  }
+
+  const registration = tempCompanyRegistrations[session_id];
+
+  // Check if session expired
+  if (new Date() > new Date(registration.expires_at)) {
+    delete tempCompanyRegistrations[session_id];
+    return res.status(400).json({
+      success: false,
+      message: 'Registration session expired',
+      data: {
+        error: 'Please start registration again from step 1'
+      }
+    });
+  }
+
+  // Check if previous steps completed
+  if (registration.step < 2) {
+    return res.status(400).json({
+      success: false,
+      message: 'Please complete previous steps first',
+      data: {
+        current_step: registration.step,
+        required_step: 2
+      }
+    });
+  }
+
+  // Validate required fields
+  if (!full_name || !email_address || !password || !confirm_password) {
+    return res.status(400).json({
+      success: false,
+      message: 'All fields are required',
+      data: {
+        required_fields: ['full_name', 'email_address', 'password', 'confirm_password']
+      }
+    });
+  }
+
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email_address)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid email format',
+      data: {
+        email: email_address
+      }
+    });
+  }
+
+  // Check if email already exists
+  const existingUser = Object.values(persistentUsers).find(user => user.email === email_address);
+  if (existingUser) {
+    return res.status(400).json({
+      success: false,
+      message: 'Admin email already exists',
+      data: {
+        email: email_address,
+        suggestion: 'Please use a different email address'
+      }
+    });
+  }
+
+  // Validate password match
+  if (password !== confirm_password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Passwords do not match',
+      data: {
+        error: 'Password and confirm password must be the same'
+      }
+    });
+  }
+
+  // Validate password strength (minimum 6 characters)
+  if (password.length < 6) {
+    return res.status(400).json({
+      success: false,
+      message: 'Password is too weak',
+      data: {
+        error: 'Password must be at least 6 characters long',
+        current_length: password.length
+      }
+    });
+  }
+
+  // Split full name into first and last name
+  const nameParts = full_name.trim().split(' ');
+  const first_name = nameParts[0];
+  const last_name = nameParts.slice(1).join(' ') || nameParts[0];
+
+  // Update registration with step 3 data
+  registration.step = 3;
+  registration.admin_account = {
+    full_name,
+    first_name,
+    last_name,
+    email_address,
+    password // In production, this should be hashed
+  };
+  registration.updated_at = new Date().toISOString();
+
+  console.log(`✅ Step 3 completed - Session: ${session_id}`);
+
+  res.status(200).json({
+    success: true,
+    message: 'Admin account details saved successfully',
+    data: {
+      session_id: session_id,
+      current_step: 3,
+      next_step: 4,
+      completed_data: {
+        company_info: registration.company_info,
+        work_model: registration.work_model,
+        admin_account: {
+          full_name: registration.admin_account.full_name,
+          email_address: registration.admin_account.email_address
+        }
+      },
+      expires_at: registration.expires_at
+    }
+  });
+});
+
+// PHASE 4: Review and Finish (Create Company)
+app.post('/api/auth/company-registration/step-4', (req, res) => {
+  const { session_id } = req.body;
+
+  console.log(`✅ Step 4: Review and Finish - Session: ${session_id}`);
+
+  // Validate session
+  if (!session_id || !tempCompanyRegistrations[session_id]) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid or expired registration session',
+      data: {
+        error: 'Please start registration from step 1'
+      }
+    });
+  }
+
+  const registration = tempCompanyRegistrations[session_id];
+
+  // Check if session expired
+  if (new Date() > new Date(registration.expires_at)) {
+    delete tempCompanyRegistrations[session_id];
+    return res.status(400).json({
+      success: false,
+      message: 'Registration session expired',
+      data: {
+        error: 'Please start registration again from step 1'
+      }
+    });
+  }
+
+  // Check if all previous steps completed
+  if (registration.step < 3) {
+    return res.status(400).json({
+      success: false,
+      message: 'Please complete all previous steps first',
+      data: {
+        current_step: registration.step,
+        required_step: 3,
+        missing_steps: registration.step === 1 ? ['step-2', 'step-3'] : ['step-3']
+      }
+    });
+  }
+
+  // Generate company ID
+  const companyId = Math.floor(Math.random() * 90000) + 10000;
+
+  // Create company from registration data
+  const newCompany = {
+    id: companyId,
+    name: registration.company_info.company_name,
+    industry: 'Business', // Default
+    brand_color: '#6366F1',
+    brand_color_name: 'Purple',
+    support_email: registration.company_info.company_email,
+    company_phone: '',
+    address: '',
+    city: '',
+    state: '',
+    country: registration.company_info.country,
+    postal_code: '',
+    logo_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(registration.company_info.company_name)}&size=200&background=6366F1&color=ffffff`,
+    website: '',
+    timezone: registration.company_info.timezone,
+    founded_date: new Date().toISOString().split('T')[0],
+    employee_count: 1,
+    description: `${registration.company_info.company_name}`,
+    
+    // Work Model Configuration
+    work_settings: {
+      default_work_model: registration.work_model.default_work_model,
+      working_hours_per_day: registration.work_model.working_hours_per_day,
+      working_days_per_week: registration.work_model.working_days_per_week,
+      default_break_duration: registration.work_model.default_break_duration,
+      overtime_calculation: registration.work_model.overtime_calculation
+    },
+    
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    status: 'active',
+    subscription_plan: 'trial',
+    subscription_expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days trial
+  };
+
+  // Update global company settings
+  companySettings = newCompany;
+
+  // Generate admin user ID
+  const adminUserId = Math.max(...Object.keys(persistentUsers).map(Number), 0) + 1;
+
+  // Create admin user from registration data
+  const adminUser = {
+    id: adminUserId,
+    first_name: registration.admin_account.first_name,
+    last_name: registration.admin_account.last_name,
+    full_name: registration.admin_account.full_name,
+    email: registration.admin_account.email_address,
+    password: registration.admin_account.password, // In production, hash this!
+    phone: '',
+    profile_photo: `https://ui-avatars.com/api/?name=${encodeURIComponent(registration.admin_account.full_name)}&size=150`,
+    role: 'Admin',
+    company: registration.company_info.company_name,
+    company_id: companyId,
+    joined_date: new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    }),
+    employee_id: `ADM${adminUserId.toString().padStart(3, '0')}`,
+    department: 'Administration',
+    status: 'Active',
+    timezone: registration.company_info.timezone,
+    is_admin: true,
+    is_super_admin: true,
+    permissions: ['all'],
+    created_at: new Date().toISOString(),
+    last_login: new Date().toISOString(),
+    project: 'Administration',
+    location: registration.company_info.country
+  };
+
+  // Add admin to persistent storage
+  persistentUsers[adminUserId] = adminUser;
+
+  // Save data
+  savePersistentData();
+
+  // Generate authentication token
+  const token = jwt.sign({ 
+    userId: adminUser.id, 
+    email: adminUser.email,
+    name: adminUser.full_name,
+    role: 'Admin',
+    company_id: companyId
+  }, JWT_SECRET, { expiresIn: '24h' });
+
+  // Clean up temporary registration data
+  delete tempCompanyRegistrations[session_id];
+
+  console.log(`🎉 Company created successfully: ${newCompany.name} (ID: ${companyId})`);
+  console.log(`👤 Admin created: ${adminUser.full_name} (ID: ${adminUserId})`);
+
+  res.status(201).json({
+    success: true,
+    message: 'Company registration completed successfully',
+    data: {
+      company: {
+        id: newCompany.id,
+        name: newCompany.name,
+        email: newCompany.support_email,
+        country: newCompany.country,
+        timezone: newCompany.timezone,
+        logo_url: newCompany.logo_url,
+        work_settings: newCompany.work_settings,
+        subscription_plan: newCompany.subscription_plan,
+        trial_expires: newCompany.subscription_expires
+      },
+      admin: {
+        id: adminUser.id,
+        name: adminUser.full_name,
+        email: adminUser.email,
+        role: adminUser.role,
+        employee_id: adminUser.employee_id,
+        profile_photo: adminUser.profile_photo
+      },
+      token: token,
+      auto_login: true,
+      next_steps: [
+        'Customize company branding',
+        'Invite team members',
+        'Set up work policies',
+        'Configure attendance rules'
+      ]
+    }
+  });
+});
+
+// GET Registration Status/Review (for step 4 review)
+app.get('/api/auth/company-registration/review/:session_id', (req, res) => {
+  const { session_id } = req.params;
+
+  console.log(`📋 Review registration - Session: ${session_id}`);
+
+  // Validate session
+  if (!session_id || !tempCompanyRegistrations[session_id]) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid or expired registration session',
+      data: {
+        error: 'Session not found'
+      }
+    });
+  }
+
+  const registration = tempCompanyRegistrations[session_id];
+
+  // Check if session expired
+  if (new Date() > new Date(registration.expires_at)) {
+    delete tempCompanyRegistrations[session_id];
+    return res.status(400).json({
+      success: false,
+      message: 'Registration session expired',
+      data: {
+        error: 'Please start registration again'
+      }
+    });
+  }
+
+  res.status(200).json({
+    success: true,
+    message: 'Registration data retrieved successfully',
+    data: {
+      session_id: registration.session_id,
+      current_step: registration.step,
+      company_info: registration.company_info || null,
+      work_model: registration.work_model || null,
+      admin_account: registration.admin_account ? {
+        full_name: registration.admin_account.full_name,
+        email_address: registration.admin_account.email_address
+      } : null,
+      is_complete: registration.step === 3,
+      created_at: registration.created_at,
+      expires_at: registration.expires_at
+    }
+  });
+});
+
+// EDIT APIs - Update registration data during review
+
+// EDIT Phase 1: Update Company Information
+app.put('/api/auth/company-registration/edit-step-1', (req, res) => {
+  const {
+    session_id,
+    company_name,
+    company_email,
+    country,
+    timezone
+  } = req.body;
+
+  console.log(`✏️ Edit Step 1: Company Information - Session: ${session_id}`);
+
+  // Validate session
+  if (!session_id || !tempCompanyRegistrations[session_id]) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid or expired registration session',
+      data: {
+        error: 'Session not found'
+      }
+    });
+  }
+
+  const registration = tempCompanyRegistrations[session_id];
+
+  // Check if session expired
+  if (new Date() > new Date(registration.expires_at)) {
+    delete tempCompanyRegistrations[session_id];
+    return res.status(400).json({
+      success: false,
+      message: 'Registration session expired',
+      data: {
+        error: 'Please start registration again'
+      }
+    });
+  }
+
+  // Check if step 1 was completed
+  if (!registration.company_info) {
+    return res.status(400).json({
+      success: false,
+      message: 'Company information not yet filled',
+      data: {
+        error: 'Please complete step 1 first'
+      }
+    });
+  }
+
+  // Update only provided fields
+  if (company_name) registration.company_info.company_name = company_name;
+  if (company_email) {
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(company_email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email format',
+        data: { email: company_email }
+      });
+    }
+    registration.company_info.company_email = company_email;
+  }
+  if (country) registration.company_info.country = country;
+  if (timezone) registration.company_info.timezone = timezone;
+
+  registration.updated_at = new Date().toISOString();
+
+  console.log(`✅ Step 1 updated - Session: ${session_id}`);
+
+  res.status(200).json({
+    success: true,
+    message: 'Company information updated successfully',
+    data: {
+      session_id: session_id,
+      updated_data: registration.company_info,
+      updated_at: registration.updated_at
+    }
+  });
+});
+
+// EDIT Work Model Configuration (Update Step 2 data)
+app.put('/api/auth/company-registration/edit-step-2', (req, res) => {
+  const {
+    session_id,
+    default_work_model,
+    working_hours_per_day,
+    working_days_per_week,
+    default_break_duration,
+    overtime_calculation
+  } = req.body;
+
+  console.log(`✏️ Edit Step 2: Work Model - Session: ${session_id}`);
+
+  // Validate session
+  if (!session_id || !tempCompanyRegistrations[session_id]) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid or expired registration session',
+      data: {
+        error: 'Session not found'
+      }
+    });
+  }
+
+  const registration = tempCompanyRegistrations[session_id];
+
+  // Check if session expired
+  if (new Date() > new Date(registration.expires_at)) {
+    delete tempCompanyRegistrations[session_id];
+    return res.status(400).json({
+      success: false,
+      message: 'Registration session expired',
+      data: {
+        error: 'Please start registration again'
+      }
+    });
+  }
+
+  // Check if step 2 was completed
+  if (!registration.work_model) {
+    return res.status(400).json({
+      success: false,
+      message: 'Work model not yet configured',
+      data: {
+        error: 'Please complete step 2 first'
+      }
+    });
+  }
+
+  // Update only provided fields
+  if (default_work_model) {
+    const validWorkModels = ['office', 'remote', 'hybrid'];
+    if (!validWorkModels.includes(default_work_model)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid work model',
+        data: {
+          valid_options: validWorkModels,
+          received: default_work_model
+        }
+      });
+    }
+    registration.work_model.default_work_model = default_work_model;
+  }
+
+  if (working_hours_per_day !== undefined) {
+    if (working_hours_per_day < 1 || working_hours_per_day > 24) {
+      return res.status(400).json({
+        success: false,
+        message: 'Working hours per day must be between 1 and 24',
+        data: { working_hours_per_day }
+      });
+    }
+    registration.work_model.working_hours_per_day = parseFloat(working_hours_per_day);
+  }
+
+  if (working_days_per_week !== undefined) {
+    if (working_days_per_week < 1 || working_days_per_week > 7) {
+      return res.status(400).json({
+        success: false,
+        message: 'Working days per week must be between 1 and 7',
+        data: { working_days_per_week }
+      });
+    }
+    registration.work_model.working_days_per_week = parseInt(working_days_per_week);
+  }
+
+  if (default_break_duration !== undefined) {
+    registration.work_model.default_break_duration = parseInt(default_break_duration);
+  }
+
+  if (overtime_calculation) {
+    registration.work_model.overtime_calculation = overtime_calculation;
+  }
+
+  registration.updated_at = new Date().toISOString();
+
+  console.log(`✅ Step 2 updated - Session: ${session_id}`);
+
+  res.status(200).json({
+    success: true,
+    message: 'Work model configuration updated successfully',
+    data: {
+      session_id: session_id,
+      updated_data: registration.work_model,
+      updated_at: registration.updated_at
+    }
+  });
+});
+
+// EDIT Admin Account Details (Update Step 3 data)
+app.put('/api/auth/company-registration/edit-step-3', (req, res) => {
+  const {
+    session_id,
+    full_name,
+    email_address,
+    password,
+    confirm_password
+  } = req.body;
+
+  console.log(`✏️ Edit Step 3: Admin Account - Session: ${session_id}`);
+
+  // Validate session
+  if (!session_id || !tempCompanyRegistrations[session_id]) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid or expired registration session',
+      data: {
+        error: 'Session not found'
+      }
+    });
+  }
+
+  const registration = tempCompanyRegistrations[session_id];
+
+  // Check if session expired
+  if (new Date() > new Date(registration.expires_at)) {
+    delete tempCompanyRegistrations[session_id];
+    return res.status(400).json({
+      success: false,
+      message: 'Registration session expired',
+      data: {
+        error: 'Please start registration again'
+      }
+    });
+  }
+
+  // Check if step 3 was completed
+  if (!registration.admin_account) {
+    return res.status(400).json({
+      success: false,
+      message: 'Admin account not yet created',
+      data: {
+        error: 'Please complete step 3 first'
+      }
+    });
+  }
+
+  // Update full name
+  if (full_name) {
+    const nameParts = full_name.trim().split(' ');
+    const first_name = nameParts[0];
+    const last_name = nameParts.slice(1).join(' ') || nameParts[0];
+    
+    registration.admin_account.full_name = full_name;
+    registration.admin_account.first_name = first_name;
+    registration.admin_account.last_name = last_name;
+  }
+
+  // Update email
+  if (email_address) {
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email_address)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email format',
+        data: { email: email_address }
+      });
+    }
+
+    // Check if email already exists (excluding current session email)
+    const existingUser = Object.values(persistentUsers).find(user => 
+      user.email === email_address && user.email !== registration.admin_account.email_address
+    );
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already exists',
+        data: {
+          email: email_address,
+          suggestion: 'Please use a different email address'
+        }
+      });
+    }
+
+    registration.admin_account.email_address = email_address;
+  }
+
+  // Update password
+  if (password) {
+    // If password is provided, confirm_password must also be provided
+    if (!confirm_password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Confirm password is required when updating password',
+        data: {
+          error: 'Please provide confirm_password'
+        }
+      });
+    }
+
+    // Validate password match
+    if (password !== confirm_password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Passwords do not match',
+        data: {
+          error: 'Password and confirm password must be the same'
+        }
+      });
+    }
+
+    // Validate password strength
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password is too weak',
+        data: {
+          error: 'Password must be at least 6 characters long',
+          current_length: password.length
+        }
+      });
+    }
+
+    registration.admin_account.password = password;
+  }
+
+  registration.updated_at = new Date().toISOString();
+
+  console.log(`✅ Step 3 updated - Session: ${session_id}`);
+
+  res.status(200).json({
+    success: true,
+    message: 'Admin account details updated successfully',
+    data: {
+      session_id: session_id,
+      updated_data: {
+        full_name: registration.admin_account.full_name,
+        email_address: registration.admin_account.email_address
+      },
+      updated_at: registration.updated_at
+    }
+  });
+});
+
+// EDIT APIs - Update registration data during review
+
+// EDIT Phase 1: Update Company Information
+app.put('/api/auth/company-registration/edit-step-1', (req, res) => {
+  const {
+    session_id,
+    company_name,
+    company_email,
+    country,
+    timezone
+  } = req.body;
+
+  console.log(`✏️ Edit Step 1: Company Information - Session: ${session_id}`);
+
+  // Validate session
+  if (!session_id || !tempCompanyRegistrations[session_id]) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid or expired registration session',
+      data: {
+        error: 'Session not found'
+      }
+    });
+  }
+
+  const registration = tempCompanyRegistrations[session_id];
+
+  // Check if session expired
+  if (new Date() > new Date(registration.expires_at)) {
+    delete tempCompanyRegistrations[session_id];
+    return res.status(400).json({
+      success: false,
+      message: 'Registration session expired',
+      data: {
+        error: 'Please start registration again'
+      }
+    });
+  }
+
+  // Validate email format if provided
+  if (company_email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(company_email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email format',
+        data: {
+          email: company_email
+        }
+      });
+    }
+  }
+
+  // Update company info (only update provided fields)
+  if (!registration.company_info) {
+    registration.company_info = {};
+  }
+
+  if (company_name) registration.company_info.company_name = company_name;
+  if (company_email) registration.company_info.company_email = company_email;
+  if (country) registration.company_info.country = country;
+  if (timezone) registration.company_info.timezone = timezone;
+
+  registration.updated_at = new Date().toISOString();
+
+  console.log(`✅ Step 1 updated - Session: ${session_id}`);
+
+  res.status(200).json({
+    success: true,
+    message: 'Company information updated successfully',
+    data: {
+      session_id: session_id,
+      updated_data: registration.company_info,
+      expires_at: registration.expires_at
+    }
+  });
+});
+
+// EDIT Phase 2: Update Work Model Configuration
+app.put('/api/auth/company-registration/edit-step-2', (req, res) => {
+  const {
+    session_id,
+    default_work_model,
+    working_hours_per_day,
+    working_days_per_week,
+    default_break_duration,
+    overtime_calculation
+  } = req.body;
+
+  console.log(`✏️ Edit Step 2: Work Model - Session: ${session_id}`);
+
+  // Validate session
+  if (!session_id || !tempCompanyRegistrations[session_id]) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid or expired registration session',
+      data: {
+        error: 'Session not found'
+      }
+    });
+  }
+
+  const registration = tempCompanyRegistrations[session_id];
+
+  // Check if session expired
+  if (new Date() > new Date(registration.expires_at)) {
+    delete tempCompanyRegistrations[session_id];
+    return res.status(400).json({
+      success: false,
+      message: 'Registration session expired',
+      data: {
+        error: 'Please start registration again'
+      }
+    });
+  }
+
+  // Validate work model if provided
+  if (default_work_model) {
+    const validWorkModels = ['office', 'remote', 'hybrid'];
+    if (!validWorkModels.includes(default_work_model)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid work model',
+        data: {
+          valid_options: validWorkModels,
+          received: default_work_model
+        }
+      });
+    }
+  }
+
+  // Validate numeric values if provided
+  if (working_hours_per_day && (working_hours_per_day < 1 || working_hours_per_day > 24)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Working hours per day must be between 1 and 24',
+      data: { working_hours_per_day }
+    });
+  }
+
+  if (working_days_per_week && (working_days_per_week < 1 || working_days_per_week > 7)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Working days per week must be between 1 and 7',
+      data: { working_days_per_week }
+    });
+  }
+
+  // Update work model (only update provided fields)
+  if (!registration.work_model) {
+    registration.work_model = {};
+  }
+
+  if (default_work_model) registration.work_model.default_work_model = default_work_model;
+  if (working_hours_per_day) registration.work_model.working_hours_per_day = parseFloat(working_hours_per_day);
+  if (working_days_per_week) registration.work_model.working_days_per_week = parseInt(working_days_per_week);
+  if (default_break_duration) registration.work_model.default_break_duration = parseInt(default_break_duration);
+  if (overtime_calculation) registration.work_model.overtime_calculation = overtime_calculation;
+
+  registration.updated_at = new Date().toISOString();
+
+  console.log(`✅ Step 2 updated - Session: ${session_id}`);
+
+  res.status(200).json({
+    success: true,
+    message: 'Work model configuration updated successfully',
+    data: {
+      session_id: session_id,
+      updated_data: registration.work_model,
+      expires_at: registration.expires_at
+    }
+  });
+});
+
+// EDIT Phase 3: Update Admin Account
+app.put('/api/auth/company-registration/edit-step-3', (req, res) => {
+  const {
+    session_id,
+    full_name,
+    email_address,
+    password,
+    confirm_password
+  } = req.body;
+
+  console.log(`✏️ Edit Step 3: Admin Account - Session: ${session_id}`);
+
+  // Validate session
+  if (!session_id || !tempCompanyRegistrations[session_id]) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid or expired registration session',
+      data: {
+        error: 'Session not found'
+      }
+    });
+  }
+
+  const registration = tempCompanyRegistrations[session_id];
+
+  // Check if session expired
+  if (new Date() > new Date(registration.expires_at)) {
+    delete tempCompanyRegistrations[session_id];
+    return res.status(400).json({
+      success: false,
+      message: 'Registration session expired',
+      data: {
+        error: 'Please start registration again'
+      }
+    });
+  }
+
+  // Validate email format if provided
+  if (email_address) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email_address)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid email format',
+        data: {
+          email: email_address
+        }
+      });
+    }
+
+    // Check if email already exists (excluding current registration email)
+    const existingUser = Object.values(persistentUsers).find(user => 
+      user.email === email_address && 
+      user.email !== (registration.admin_account?.email_address || '')
+    );
+    
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'Admin email already exists',
+        data: {
+          email: email_address,
+          suggestion: 'Please use a different email address'
+        }
+      });
+    }
+  }
+
+  // Validate password if provided
+  if (password) {
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password is too weak',
+        data: {
+          error: 'Password must be at least 6 characters long',
+          current_length: password.length
+        }
+      });
+    }
+
+    // Check password match
+    if (confirm_password && password !== confirm_password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Passwords do not match',
+        data: {
+          error: 'Password and confirm password must be the same'
+        }
+      });
+    }
+  }
+
+  // Update admin account (only update provided fields)
+  if (!registration.admin_account) {
+    registration.admin_account = {};
+  }
+
+  if (full_name) {
+    registration.admin_account.full_name = full_name;
+    const nameParts = full_name.trim().split(' ');
+    registration.admin_account.first_name = nameParts[0];
+    registration.admin_account.last_name = nameParts.slice(1).join(' ') || nameParts[0];
+  }
+
+  if (email_address) registration.admin_account.email_address = email_address;
+  if (password) registration.admin_account.password = password;
+
+  registration.updated_at = new Date().toISOString();
+
+  console.log(`✅ Step 3 updated - Session: ${session_id}`);
+
+  res.status(200).json({
+    success: true,
+    message: 'Admin account details updated successfully',
+    data: {
+      session_id: session_id,
+      updated_data: {
+        full_name: registration.admin_account.full_name,
+        email_address: registration.admin_account.email_address
+      },
+      expires_at: registration.expires_at
+    }
+  });
+});
+
+// ===== SINGLE-STEP COMPANY REGISTRATION API (OLD) =====
+app.post('/api/auth/register-company', (req, res) => {
+  const {
+    // Company Details
+    company_name,
+    industry,
+    company_email,
+    company_phone,
+    website,
+    address,
+    city,
+    state,
+    country,
+    postal_code,
+    
+    // Admin Details
+    admin_first_name,
+    admin_last_name,
+    admin_email,
+    admin_password,
+    admin_phone,
+    
+    // Additional Info
+    employee_count,
+    timezone,
+    brand_color
+  } = req.body;
+
+  console.log(`🏢 Company registration request: ${company_name}`);
+
+  // Validate required fields
+  if (!company_name || !admin_first_name || !admin_last_name || !admin_email || !admin_password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Company name, admin first name, last name, email and password are required',
+      data: {
+        required_fields: ['company_name', 'admin_first_name', 'admin_last_name', 'admin_email', 'admin_password']
+      }
+    });
+  }
+
+  // Check if admin email already exists
+  const existingUser = Object.values(persistentUsers).find(user => user.email === admin_email);
+  if (existingUser) {
+    return res.status(400).json({
+      success: false,
+      message: 'Admin with this email already exists',
+      data: {
+        email: admin_email,
+        exists: true
+      }
+    });
+  }
+
+  // Generate company ID
+  const companyId = Math.floor(Math.random() * 90000) + 10000;
+
+  // Create company settings
+  const newCompany = {
+    id: companyId,
+    name: company_name,
+    industry: industry || 'IT Company',
+    brand_color: brand_color || '#6366F1',
+    brand_color_name: 'Purple',
+    support_email: company_email || admin_email,
+    company_phone: company_phone || '',
+    address: address || '',
+    city: city || '',
+    state: state || '',
+    country: country || '',
+    postal_code: postal_code || '',
+    logo_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(company_name)}&size=200&background=6366F1&color=ffffff`,
+    website: website || '',
+    timezone: timezone || 'UTC',
+    founded_date: new Date().toISOString().split('T')[0],
+    employee_count: employee_count || 1,
+    description: `${company_name} - ${industry || 'Business'}`,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    status: 'active',
+    subscription_plan: 'trial',
+    subscription_expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days trial
+  };
+
+  // Update global company settings
+  companySettings = newCompany;
+
+  // Generate admin user ID
+  const adminUserId = Math.max(...Object.keys(persistentUsers).map(Number), 0) + 1;
+
+  // Create admin user
+  const adminUser = {
+    id: adminUserId,
+    first_name: admin_first_name,
+    last_name: admin_last_name,
+    full_name: `${admin_first_name} ${admin_last_name}`,
+    email: admin_email,
+    password: admin_password, // In production, hash this!
+    phone: admin_phone || '',
+    profile_photo: `https://ui-avatars.com/api/?name=${encodeURIComponent(admin_first_name)}+${encodeURIComponent(admin_last_name)}&size=150`,
+    role: 'Admin',
+    company: company_name,
+    company_id: companyId,
+    joined_date: new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    }),
+    employee_id: `ADM${adminUserId.toString().padStart(3, '0')}`,
+    department: 'Administration',
+    status: 'Active',
+    timezone: timezone || 'UTC',
+    is_admin: true,
+    is_super_admin: true,
+    permissions: ['all'],
+    created_at: new Date().toISOString(),
+    last_login: new Date().toISOString(),
+    project: 'Administration',
+    location: city && country ? `${city}, ${country}` : 'Remote'
+  };
+
+  // Add admin to persistent storage
+  persistentUsers[adminUserId] = adminUser;
+
+  // Save data
+  savePersistentData();
+
+  // Generate token for admin
+  const token = jwt.sign({ 
+    userId: adminUser.id, 
+    email: adminUser.email,
+    name: adminUser.full_name,
+    role: 'Admin',
+    company_id: companyId
+  }, JWT_SECRET, { expiresIn: '24h' });
+
+  console.log(`✅ Company registered: ${company_name} (ID: ${companyId})`);
+  console.log(`✅ Admin created: ${adminUser.full_name} (ID: ${adminUserId})`);
+
+  res.status(201).json({
+    success: true,
+    message: 'Company and admin account created successfully',
+    data: {
+      company: {
+        id: newCompany.id,
+        name: newCompany.name,
+        industry: newCompany.industry,
+        email: newCompany.support_email,
+        phone: newCompany.company_phone,
+        logo_url: newCompany.logo_url,
+        subscription_plan: newCompany.subscription_plan,
+        trial_expires: newCompany.subscription_expires
+      },
+      admin: {
+        id: adminUser.id,
+        name: adminUser.full_name,
+        email: adminUser.email,
+        phone: adminUser.phone,
+        role: adminUser.role,
+        employee_id: adminUser.employee_id,
+        profile_photo: adminUser.profile_photo
+      },
+      token: token,
+      auto_login: true,
+      next_steps: [
+        'Set up company preferences',
+        'Invite team members',
+        'Configure work policies',
+        'Customize branding'
+      ]
+    }
+  });
+});
+
+// ===== ADMIN REGISTRATION API (Add Admin to Existing Company) =====
+app.post('/api/auth/register-admin', authenticateToken, (req, res) => {
+  const {
+    first_name,
+    last_name,
+    email,
+    password,
+    phone,
+    department,
+    permissions
+  } = req.body;
+
+  const requestingUserId = req.user.userId;
+  const requestingUser = persistentUsers[requestingUserId];
+
+  console.log(`👤 Admin registration request by: ${requestingUser?.full_name}`);
+
+  // Check if requesting user is admin
+  if (!requestingUser || !requestingUser.is_admin) {
+    return res.status(403).json({
+      success: false,
+      message: 'Only admins can create new admin accounts',
+      data: {
+        required_role: 'Admin',
+        current_role: requestingUser?.role || 'Unknown'
+      }
+    });
+  }
+
+  // Validate required fields
+  if (!first_name || !last_name || !email || !password) {
+    return res.status(400).json({
+      success: false,
+      message: 'First name, last name, email and password are required',
+      data: {
+        required_fields: ['first_name', 'last_name', 'email', 'password']
+      }
+    });
+  }
+
+  // Check if email already exists
+  const existingUser = Object.values(persistentUsers).find(user => user.email === email);
+  if (existingUser) {
+    return res.status(400).json({
+      success: false,
+      message: 'User with this email already exists',
+      data: {
+        email: email,
+        exists: true
+      }
+    });
+  }
+
+  // Generate new admin user ID
+  const newAdminId = Math.max(...Object.keys(persistentUsers).map(Number)) + 1;
+
+  // Create new admin user
+  const newAdmin = {
+    id: newAdminId,
+    first_name: first_name,
+    last_name: last_name,
+    full_name: `${first_name} ${last_name}`,
+    email: email,
+    password: password, // In production, hash this!
+    phone: phone || '',
+    profile_photo: `https://ui-avatars.com/api/?name=${encodeURIComponent(first_name)}+${encodeURIComponent(last_name)}&size=150`,
+    role: 'Admin',
+    company: requestingUser.company || companySettings.name,
+    company_id: requestingUser.company_id || companySettings.id,
+    joined_date: new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    }),
+    employee_id: `ADM${newAdminId.toString().padStart(3, '0')}`,
+    department: department || 'Administration',
+    status: 'Active',
+    timezone: requestingUser.timezone || 'UTC',
+    is_admin: true,
+    is_super_admin: false, // New admins are not super admins by default
+    permissions: permissions || ['user_management', 'reports', 'settings'],
+    created_at: new Date().toISOString(),
+    created_by: requestingUserId,
+    last_login: null,
+    project: 'Administration',
+    location: requestingUser.location || 'Remote'
+  };
+
+  // Add to persistent storage
+  persistentUsers[newAdminId] = newAdmin;
+
+  // Save data
+  savePersistentData();
+
+  console.log(`✅ New admin created: ${newAdmin.full_name} (ID: ${newAdminId}) by ${requestingUser.full_name}`);
+
+  res.status(201).json({
+    success: true,
+    message: 'Admin account created successfully',
+    data: {
+      admin: {
+        id: newAdmin.id,
+        name: newAdmin.full_name,
+        email: newAdmin.email,
+        phone: newAdmin.phone,
+        role: newAdmin.role,
+        employee_id: newAdmin.employee_id,
+        department: newAdmin.department,
+        permissions: newAdmin.permissions,
+        profile_photo: newAdmin.profile_photo,
+        created_at: newAdmin.created_at,
+        created_by: requestingUser.full_name
+      },
+      credentials: {
+        email: email,
+        temporary_password: 'Please ask user to change password on first login'
+      }
+    }
+  });
+});
+
+// ===== OTP-BASED FORGOT PASSWORD APIs =====
+
+// STEP 1: Request OTP - Send OTP to email
+app.post('/api/auth/forgot-password/request-otp', async (req, res) => {
+  const { email } = req.body;
+
+  console.log(`📧 OTP request for email: ${email}`);
+
+  // Validate email
+  if (!email) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email is required',
+      data: {
+        required_fields: ['email']
+      }
+    });
+  }
+
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid email format',
+      data: {
+        email: email
+      }
+    });
+  }
+
+  // Check if user exists
+  const user = Object.values(persistentUsers).find(u => u.email === email);
+  
+  if (!user) {
+    // For security, don't reveal if email exists or not
+    return res.json({
+      success: true,
+      message: 'If your email is registered, you will receive an OTP shortly',
+      data: {
+        email: email,
+        note: 'OTP will be valid for 10 minutes'
+      }
+    });
+  }
+
+  // Generate 6-digit OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  
+  // Store OTP with expiry (10 minutes)
+  const otpData = {
+    email: email,
+    otp: otp,
+    userId: user.id,
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 minutes
+    verified: false
+  };
+
+  forgotPasswordOTPs[email] = otpData;
+
+  // Send OTP via email
+  try {
+    const mailOptions = {
+      from: 'managementtime04@gmail.com',
+      to: email,
+      subject: 'Password Reset OTP - Management Time',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 50px auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            .header { text-align: center; color: #6366F1; margin-bottom: 30px; }
+            .otp-box { background: #f0f0ff; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0; }
+            .otp-code { font-size: 32px; font-weight: bold; color: #6366F1; letter-spacing: 8px; }
+            .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; }
+            .warning { color: #ff6b6b; font-size: 14px; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🔐 Password Reset Request</h1>
+            </div>
+            <p>Hello <strong>${user.full_name}</strong>,</p>
+            <p>We received a request to reset your password for Management Time account.</p>
+            <p>Your One-Time Password (OTP) is:</p>
+            <div class="otp-box">
+              <div class="otp-code">${otp}</div>
+            </div>
+            <p><strong>This OTP will expire in 10 minutes.</strong></p>
+            <p>If you didn't request this password reset, please ignore this email or contact support if you have concerns.</p>
+            <div class="warning">
+              ⚠️ Never share this OTP with anyone. Our team will never ask for your OTP.
+            </div>
+            <div class="footer">
+              <p>Management Time - Time Tracking System</p>
+              <p>This is an automated email, please do not reply.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    };
+
+    await emailTransporter.sendMail(mailOptions);
+
+    console.log(`✅ OTP sent successfully to: ${email} - OTP: ${otp}`);
+
+    res.json({
+      success: true,
+      message: 'OTP sent successfully to your email',
+      data: {
+        email: email,
+        otp_sent: true,
+        expires_in: '10 minutes',
+        demo_otp: otp // Remove this in production!
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Email sending failed:', error);
+    
+    // Even if email fails, return success for security
+    res.json({
+      success: true,
+      message: 'If your email is registered, you will receive an OTP shortly',
+      data: {
+        email: email,
+        demo_otp: otp, // For demo purposes
+        note: 'In production, OTP would be sent via email'
+      }
+    });
+  }
+});
+
+// STEP 2: Verify OTP
+app.post('/api/auth/forgot-password/verify-otp', (req, res) => {
+  const { email, otp } = req.body;
+
+  console.log(`🔍 OTP verification for email: ${email}`);
+
+  // Validate input
+  if (!email || !otp) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email and OTP are required',
+      data: {
+        required_fields: ['email', 'otp']
+      }
+    });
+  }
+
+  // Check if OTP exists
+  const otpData = forgotPasswordOTPs[email];
+  
+  if (!otpData) {
+    return res.status(400).json({
+      success: false,
+      message: 'No OTP request found for this email',
+      data: {
+        error: 'Please request OTP first'
+      }
+    });
+  }
+
+  // Check if OTP expired
+  if (new Date() > new Date(otpData.expiresAt)) {
+    delete forgotPasswordOTPs[email];
+    return res.status(400).json({
+      success: false,
+      message: 'OTP has expired',
+      data: {
+        error: 'Please request a new OTP'
+      }
+    });
+  }
+
+  // Verify OTP
+  if (otpData.otp !== otp.toString()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid OTP',
+      data: {
+        error: 'The OTP you entered is incorrect'
+      }
+    });
+  }
+
+  // Mark OTP as verified
+  otpData.verified = true;
+  otpData.verifiedAt = new Date().toISOString();
+
+  console.log(`✅ OTP verified successfully for: ${email}`);
+
+  res.json({
+    success: true,
+    message: 'OTP verified successfully',
+    data: {
+      email: email,
+      verified: true,
+      next_step: 'Set new password'
+    }
+  });
+});
+
+// STEP 3: Reset Password with OTP
+app.post('/api/auth/forgot-password/reset-password', (req, res) => {
+  const { email, otp, new_password, confirm_password } = req.body;
+
+  console.log(`🔑 Password reset request for: ${email}`);
+
+  // Validate input
+  if (!email || !otp || !new_password || !confirm_password) {
+    return res.status(400).json({
+      success: false,
+      message: 'All fields are required',
+      data: {
+        required_fields: ['email', 'otp', 'new_password', 'confirm_password']
+      }
+    });
+  }
+
+  // Check if passwords match
+  if (new_password !== confirm_password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Passwords do not match',
+      data: {
+        error: 'New password and confirm password must be the same'
+      }
+    });
+  }
+
+  // Validate password strength
+  if (new_password.length < 6) {
+    return res.status(400).json({
+      success: false,
+      message: 'Password is too weak',
+      data: {
+        error: 'Password must be at least 6 characters long',
+        current_length: new_password.length
+      }
+    });
+  }
+
+  // Check if OTP exists and verified
+  const otpData = forgotPasswordOTPs[email];
+  
+  if (!otpData) {
+    return res.status(400).json({
+      success: false,
+      message: 'No OTP request found',
+      data: {
+        error: 'Please request OTP first'
+      }
+    });
+  }
+
+  if (!otpData.verified) {
+    return res.status(400).json({
+      success: false,
+      message: 'OTP not verified',
+      data: {
+        error: 'Please verify OTP first'
+      }
+    });
+  }
+
+  // Check if OTP expired
+  if (new Date() > new Date(otpData.expiresAt)) {
+    delete forgotPasswordOTPs[email];
+    return res.status(400).json({
+      success: false,
+      message: 'OTP has expired',
+      data: {
+        error: 'Please request a new OTP'
+      }
+    });
+  }
+
+  // Verify OTP again for security
+  if (otpData.otp !== otp.toString()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid OTP',
+      data: {
+        error: 'The OTP you entered is incorrect'
+      }
+    });
+  }
+
+  // Find user
+  const user = persistentUsers[otpData.userId];
+  
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: 'User not found',
+      data: {
+        error: 'User account does not exist'
+      }
+    });
+  }
+
+  // Update password
+  user.password = new_password; // In production, hash this!
+  user.password_updated_at = new Date().toISOString();
+  user.password_reset_by = 'forgot_password_otp';
+
+  // Save changes
+  savePersistentData();
+
+  // Delete used OTP
+  delete forgotPasswordOTPs[email];
+
+  console.log(`✅ Password reset successful for: ${user.full_name} (${email})`);
+
+  res.json({
+    success: true,
+    message: 'Password reset successful',
+    data: {
+      user_id: user.id,
+      email: user.email,
+      name: user.full_name,
+      password_updated: true,
+      updated_at: user.password_updated_at,
+      next_steps: [
+        'Password has been changed successfully',
+        'You can now login with your new password',
+        'OTP has been invalidated'
+      ]
+    }
+  });
+});
+
+// RESEND OTP (if expired or not received)
+app.post('/api/auth/forgot-password/resend-otp', async (req, res) => {
+  const { email } = req.body;
+
+  console.log(`🔄 Resend OTP request for: ${email}`);
+
+  // Validate email
+  if (!email) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email is required',
+      data: {
+        required_fields: ['email']
+      }
+    });
+  }
+
+  // Check if user exists
+  const user = Object.values(persistentUsers).find(u => u.email === email);
+  
+  if (!user) {
+    return res.json({
+      success: true,
+      message: 'If your email is registered, you will receive an OTP shortly',
+      data: {
+        email: email
+      }
+    });
+  }
+
+  // Generate new OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  
+  // Store/Update OTP
+  forgotPasswordOTPs[email] = {
+    email: email,
+    otp: otp,
+    userId: user.id,
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    verified: false,
+    resent: true
+  };
+
+  // Send OTP via email
+  try {
+    const mailOptions = {
+      from: 'managementtime04@gmail.com',
+      to: email,
+      subject: 'Resend: Password Reset OTP - Management Time',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 50px auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            .header { text-align: center; color: #6366F1; margin-bottom: 30px; }
+            .otp-box { background: #f0f0ff; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0; }
+            .otp-code { font-size: 32px; font-weight: bold; color: #6366F1; letter-spacing: 8px; }
+            .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🔐 New OTP Request</h1>
+            </div>
+            <p>Hello <strong>${user.full_name}</strong>,</p>
+            <p>Here is your new One-Time Password (OTP):</p>
+            <div class="otp-box">
+              <div class="otp-code">${otp}</div>
+            </div>
+            <p><strong>This OTP will expire in 10 minutes.</strong></p>
+            <div class="footer">
+              <p>Management Time - Time Tracking System</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    };
+
+    await emailTransporter.sendMail(mailOptions);
+
+    console.log(`✅ OTP resent successfully to: ${email} - OTP: ${otp}`);
+
+    res.json({
+      success: true,
+      message: 'New OTP sent successfully',
+      data: {
+        email: email,
+        otp_sent: true,
+        expires_in: '10 minutes',
+        demo_otp: otp // Remove in production
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Email sending failed:', error);
+    
+    res.json({
+      success: true,
+      message: 'New OTP sent successfully',
+      data: {
+        email: email,
+        demo_otp: otp,
+        note: 'Email service temporarily unavailable, use demo OTP'
+      }
+    });
+  }
 });
 
 // ===== LOGOUT API - User Logout =====
@@ -1699,10 +3669,646 @@ app.put('/api/me/timer/break', authenticateToken, (req, res) => {
   });
 });
 
+// ===== ADMIN APIs =====
+
+// GET User Complete Profile (Admin)
+app.get('/api/admin/users/:userId', authenticateToken, (req, res) => {
+  const adminId = req.user.userId;
+  const targetUserId = parseInt(req.params.userId);
+
+  // Get target user
+  const user = persistentUsers[targetUserId];
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: "User not found"
+    });
+  }
+
+  // Get user's timer data
+  const timerData = persistentTimers[targetUserId] || {};
+  
+  // Get user's leave requests
+  const leaveRequests = Object.values(persistentLeaveRequests || {}).filter(lr => lr.userId === targetUserId);
+  
+  // Get user's break history
+  const breakHistory = Object.values(persistentBreaks || {}).filter(b => b.userId === targetUserId);
+
+  // Calculate work summary
+  const totalWorkTime = timerData.totalTime || 0;
+  const totalWorkHours = (totalWorkTime / 3600).toFixed(2);
+  const avgDailyHours = (totalWorkHours / 30).toFixed(2); // Last 30 days average
+  
+  // Calculate timesheet summary
+  const thisWeekHours = (totalWorkTime / 3600 * 0.3).toFixed(2); // Simulated
+  const lastWeekHours = (totalWorkTime / 3600 * 0.25).toFixed(2); // Simulated
+  const thisMonthHours = totalWorkHours;
+  
+  // Get recent activity
+  const recentActivity = [];
+  
+  // Add timer activities
+  if (timerData.isActive) {
+    recentActivity.push({
+      id: 1,
+      type: "timer_start",
+      action: "Started work timer",
+      timestamp: timerData.startTime,
+      details: {
+        project: user.project || "General Work",
+        status: "active"
+      }
+    });
+  }
+  
+  // Add leave request activities
+  leaveRequests.slice(-5).forEach((leave, idx) => {
+    recentActivity.push({
+      id: recentActivity.length + 1,
+      type: "leave_request",
+      action: `${leave.status === 'approved' ? 'Approved' : leave.status === 'rejected' ? 'Rejected' : 'Submitted'} leave request`,
+      timestamp: leave.approvedAt || leave.createdAt,
+      details: {
+        leave_type: leave.leaveType,
+        duration: `${leave.startDate} to ${leave.endDate}`,
+        status: leave.status
+      }
+    });
+  });
+
+  // Add profile update activity
+  if (user.photo_updated_at) {
+    recentActivity.push({
+      id: recentActivity.length + 1,
+      type: "profile_update",
+      action: "Updated profile photo",
+      timestamp: user.photo_updated_at,
+      details: {
+        field: "profile_photo"
+      }
+    });
+  }
+
+  // Sort by timestamp (most recent first)
+  recentActivity.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  // Prepare complete user profile
+  const completeProfile = {
+    // Basic Info
+    basic_info: {
+      id: user.id,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      full_name: user.full_name,
+      email: user.email,
+      phone: user.phone,
+      profile_photo: user.profile_photo,
+      role: user.role,
+      status: timerData.isActive ? "active" : user.last_logout ? "offline" : "idle",
+      date_joined: user.created_at || "2025-12-01T00:00:00Z",
+      last_login: user.last_login || new Date().toISOString(),
+      last_logout: user.last_logout || null
+    },
+
+    // Personal Info
+    personal_info: {
+      location: user.location,
+      address: user.address || null,
+      city: user.city || null,
+      state: user.state || null,
+      country: user.country || null,
+      postal_code: user.postal_code || null,
+      date_of_birth: user.date_of_birth || null,
+      gender: user.gender || null,
+      emergency_contact: user.emergency_contact || null,
+      emergency_phone: user.emergency_phone || null
+    },
+
+    // Work Summary
+    work_summary: {
+      project: user.project,
+      department: user.department || "Engineering",
+      position: user.role,
+      employment_type: user.employment_type || "Full-time",
+      total_work_hours: parseFloat(totalWorkHours),
+      average_daily_hours: parseFloat(avgDailyHours),
+      current_timer_status: timerData.isActive ? "running" : "stopped",
+      total_sessions: timerData.sessionCount || 0,
+      productivity_score: Math.min(100, Math.round((parseFloat(totalWorkHours) / 160) * 100)), // Based on monthly hours
+      last_work_date: timerData.lastStopTime || timerData.startTime || null
+    },
+
+    // Timesheet Summary
+    timesheet_summary: {
+      this_week: {
+        total_hours: parseFloat(thisWeekHours),
+        days_worked: 4,
+        status: "in_progress"
+      },
+      last_week: {
+        total_hours: parseFloat(lastWeekHours),
+        days_worked: 5,
+        status: "completed"
+      },
+      this_month: {
+        total_hours: parseFloat(thisMonthHours),
+        days_worked: 18,
+        status: "in_progress"
+      },
+      all_time: {
+        total_hours: parseFloat(totalWorkHours),
+        total_days: Math.ceil(parseFloat(totalWorkHours) / 8),
+        first_entry: user.created_at || "2025-12-01T00:00:00Z"
+      }
+    },
+
+    // Requests Summary
+    requests: {
+      leave_requests: {
+        total: leaveRequests.length,
+        pending: leaveRequests.filter(lr => lr.status === 'pending').length,
+        approved: leaveRequests.filter(lr => lr.status === 'approved').length,
+        rejected: leaveRequests.filter(lr => lr.status === 'rejected').length,
+        recent_requests: leaveRequests.slice(-5).map(lr => ({
+          id: lr.id,
+          type: lr.leaveType,
+          start_date: lr.startDate,
+          end_date: lr.endDate,
+          status: lr.status,
+          submitted_at: lr.createdAt
+        }))
+      },
+      break_requests: {
+        total: breakHistory.length,
+        recent_breaks: breakHistory.slice(-5).map(br => ({
+          id: br.id,
+          type: br.break_type,
+          start_time: br.start_time,
+          end_time: br.end_time,
+          duration_minutes: br.duration_minutes
+        }))
+      },
+      correction_requests: {
+        total: 0,
+        pending: 0,
+        approved: 0,
+        rejected: 0
+      }
+    },
+
+    // Recent Activity
+    recent_activity: recentActivity.slice(0, 10),
+
+    // Statistics
+    statistics: {
+      attendance_rate: 95.5,
+      punctuality_score: 92.3,
+      overtime_hours: Math.max(0, parseFloat(totalWorkHours) - 160),
+      average_break_duration: breakHistory.length > 0 
+        ? (breakHistory.reduce((sum, br) => sum + (br.duration_minutes || 0), 0) / breakHistory.length).toFixed(1)
+        : 0,
+      projects_assigned: 1,
+      tasks_completed: Math.floor(parseFloat(totalWorkHours) / 4) // Simulated: 1 task per 4 hours
+    }
+  };
+
+  res.json({
+    success: true,
+    message: "User profile retrieved successfully",
+    data: {
+      user: completeProfile,
+      fetched_at: new Date().toISOString(),
+      fetched_by: adminId
+    }
+  });
+});
+
+// ===== EDIT EMPLOYEE API (Company Admin) =====
+app.put('/api/admin/employees/:employeeId', authenticateToken, (req, res) => {
+  const adminId = req.user.userId;
+  const employeeId = parseInt(req.params.employeeId);
+
+  console.log(`✏️ Edit employee request - Admin: ${adminId}, Employee: ${employeeId}`);
+
+  // Find employee
+  const employee = persistentUsers[employeeId];
+  if (!employee) {
+    return res.status(404).json({
+      success: false,
+      message: "Employee not found",
+      data: {
+        employee_id: employeeId
+      }
+    });
+  }
+
+  // Extract editable fields from request body
+  const {
+    // Personal Information
+    first_name,
+    last_name,
+    email,
+    phone,
+    address,
+    date_of_birth,
+    
+    // Work Information
+    role,
+    department,
+    working_hours,
+    work_model,
+    manager,
+    status
+  } = req.body;
+
+  // Track what fields are being updated
+  const updatedFields = [];
+
+  // Update Personal Information
+  if (first_name !== undefined && first_name !== employee.first_name) {
+    employee.first_name = first_name;
+    employee.full_name = `${first_name} ${employee.last_name}`;
+    updatedFields.push('first_name');
+  }
+
+  if (last_name !== undefined && last_name !== employee.last_name) {
+    employee.last_name = last_name;
+    employee.full_name = `${employee.first_name} ${last_name}`;
+    updatedFields.push('last_name');
+  }
+
+  if (email !== undefined && email !== employee.email) {
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid email format",
+        data: {
+          email: email
+        }
+      });
+    }
+
+    // Check if email already exists for another user
+    const existingUser = Object.values(persistentUsers).find(
+      u => u.email === email && u.id !== employeeId
+    );
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "Email already exists for another employee",
+        data: {
+          email: email,
+          existing_user_id: existingUser.id
+        }
+      });
+    }
+
+    employee.email = email;
+    updatedFields.push('email');
+  }
+
+  if (phone !== undefined && phone !== employee.phone) {
+    employee.phone = phone;
+    updatedFields.push('phone');
+  }
+
+  if (address !== undefined && address !== employee.address) {
+    employee.address = address;
+    updatedFields.push('address');
+  }
+
+  if (date_of_birth !== undefined && date_of_birth !== employee.date_of_birth) {
+    employee.date_of_birth = date_of_birth;
+    updatedFields.push('date_of_birth');
+  }
+
+  // Update Work Information
+  if (role !== undefined && role !== employee.role) {
+    employee.role = role;
+    updatedFields.push('role');
+  }
+
+  if (department !== undefined && department !== employee.department) {
+    employee.department = department;
+    updatedFields.push('department');
+  }
+
+  if (working_hours !== undefined && working_hours !== employee.working_hours) {
+    employee.working_hours = working_hours;
+    updatedFields.push('working_hours');
+  }
+
+  if (work_model !== undefined && work_model !== employee.work_model) {
+    employee.work_model = work_model;
+    updatedFields.push('work_model');
+  }
+
+  if (manager !== undefined && manager !== employee.manager) {
+    employee.manager = manager;
+    updatedFields.push('manager');
+  }
+
+  if (status !== undefined && status !== employee.status) {
+    employee.status = status;
+    updatedFields.push('status');
+  }
+
+  // Update timestamp
+  employee.updated_at = new Date().toISOString();
+  employee.updated_by = adminId;
+
+  // Save to persistent storage
+  savePersistentData();
+
+  console.log(`✅ Employee updated successfully: ${employee.full_name} (ID: ${employeeId})`);
+  console.log(`📝 Updated fields: ${updatedFields.join(', ') || 'none'}`);
+
+  res.json({
+    success: true,
+    message: "Employee updated successfully",
+    data: {
+      employee: {
+        // Personal Information
+        id: employee.id,
+        employee_id: employee.employee_id, // READ-ONLY, never changes
+        first_name: employee.first_name,
+        last_name: employee.last_name,
+        full_name: employee.full_name,
+        email: employee.email,
+        phone: employee.phone,
+        address: employee.address,
+        date_of_birth: employee.date_of_birth,
+        profile_photo: employee.profile_photo,
+        
+        // Work Information
+        role: employee.role,
+        department: employee.department,
+        working_hours: employee.working_hours,
+        work_model: employee.work_model,
+        manager: employee.manager,
+        status: employee.status,
+        
+        // Metadata
+        joined_date: employee.joined_date || employee.created_at,
+        updated_at: employee.updated_at,
+        updated_by: adminId
+      },
+      updated_fields: updatedFields,
+      update_count: updatedFields.length
+    }
+  });
+});
+
+// ===== GET EMPLOYEES BY DATE OF JOINING =====
+app.get('/api/admin/employees', authenticateToken, (req, res) => {
+  const adminId = req.user.userId;
+  const { from_date, to_date, month, year, sort } = req.query;
+
+  console.log(`📋 Get employees request - Filters: from_date=${from_date}, to_date=${to_date}, month=${month}, year=${year}`);
+
+  let employees = Object.values(persistentUsers);
+
+  // Filter by date range
+  if (from_date || to_date) {
+    employees = employees.filter(emp => {
+      const joinedDate = emp.joined_date || emp.created_at;
+      if (!joinedDate) return false;
+
+      // Parse joined date (handle both "August 17, 2025" and ISO format)
+      let empDate;
+      if (joinedDate.includes('T')) {
+        empDate = new Date(joinedDate);
+      } else {
+        empDate = new Date(joinedDate);
+      }
+
+      if (from_date) {
+        const fromD = new Date(from_date);
+        if (empDate < fromD) return false;
+      }
+
+      if (to_date) {
+        const toD = new Date(to_date);
+        if (empDate > toD) return false;
+      }
+
+      return true;
+    });
+  }
+
+  // Filter by specific month and year
+  if (month && year) {
+    employees = employees.filter(emp => {
+      const joinedDate = emp.joined_date || emp.created_at;
+      if (!joinedDate) return false;
+
+      let empDate;
+      if (joinedDate.includes('T')) {
+        empDate = new Date(joinedDate);
+      } else {
+        empDate = new Date(joinedDate);
+      }
+
+      const empMonth = empDate.getMonth() + 1; // 1-12
+      const empYear = empDate.getFullYear();
+
+      return empMonth === parseInt(month) && empYear === parseInt(year);
+    });
+  }
+
+  // Filter by year only
+  if (year && !month) {
+    employees = employees.filter(emp => {
+      const joinedDate = emp.joined_date || emp.created_at;
+      if (!joinedDate) return false;
+
+      let empDate;
+      if (joinedDate.includes('T')) {
+        empDate = new Date(joinedDate);
+      } else {
+        empDate = new Date(joinedDate);
+      }
+
+      const empYear = empDate.getFullYear();
+      return empYear === parseInt(year);
+    });
+  }
+
+  // Sort by joined date
+  if (sort === 'newest' || sort === 'latest') {
+    employees.sort((a, b) => {
+      const dateA = new Date(a.joined_date || a.created_at);
+      const dateB = new Date(b.joined_date || b.created_at);
+      return dateB - dateA; // Newest first
+    });
+  } else if (sort === 'oldest') {
+    employees.sort((a, b) => {
+      const dateA = new Date(a.joined_date || a.created_at);
+      const dateB = new Date(b.joined_date || b.created_at);
+      return dateA - dateB; // Oldest first
+    });
+  }
+
+  // Format response
+  const formattedEmployees = employees.map(emp => ({
+    id: emp.id,
+    employee_id: emp.employee_id,
+    full_name: emp.full_name,
+    first_name: emp.first_name,
+    last_name: emp.last_name,
+    email: emp.email,
+    phone: emp.phone,
+    profile_photo: emp.profile_photo,
+    role: emp.role,
+    department: emp.department,
+    status: emp.status,
+    work_model: emp.work_model,
+    manager: emp.manager,
+    joined_date: emp.joined_date || emp.created_at,
+    working_hours: emp.working_hours
+  }));
+
+  res.json({
+    success: true,
+    message: "Employees retrieved successfully",
+    data: {
+      employees: formattedEmployees,
+      total_count: formattedEmployees.length,
+      filters_applied: {
+        from_date: from_date || null,
+        to_date: to_date || null,
+        month: month || null,
+        year: year || null,
+        sort: sort || 'none'
+      }
+    }
+  });
+});
+
+// ===== DELETE EMPLOYEE API (Company Admin) =====
+app.delete('/api/admin/employees/:employeeId', authenticateToken, (req, res) => {
+  const adminId = req.user.userId;
+  const employeeId = parseInt(req.params.employeeId);
+  const { confirmation } = req.body;
+
+  console.log(`🗑️ Delete employee request - Admin: ${adminId}, Employee: ${employeeId}`);
+
+  // Find employee
+  const employee = persistentUsers[employeeId];
+  if (!employee) {
+    return res.status(404).json({
+      success: false,
+      message: "Employee not found",
+      data: {
+        employee_id: employeeId
+      }
+    });
+  }
+
+  // Validate confirmation text
+  if (!confirmation || confirmation.toLowerCase() !== 'delete') {
+    return res.status(400).json({
+      success: false,
+      message: "Please type 'DELETE' to confirm employee deletion",
+      data: {
+        required_confirmation: "DELETE",
+        received_confirmation: confirmation || null,
+        hint: "Type DELETE (case-insensitive) in the confirmation field"
+      }
+    });
+  }
+
+  // Store employee data before deletion (for response)
+  const deletedEmployee = {
+    id: employee.id,
+    employee_id: employee.employee_id,
+    full_name: employee.full_name,
+    email: employee.email,
+    role: employee.role,
+    department: employee.department
+  };
+
+  // Delete employee from persistentUsers
+  delete persistentUsers[employeeId];
+
+  // Also delete related data
+  // Delete timer data
+  if (persistentTimers[employeeId]) {
+    delete persistentTimers[employeeId];
+  }
+
+  // Delete leave requests
+  if (persistentLeaveRequests) {
+    Object.keys(persistentLeaveRequests).forEach(reqId => {
+      if (persistentLeaveRequests[reqId].userId === employeeId) {
+        delete persistentLeaveRequests[reqId];
+      }
+    });
+  }
+
+  // Delete break history
+  if (persistentBreaks) {
+    Object.keys(persistentBreaks).forEach(breakId => {
+      if (persistentBreaks[breakId].userId === employeeId) {
+        delete persistentBreaks[breakId];
+      }
+    });
+  }
+
+  // Delete user preferences
+  if (userPreferences && userPreferences[employeeId]) {
+    delete userPreferences[employeeId];
+  }
+
+  // Save to persistent storage
+  savePersistentData();
+
+  console.log(`✅ Employee deleted permanently: ${deletedEmployee.full_name} (ID: ${employeeId})`);
+  console.log(`⚠️ All related data (timers, leaves, breaks) also deleted`);
+
+  res.json({
+    success: true,
+    message: "Employee account deleted permanently",
+    data: {
+      deleted_employee: deletedEmployee,
+      deleted_at: new Date().toISOString(),
+      deleted_by: adminId,
+      related_data_deleted: {
+        timers: persistentTimers[employeeId] ? true : false,
+        leave_requests: true,
+        break_history: true,
+        preferences: true
+      },
+      warning: "This action is irreversible. Employee data cannot be restored."
+    }
+  });
+});
+
 // ===== BREAK MANAGEMENT APIs =====
 let persistentBreaks = {};
 
-// GET Break Types
+// GET Break Types (public endpoint)
+app.get('/api/break-types', authenticateToken, (req, res) => {
+  const breakTypes = [
+    { id: 1, name: 'lunch', display_name: 'Lunch Break', duration_minutes: 60 },
+    { id: 2, name: 'coffee', display_name: 'Coffee Break', duration_minutes: 15 },
+    { id: 3, name: 'personal', display_name: 'Personal Break', duration_minutes: 30 },
+    { id: 4, name: 'meeting', display_name: 'Meeting Break', duration_minutes: 45 },
+    { id: 5, name: 'other', display_name: 'Other', duration_minutes: null }
+  ];
+
+  res.json({
+    success: true,
+    message: 'Break types retrieved successfully',
+    data: {
+      break_types: breakTypes
+    }
+  });
+});
+
+// GET Break Types (user-specific endpoint)
 app.get('/api/me/break-types', authenticateToken, (req, res) => {
   const breakTypes = [
     { id: 1, name: 'lunch', display_name: 'Lunch Break', duration_minutes: 60 },
@@ -3012,6 +5618,7 @@ app.post('/api/me/time-entries', authenticateToken, (req, res) => {
     description: description || '',
     project: project || 'Default Project',
     task: task || '',
+    
     isManual: isManual || false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
@@ -3342,6 +5949,134 @@ app.get('/api-docs', (req, res) => {
 </body>
 </html>
   `);
+});
+
+// ===== ADMIN DASHBOARD API =====
+app.get('/api/admin/dashboard', authenticateToken, (req, res) => {
+  console.log('📊 Admin Dashboard API called');
+
+  // Calculate total employees
+  const totalEmployees = Object.keys(persistentUsers).length;
+
+  // Calculate currently working employees (those with active timers)
+  const workingNow = Object.values(persistentTimers).filter(timer => timer.isActive === true).length;
+
+  // Calculate pending leave requests
+  const pendingRequests = Object.values(persistentLeaveRequests).filter(req => req.status === 'pending').length;
+
+  // Calculate overtime alerts (employees who worked more than 8 hours today)
+  const overtimeAlerts = [];
+  const today = new Date().toISOString().split('T')[0];
+
+  Object.keys(persistentTimers).forEach(userId => {
+    const userTimer = persistentTimers[userId];
+    if (userTimer.sessions && userTimer.sessions.length > 0) {
+      // Calculate total worked hours today
+      const todaySessions = userTimer.sessions.filter(session => {
+        return session.date === today;
+      });
+
+      let totalMinutesToday = 0;
+      todaySessions.forEach(session => {
+        if (session.endTime) {
+          const start = new Date(session.startTime);
+          const end = new Date(session.endTime);
+          const minutes = Math.floor((end - start) / (1000 * 60));
+          totalMinutesToday += minutes;
+        }
+      });
+
+      // If currently active, add current session time
+      if (userTimer.isActive && userTimer.startTime) {
+        const currentStart = new Date(userTimer.startTime);
+        const now = new Date();
+        const currentMinutes = Math.floor((now - currentStart) / (1000 * 60));
+        totalMinutesToday += currentMinutes;
+      }
+
+      const hoursWorked = totalMinutesToday / 60;
+      
+      // Alert if worked more than 8 hours
+      if (hoursWorked > 8) {
+        const user = persistentUsers[userId];
+        overtimeAlerts.push({
+          user_id: parseInt(userId),
+          user_name: user ? user.full_name : 'Unknown User',
+          hours_worked: parseFloat(hoursWorked.toFixed(2)),
+          overtime_hours: parseFloat((hoursWorked - 8).toFixed(2)),
+          alert_level: hoursWorked > 10 ? 'high' : 'medium',
+          alert_message: `${user ? user.full_name : 'Employee'} has worked ${hoursWorked.toFixed(1)} hours today`
+        });
+      }
+    }
+  });
+
+  // Get recent pending leave requests details (last 5)
+  const recentPendingRequests = Object.values(persistentLeaveRequests)
+    .filter(req => req.status === 'pending')
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, 5)
+    .map(req => {
+      const user = persistentUsers[req.userId];
+      return {
+        request_id: req.id,
+        user_name: user ? user.full_name : 'Unknown User',
+        leave_type: req.leaveType || 'Leave',
+        start_date: req.startDate,
+        end_date: req.endDate,
+        days: req.endDate ? Math.ceil((new Date(req.endDate) - new Date(req.startDate)) / (1000 * 60 * 60 * 24)) + 1 : 1,
+        submitted_date: req.createdAt
+      };
+    });
+
+  // Get currently working employees details
+  const workingEmployees = Object.keys(persistentTimers)
+    .filter(userId => persistentTimers[userId].isActive === true)
+    .map(userId => {
+      const user = persistentUsers[userId];
+      const timer = persistentTimers[userId];
+      
+      // Calculate current session duration
+      const startTime = new Date(timer.startTime);
+      const now = new Date();
+      const minutesWorked = Math.floor((now - startTime) / (1000 * 60));
+      const hours = Math.floor(minutesWorked / 60);
+      const minutes = minutesWorked % 60;
+
+      return {
+        user_id: parseInt(userId),
+        user_name: user ? user.full_name : 'Unknown User',
+        role: user ? user.role : 'Employee',
+        started_at: timer.startTime,
+        current_duration: `${hours}h ${minutes}m`,
+        current_duration_minutes: minutesWorked,
+        project: user ? user.project : 'Unknown Project'
+      };
+    });
+
+  const dashboardData = {
+    summary: {
+      total_employees: totalEmployees,
+      working_now: workingNow,
+      pending_requests: pendingRequests,
+      overtime_alerts: overtimeAlerts.length
+    },
+    working_employees: workingEmployees,
+    recent_pending_requests: recentPendingRequests,
+    overtime_alerts: overtimeAlerts,
+    last_updated: new Date().toISOString(),
+    status_breakdown: {
+      active: workingNow,
+      on_break: 0, // Can be enhanced based on break tracking
+      offline: totalEmployees - workingNow
+    }
+  };
+
+  res.json({
+    success: true,
+    message: 'Dashboard data retrieved successfully',
+    data: dashboardData
+  });
 });
 
 // BACKUP: Keep the old express middleware as fallback
