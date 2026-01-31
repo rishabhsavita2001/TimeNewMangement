@@ -3050,6 +3050,135 @@ app.get('/api/dashboard/recent-requests', (req, res) => {
   });
 });
 
+// GET /api/admin/employees - Admin endpoint for employee management with date filtering
+app.get('/api/admin/employees', authenticateToken, (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const status = req.query.status || 'all';
+  const role = req.query.role || 'all';
+  const department = req.query.department || 'all';
+  const search = req.query.search || '';
+  const from_date = req.query.from_date;
+  const to_date = req.query.to_date;
+
+  const allEmployees = [
+    {
+      id: 1,
+      name: "Jenny Wilson",
+      email: "jenny.wilson@email.com",
+      phone: "+1 234 567 890",
+      role: "Employee",
+      department: "Design",
+      status: "Active",
+      joining_date: "2024-12-01",
+      working_model: "Hybrid",
+      total_hours: 152.5,
+      today_status: "Working"
+    },
+    {
+      id: 2,
+      name: "Robert Fox",
+      email: "robert.fox@email.com", 
+      phone: "+1 234 567 891",
+      role: "Manager",
+      department: "Engineering",
+      status: "Active",
+      joining_date: "2024-11-15",
+      working_model: "Office",
+      total_hours: 168.0,
+      today_status: "On Break"
+    },
+    {
+      id: 3,
+      name: "Kristin Watson",
+      email: "kristin.watson@email.com",
+      phone: "+1 234 567 892", 
+      role: "Employee",
+      department: "Marketing",
+      status: "Active",
+      joining_date: "2024-10-20",
+      working_model: "Remote",
+      total_hours: 145.2,
+      today_status: "Working"
+    },
+    {
+      id: 4,
+      name: "Wade Warren",
+      email: "wade.warren@email.com",
+      phone: "+1 234 567 893",
+      role: "Admin",
+      department: "HR",
+      status: "Active", 
+      joining_date: "2024-09-10",
+      working_model: "Hybrid",
+      total_hours: 159.8,
+      today_status: "Offline"
+    }
+  ];
+
+  // Filter by date range if provided
+  let filteredEmployees = allEmployees;
+  if (from_date && to_date) {
+    filteredEmployees = allEmployees.filter(emp => {
+      const joinDate = new Date(emp.joining_date);
+      const fromDate = new Date(from_date);
+      const toDate = new Date(to_date);
+      return joinDate >= fromDate && joinDate <= toDate;
+    });
+  }
+
+  // Apply other filters
+  if (status !== 'all') {
+    filteredEmployees = filteredEmployees.filter(emp => emp.status.toLowerCase() === status.toLowerCase());
+  }
+  if (role !== 'all') {
+    filteredEmployees = filteredEmployees.filter(emp => emp.role.toLowerCase() === role.toLowerCase());
+  }
+  if (department !== 'all') {
+    filteredEmployees = filteredEmployees.filter(emp => emp.department.toLowerCase() === department.toLowerCase());
+  }
+  if (search) {
+    filteredEmployees = filteredEmployees.filter(emp => 
+      emp.name.toLowerCase().includes(search.toLowerCase()) ||
+      emp.email.toLowerCase().includes(search.toLowerCase()) ||
+      emp.department.toLowerCase().includes(search.toLowerCase())
+    );
+  }
+
+  // Pagination
+  const startIndex = (page - 1) * limit;
+  const endIndex = startIndex + limit;
+  const paginatedEmployees = filteredEmployees.slice(startIndex, endIndex);
+
+  res.json({
+    success: true,
+    message: "Admin employees data retrieved successfully",
+    data: {
+      employees: paginatedEmployees,
+      pagination: {
+        current_page: page,
+        per_page: limit,
+        total_items: filteredEmployees.length,
+        total_pages: Math.ceil(filteredEmployees.length / limit)
+      },
+      filters: {
+        from_date,
+        to_date,
+        status,
+        role,
+        department,
+        search
+      },
+      summary: {
+        total_employees: filteredEmployees.length,
+        active_employees: filteredEmployees.filter(emp => emp.status === 'Active').length,
+        total_hours: filteredEmployees.reduce((sum, emp) => sum + emp.total_hours, 0),
+        working_now: filteredEmployees.filter(emp => emp.today_status === 'Working').length
+      }
+    }
+  });
+});
+
 // GET /api/employees - Get all employees with filtering and pagination
 app.get('/api/employees', (req, res) => {
   const page = parseInt(req.query.page) || 1;
@@ -4618,6 +4747,62 @@ app.get('/swagger.json', (req, res) => {
           "responses": {
             "200": {
               "description": "Locations retrieved successfully"
+            }
+          }
+        }
+      },
+      "/admin/employees": {
+        "get": {
+          "summary": "Get Admin Employees",
+          "description": "Admin endpoint to get employees with date filtering and comprehensive details",
+          "tags": ["Admin"],
+          "parameters": [
+            {
+              "name": "page",
+              "in": "query",
+              "schema": { "type": "integer", "default": 1 }
+            },
+            {
+              "name": "limit", 
+              "in": "query",
+              "schema": { "type": "integer", "default": 10 }
+            },
+            {
+              "name": "from_date",
+              "in": "query",
+              "schema": { "type": "string", "format": "date" },
+              "description": "Filter employees joined from this date"
+            },
+            {
+              "name": "to_date",
+              "in": "query", 
+              "schema": { "type": "string", "format": "date" },
+              "description": "Filter employees joined up to this date"
+            },
+            {
+              "name": "status",
+              "in": "query",
+              "schema": { "type": "string", "enum": ["all", "active", "inactive"] }
+            },
+            {
+              "name": "role",
+              "in": "query",
+              "schema": { "type": "string", "enum": ["all", "employee", "manager", "admin"] }
+            },
+            {
+              "name": "department",
+              "in": "query",
+              "schema": { "type": "string" }
+            },
+            {
+              "name": "search",
+              "in": "query",
+              "schema": { "type": "string" }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Admin employees data retrieved successfully"
             }
           }
         }
