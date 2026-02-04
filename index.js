@@ -1,11 +1,33 @@
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
 
 const app = express();
 
 // JWT Secret (in production, use environment variable)
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-for-development-only';
+
+// Email Configuration
+const emailTransporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER || 'managementtime04@gmail.com',
+    pass: process.env.EMAIL_APP_PASSWORD || 'sarx oodf rrxb bfuk'
+  }
+});
+
+// Test email configuration
+emailTransporter.verify((error, success) => {
+  if (error) {
+    console.log('❌ Email configuration error:', error.message);
+  } else {
+    console.log('✅ Email server is ready to send messages');
+  }
+});
+
+// Get APP_URL from environment or use default
+const APP_URL = process.env.APP_URL || 'https://api-layer.vercel.app';
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
@@ -3320,7 +3342,7 @@ app.get('/api/employees/:id', (req, res) => {
 });
 
 // POST /api/employees/invite - Invite new employee
-app.post('/api/employees/invite', (req, res) => {
+app.post('/api/employees/invite', async (req, res) => {
   const { 
     firstName, 
     lastName, 
@@ -3350,7 +3372,7 @@ app.post('/api/employees/invite', (req, res) => {
   }
 
   const employeeNumber = `EMP-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`;
-  const invitationToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  const invitationToken = `INV_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
 
   const newEmployee = {
     id: Math.floor(Math.random() * 1000) + 100,
@@ -3369,17 +3391,83 @@ app.post('/api/employees/invite', (req, res) => {
     createdAt: new Date().toISOString()
   };
 
-  const invitationLink = `https://api-layer.vercel.app/accept-invitation?token=${invitationToken}`;
+  const invitationLink = `${APP_URL}/setup-account?token=${invitationToken}`;
 
-  res.status(201).json({
-    success: true,
-    message: "Employee invitation sent successfully",
-    data: {
-      employee: newEmployee,
-      invitationLink: invitationLink,
-      message: `Invitation email sent to ${email}`
-    }
-  });
+  // Send invitation email
+  try {
+    const mailOptions = {
+      from: 'managementtime04@gmail.com',
+      to: email,
+      subject: 'You\'re Invited to Join Time Management System',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 50px auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            .header { text-align: center; color: #6366F1; margin-bottom: 30px; }
+            .button { background: #6366F1; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; }
+            .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🎉 Welcome to Time Management System!</h1>
+            </div>
+            <p>Hi <strong>${firstName} ${lastName}</strong>,</p>
+            <p>You have been invited to join our Time Management System.</p>
+            <p><strong>Your Details:</strong></p>
+            <ul>
+              <li>Role: ${role}</li>
+              <li>Department: ${department}</li>
+              <li>Employee Number: ${employeeNumber}</li>
+            </ul>
+            <p>To set up your account and create your password, please click the button below:</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${invitationLink}" class="button">Setup Your Account</a>
+            </div>
+            <p><small>Or copy this link: ${invitationLink}</small></p>
+            <p><small>This invitation link will expire in 7 days.</small></p>
+            <div class="footer">
+              <p>Time Management System</p>
+              <p>This is an automated email, please do not reply.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    };
+
+    await emailTransporter.sendMail(mailOptions);
+    console.log(`✅ Invitation email sent to: ${email}`);
+
+    res.status(201).json({
+      success: true,
+      message: "Employee invitation sent successfully",
+      data: {
+        employee: newEmployee,
+        invitationLink: invitationLink,
+        message: `Invitation email sent to ${email}`
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Email sending failed:', error);
+    
+    // Still return success but note email failed
+    res.status(201).json({
+      success: true,
+      message: "Employee created but email sending failed",
+      data: {
+        employee: newEmployee,
+        invitationLink: invitationLink,
+        emailError: error.message,
+        message: `Employee created but couldn't send email to ${email}. Please share this link manually: ${invitationLink}`
+      }
+    });
+  }
 });
 
 // POST /api/employees/accept-invitation - Accept employee invitation
